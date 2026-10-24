@@ -19,9 +19,10 @@ function status(cfg: HmrcConfig | null) {
   };
 }
 
-export async function GET(_req: Request, { params }: Params) {
+export async function GET(req: Request, { params }: Params) {
   const { broker } = await params;
-  return Response.json(status(await getConfig<HmrcConfig>(broker, "hmrc")));
+  // The redirect URI to register on the Developer Hub, even before anything is saved.
+  return Response.json({ redirectUri: `${new URL(req.url).origin}/api/hmrc/callback`, ...status(await getConfig<HmrcConfig>(broker, "hmrc")) });
 }
 
 // POST { action: "save", clientId, clientSecret, eori, badgeId? } → saves app settings, returns the HMRC sign-in link

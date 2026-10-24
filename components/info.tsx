@@ -50,6 +50,18 @@ export const INFO = {
     title: "Retro-scan",
     body: "Re-checks past entries with today's precedents. Overpaid duty can be reclaimed through CDS within 3 years. Underpaid duty, disclosed voluntarily (form C2001) before HMRC finds it, avoids the penalty. 'AI only' findings have no precedent behind them, so check them first.",
   },
+  integrations: {
+    title: "Integrations",
+    body: "Precedent plugs into the systems a broker already uses: the live UK Trade Tariff for codes and duty, Shopify for client catalogues (codes are written back), Excel invoices, and HMRC's Customs Declarations API (sandbox) to file the declaration.",
+  },
+  shopify: {
+    title: "Shopify",
+    body: "Create a custom app in your Shopify admin (Settings → Apps → Develop apps) with read_products, read_inventory and write_inventory, then paste the shop domain and Admin API access token here. Products are imported as lines; approved codes are written back to each product (6-digit HS code + 10-digit GB code).",
+  },
+  hmrc: {
+    title: "HMRC Customs Declarations (sandbox)",
+    body: "Register an app on the HMRC Developer Hub (sandbox), subscribe it to Customs Declarations, add this redirect URI, and create a test user with the 'customs-services' service. Sign in with that test user, then submit a classified invoice as an H1 import declaration.",
+  },
   export: {
     title: "Export",
     body: "A CSV that declaration software (ASM, CargoWise, Descartes) can import, so codes aren't retyped. Value, procedure codes and origin are still the declarant's job.",
