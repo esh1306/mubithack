@@ -201,11 +201,74 @@
   transform: none;
 }
 
+.mascot-bob {
+  animation: mascot-bob 3.2s ease-in-out infinite;
+}
+.mascot-blink {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mascot-blink 5s ease-in-out infinite;
+}
+.mascot-wave {
+  animation: mascot-wave 2.8s ease-in-out infinite;
+}
+.mascot-shadow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mascot-shadow 3.2s ease-in-out infinite;
+}
+
+@keyframes mascot-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+@keyframes mascot-blink {
+  0%,
+  8%,
+  100% {
+    transform: scaleY(1);
+  }
+  4% {
+    transform: scaleY(0.08);
+  }
+}
+@keyframes mascot-wave {
+  0%,
+  100% {
+    transform: rotate(-8deg);
+  }
+  50% {
+    transform: rotate(16deg);
+  }
+}
+@keyframes mascot-shadow {
+  0%,
+  100% {
+    transform: scaleX(1);
+    opacity: 0.12;
+  }
+  50% {
+    transform: scaleX(0.86);
+    opacity: 0.08;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-reveal {
     opacity: 1;
     transform: none;
     transition: none;
+  }
+  .mascot-bob,
+  .mascot-blink,
+  .mascot-wave,
+  .mascot-shadow {
+    animation: none;
   }
   html.lenis,
   html.lenis body {

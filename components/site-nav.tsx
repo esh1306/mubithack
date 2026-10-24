@@ -1,13 +1,19 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/mark";
 import { DEMO_SAMPLE_ID } from "@/lib/demo";
+import { cn } from "@/lib/utils";
 
 export const DEMO_HREF = `/harbourline/classify?sample=${DEMO_SAMPLE_ID}&demo=1`;
 export const DESK_HREF = "/harbourline/home";
 
-export function SiteNav({ current }: { current?: "home" | "how" }) {
+export function SiteNav({ current, overlay }: { current?: "home" | "how"; overlay?: boolean }) {
   return (
-    <header className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10">
+    <header
+      className={cn(
+        "flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10",
+        overlay && "bg-background/80 backdrop-blur-sm",
+      )}
+    >
       <Link href="/" className="w-fit rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <Wordmark size={24} />
       </Link>
