@@ -3,22 +3,32 @@
 import { useEffect, useRef } from "react";
 import { gsap, registerLandingMotion } from "@/components/landing-motion";
 
-/** Elliptical orbit in the globe slot. t=0 at the right; bottom = in front, top = behind. */
+/** Elliptical orbit. t=0 at the right; lower half = in front of the globe, upper half = behind. */
 function orbitPose(t: number, w: number, h: number) {
   const theta = t * Math.PI * 2;
   const cx = w * 0.5;
   const cy = h * 0.52;
-  const rx = w * 0.4;
-  const ry = h * 0.2;
+  const rx = w * 0.42;
+  const ry = h * 0.22;
   const x = cx + rx * Math.cos(theta);
   const y = cy + ry * Math.sin(theta);
   const dx = -rx * Math.sin(theta);
   const dy = ry * Math.cos(theta);
-  const depth = Math.sin(theta);
-  return { x, y, dx, dy, depth, goingLeft: dx < 0, front: depth >= -0.04 };
+  const near = (Math.sin(theta) + 1) / 2;
+  return { x, y, dx, dy, near, goingLeft: dx < 0, front: near >= 0.5 };
 }
 
-/** Continuous orbit around the globe. Nose along travel, larger in front, occluded behind. */
+function waitForImage(img: HTMLImageElement | null) {
+  if (!img || img.complete) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    const done = () => resolve();
+    img.addEventListener("load", done, { once: true });
+    img.addEventListener("error", done, { once: true });
+    window.setTimeout(done, 400);
+  });
+}
+
+/** Continuous orbit. Front = larger, opaque, over the globe. Behind = smaller, dim, under the globe. */
 export function PlaneWhoosh({
   reduced,
   onFlight,
@@ -41,33 +51,39 @@ export function PlaneWhoosh({
     const craft = moverEl.querySelector<HTMLElement>("[data-craft]");
     const trail = moverEl.querySelector<HTMLElement>("[data-trail]");
     const img = moverEl.querySelector("img");
-    const duration = reduced ? 2.2 : 9;
+    const duration = reduced ? 2.2 : 10;
 
     const pose = (t: number) => {
-      const { x, y, dy, depth, goingLeft, front } = orbitPose(t, stageEl.clientWidth, stageEl.clientHeight);
-      const scale = 0.5 + 0.52 * (depth + 1) / 2;
-      const bank = Math.max(-24, Math.min(24, dy * 0.12));
+      const { x, y, dy, near, goingLeft, front } = orbitPose(t, stageEl.clientWidth, stageEl.clientHeight);
+      const bank = Math.max(-18, Math.min(18, dy * 0.1));
       moverEl.dataset.whooshState = "orbit";
       moverEl.dataset.orbit = front ? "front" : "behind";
-      moverEl.style.zIndex = front ? "20" : "5";
-      gsap.set(moverEl, { x, y, xPercent: -50, yPercent: -50, opacity: 1 });
+      stageEl.dataset.orbit = front ? "front" : "behind";
+      gsap.set(moverEl, {
+        x,
+        y,
+        width: 64 + 80 * near,
+        xPercent: -50,
+        yPercent: -50,
+        opacity: 0.3 + 0.7 * near,
+      });
       if (craft) {
         gsap.set(craft, {
-          scaleX: (goingLeft ? 1 : -1) * scale,
-          scaleY: scale,
+          scaleX: goingLeft ? 1 : -1,
+          scaleY: 1,
           rotation: goingLeft ? -bank : bank,
         });
       }
-      if (trail) gsap.set(trail, { opacity: 0.25 + 0.55 * (depth + 1) / 2 });
+      if (trail) gsap.set(trail, { opacity: 0.12 + 0.55 * near });
       flight.current?.(t);
     };
 
     const run = () => {
       if (dead || !moverEl) return;
-      pose(0.18);
-      const flightT = { t: 0.18 };
+      pose(0.22);
+      const flightT = { t: 0.22 };
       return gsap.to(flightT, {
-        t: 1.18,
+        t: 1.22,
         duration,
         ease: "none",
         repeat: reduced ? 0 : -1,
@@ -79,16 +95,9 @@ export function PlaneWhoosh({
     };
 
     let tw: gsap.core.Tween | undefined;
-    const start = () => {
-      if (dead) return;
-      tw = run();
-    };
-
-    if (img && !img.complete) {
-      void img.decode().then(start).catch(start);
-    } else {
-      start();
-    }
+    void waitForImage(img).then(() => {
+      if (!dead) tw = run();
+    });
 
     return () => {
       dead = true;
@@ -98,11 +107,11 @@ export function PlaneWhoosh({
   }, [reduced]);
 
   return (
-    <div ref={stage} className="plane-whoosh-stage" aria-hidden>
+    <div ref={stage} className="plane-whoosh-stage" data-orbit="front" aria-hidden>
       <div ref={mover} className="plane-whoosh-mover" data-whoosh-plane data-whoosh-state="ready" data-orbit="front">
         <div data-craft className="plane-whoosh-craft">
           <div data-trail className="plane-whoosh-trail" />
-          <img src="/plane-banking.webp" alt="" draggable={false} />
+          <img src="/plane-banking.webp" alt="" draggable={false} decoding="async" />
         </div>
       </div>
     </div>

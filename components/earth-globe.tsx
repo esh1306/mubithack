@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Globe, { type GlobeMethods } from "react-globe.gl";
+import { geoContains } from "d3-geo";
 import { feature } from "topojson-client";
-import { LONDON, ORIGINS, TRADE_ARCS } from "@/lib/landing-geo";
+import { LONDON, ORIGINS, TRADE_ARCS, visibleFrom } from "@/lib/landing-geo";
 import { StaticGlobe } from "@/components/static-globe";
 
 export type EarthApi = {
@@ -13,37 +14,53 @@ export type EarthApi = {
   resume: () => void;
 };
 
-const UK_VIEW = { lat: 49, lng: 8, altitude: 2.16 } as const;
-const UK_VIEW_MOBILE = { lat: 49, lng: 10, altitude: 2.28 } as const;
+type Dot = { lat: number; lng: number; color: string; radius: number; alt: number };
+
+/** Tilted so Europe, Africa, the Middle East, Asia and the Atlantic read as a face — not a UK close-up. */
+const LOOK = { lat: 28, lng: 34, altitude: 2.08 } as const;
+const LOOK_MOBILE = { lat: 26, lng: 36, altitude: 2.2 } as const;
 
 function oceanTexture() {
-  const c = document.createElement("canvas");
-  c.width = 1024;
-  c.height = 512;
-  const ctx = c.getContext("2d");
-  if (!ctx) return "";
-  const g = ctx.createLinearGradient(0, 0, 0, 512);
-  g.addColorStop(0, "#2F6BFF");
-  g.addColorStop(0.28, "#1E4FD8");
-  g.addColorStop(0.62, "#1638A0");
-  g.addColorStop(1, "#0F2A6B");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 1024, 512);
-  const rad = ctx.createRadialGradient(360, 130, 16, 380, 170, 420);
-  rad.addColorStop(0, "rgba(191, 219, 254, 0.5)");
-  rad.addColorStop(0.4, "rgba(96, 165, 250, 0.16)");
-  rad.addColorStop(1, "rgba(15, 42, 107, 0)");
-  ctx.fillStyle = rad;
-  ctx.fillRect(0, 0, 1024, 512);
-  ctx.strokeStyle = "rgba(191, 219, 254, 0.08)";
-  ctx.lineWidth = 1;
-  for (let y = 24; y < 512; y += 24) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(1024, y);
-    ctx.stroke();
+  try {
+    const c = document.createElement("canvas");
+    c.width = 1024;
+    c.height = 512;
+    const ctx = c.getContext("2d");
+    if (!ctx) return "";
+    const g = ctx.createLinearGradient(0, 0, 0, 512);
+    g.addColorStop(0, "#2F6BFF");
+    g.addColorStop(0.28, "#1E4FD8");
+    g.addColorStop(0.62, "#1638A0");
+    g.addColorStop(1, "#0F2A6B");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 1024, 512);
+    const rad = ctx.createRadialGradient(360, 130, 16, 380, 170, 420);
+    rad.addColorStop(0, "rgba(191, 219, 254, 0.5)");
+    rad.addColorStop(0.4, "rgba(96, 165, 250, 0.16)");
+    rad.addColorStop(1, "rgba(15, 42, 107, 0)");
+    ctx.fillStyle = rad;
+    ctx.fillRect(0, 0, 1024, 512);
+    return c.toDataURL("image/png");
+  } catch {
+    return "";
   }
-  return c.toDataURL("image/png");
+}
+
+function dotsOnLand(land: { type: string; geometry?: unknown }, step: number) {
+  const pts: Dot[] = [];
+  for (let lat = -64; lat <= 78; lat += step) {
+    const lngStep = step / Math.max(0.42, Math.cos((lat * Math.PI) / 180));
+    for (let lng = -180; lng < 180; lng += lngStep) {
+      try {
+        if (geoContains(land as never, [lng, lat])) {
+          pts.push({ lat, lng, color: "#E8F4FF", radius: 0.16, alt: 0.003 });
+        }
+      } catch {
+        // skip a bad cell rather than throw through the render loop
+      }
+    }
+  }
+  return pts;
 }
 
 function passWheel(el: HTMLElement) {
@@ -72,19 +89,20 @@ export function EarthGlobe({
   const [ready, setReady] = useState(false);
   const [size, setSize] = useState({ w: 480, h: 480 });
   const [tex, setTex] = useState<string | null>(null);
-  const [land, setLand] = useState<{ type: string; geometry?: unknown }[]>([]);
+  const [landDots, setLandDots] = useState<Dot[]>([]);
   const [lit, setLit] = useState(0);
+  const [view, setView] = useState<{ lat: number; lng: number; altitude: number }>(mobile ? LOOK_MOBILE : LOOK);
 
-  const look = mobile ? UK_VIEW_MOBILE : UK_VIEW;
+  const look = mobile ? LOOK_MOBILE : LOOK;
 
-  const spin = (t = whoosh.current) => {
+  const spin = () => {
     const g = globeRef.current;
     if (!g) return;
     const controls = g.controls();
     controls.enableZoom = false;
     controls.enablePan = false;
     controls.autoRotate = !reduced;
-    controls.autoRotateSpeed = 0.32 + 0.1 * Math.max(0, Math.sin(t * Math.PI * 2));
+    controls.autoRotateSpeed = 0.16;
   };
 
   const settle = () => {
@@ -96,12 +114,14 @@ export function EarthGlobe({
 
   useEffect(() => {
     setTex(oceanTexture());
-    void import("world-atlas/countries-110m.json").then((mod) => {
-      const topo = mod.default as { objects: { countries: Parameters<typeof feature>[1] } };
-      const fc = feature(topo as never, topo.objects.countries) as { features?: { type: string; geometry?: unknown }[] };
-      setLand(fc.features ?? []);
-    });
-  }, []);
+    void import("world-atlas/land-110m.json")
+      .then((mod) => {
+        const topo = mod.default as { objects: { land: Parameters<typeof feature>[1] } };
+        const land = feature(topo as never, topo.objects.land) as { type: string; geometry?: unknown };
+        setLandDots(dotsOnLand(land, mobile ? 3.4 : 2.6));
+      })
+      .catch(() => setLandDots([]));
+  }, [mobile]);
 
   useEffect(() => {
     const el = wrap.current;
@@ -135,16 +155,26 @@ export function EarthGlobe({
     if (reduced) return;
     const id = window.setInterval(() => {
       setLit((n) => (n + 1) % TRADE_ARCS.length);
-    }, 420);
+      const g = globeRef.current;
+      if (!g) return;
+      try {
+        const pov = g.pointOfView();
+        if (typeof pov.lat === "number" && typeof pov.lng === "number") {
+          setView({ lat: pov.lat, lng: pov.lng, altitude: look.altitude });
+        }
+      } catch {
+        // keep the last good view
+      }
+    }, 480);
     return () => window.clearInterval(id);
-  }, [reduced]);
+  }, [reduced, look.altitude]);
 
   useEffect(() => {
     onApi?.({
       setProgress: () => settle(),
       setWhoosh: (t) => {
         whoosh.current = t;
-        spin(t);
+        spin();
       },
       pause: () => globeRef.current?.pauseAnimation(),
       resume: () => globeRef.current?.resumeAnimation(),
@@ -153,7 +183,7 @@ export function EarthGlobe({
 
   const arcs = useMemo(
     () =>
-      TRADE_ARCS.flatMap((a) => {
+      TRADE_ARCS.filter((a) => visibleFrom(view, a.start)).flatMap((a) => {
         const base = {
           startLat: a.start.lat,
           startLng: a.start.lng,
@@ -163,48 +193,43 @@ export function EarthGlobe({
         return [
           {
             ...base,
-            colors: [`${a.color}88`, `${a.color}22`],
+            colors: [`${a.color}66`, `${a.color}14`],
             dash: 0,
             dashLen: 1,
             gap: 0,
             init: 0,
-            stroke: 1.15,
+            stroke: 0.48,
           },
           {
             ...base,
             colors: a.colors,
             dash: a.dash,
-            dashLen: 0.3,
-            gap: 0.5,
-            init: a.i * 0.28,
-            stroke: a.i === lit ? 3.4 : a.main ? 2.7 : 2.2,
+            dashLen: 0.28,
+            gap: 0.55,
+            init: a.i * 0.3,
+            stroke: a.i === lit ? 0.8 : a.main ? 0.7 : 0.58,
           },
         ];
       }),
-    [lit],
+    [lit, view],
   );
 
-  const points = useMemo(
+  const points = useMemo<Dot[]>(
     () => [
-      ...ORIGINS.map((o, i) => ({
+      ...landDots,
+      ...ORIGINS.filter((o) => visibleFrom(view, o)).map((o) => ({
         lat: o.lat,
         lng: o.lng,
-        color: TRADE_ARCS[i]?.color ?? "#E8F4FF",
-        radius: 0.36,
+        color: TRADE_ARCS.find((a) => a.start === o)?.color ?? "#E8F4FF",
+        radius: 0.4,
         alt: 0.014,
       })),
-      { lat: LONDON.lat, lng: LONDON.lng, color: "#FFFFFF", radius: 0.58, alt: 0.02 },
+      { lat: LONDON.lat, lng: LONDON.lng, color: "#FFFFFF", radius: 0.62, alt: 0.02 },
     ],
-    [],
+    [landDots, view],
   );
 
-  const rings = useMemo(
-    () => [
-      { lat: LONDON.lat, lng: LONDON.lng, maxR: 4.6, period: 780 },
-      { lat: LONDON.lat, lng: LONDON.lng, maxR: 2.6, period: 1180 },
-    ],
-    [],
-  );
+  const rings = useMemo(() => [{ lat: LONDON.lat, lng: LONDON.lng, maxR: 3.8, period: 860 }], []);
 
   if (reduced) {
     return (
@@ -228,17 +253,10 @@ export function EarthGlobe({
           height={size.h}
           animateIn={false}
           backgroundColor="rgba(0,0,0,0)"
-          globeImageUrl={tex}
+          globeImageUrl={tex || undefined}
           showAtmosphere
           atmosphereColor="#9ED0FF"
-          atmosphereAltitude={0.22}
-          hexPolygonsData={land}
-          hexPolygonColor={() => "#FFFFFF"}
-          hexPolygonAltitude={0.004}
-          hexPolygonResolution={mobile ? 2 : 3}
-          hexPolygonMargin={0.58}
-          hexPolygonUseDots
-          hexPolygonsTransitionDuration={0}
+          atmosphereAltitude={0.2}
           arcsData={arcs}
           arcColor={(d: object) => (d as { colors: string[] }).colors}
           arcStroke={(d: object) => (d as { stroke: number }).stroke}
@@ -246,8 +264,7 @@ export function EarthGlobe({
           arcDashGap={(d: object) => (d as { gap: number }).gap}
           arcDashInitialGap={(d: object) => (d as { init: number }).init}
           arcDashAnimateTime={(d: object) => (d as { dash: number }).dash}
-          arcAltitudeAutoScale={0.44}
-          arcCircularResolution={9}
+          arcAltitudeAutoScale={0.34}
           arcsTransitionDuration={0}
           pointsData={points}
           pointColor="color"
@@ -256,9 +273,9 @@ export function EarthGlobe({
           pointsMerge={false}
           pointsTransitionDuration={0}
           ringsData={rings}
-          ringColor={() => (t: number) => `rgba(232,244,255,${0.82 * (1 - t)})`}
+          ringColor={() => (t: number) => `rgba(232,244,255,${0.78 * (1 - t)})`}
           ringMaxRadius="maxR"
-          ringPropagationSpeed={2.2}
+          ringPropagationSpeed={2.1}
           ringRepeatPeriod="period"
           enablePointerInteraction={false}
           onGlobeReady={() => {

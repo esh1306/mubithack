@@ -136,6 +136,13 @@ function toVec(lat: number, lng: number) {
   return [Math.cos(φ) * Math.cos(λ), Math.cos(φ) * Math.sin(λ), Math.sin(φ)] as const;
 }
 
+/** True when `p` is on the visible hemisphere of `view` (a little past the limb still counts). */
+export function visibleFrom(view: { lat: number; lng: number }, p: { lat: number; lng: number }, minDot = -0.06) {
+  const a = toVec(view.lat, view.lng);
+  const b = toVec(p.lat, p.lng);
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2] > minDot;
+}
+
 function fromVec(v: readonly [number, number, number]) {
   const [x, y, z] = v;
   return { lat: (Math.asin(Math.max(-1, Math.min(1, z))) * 180) / Math.PI, lng: (Math.atan2(y, x) * 180) / Math.PI };

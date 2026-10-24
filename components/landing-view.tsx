@@ -26,33 +26,43 @@ function Headline() {
     if (!el) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     registerLandingMotion();
-    const split = SplitText.create(el, { type: "chars,words" });
-    for (const node of el.querySelectorAll("*")) {
-      (node as HTMLElement).style.overflow = "visible";
+    try {
+      const split = SplitText.create(el, { type: "chars,words" });
+      for (const node of el.querySelectorAll("*")) {
+        (node as HTMLElement).style.overflow = "visible";
+      }
+      const tw = gsap.from(split.chars, {
+        y: 14,
+        opacity: 0,
+        duration: 0.5,
+        stagger: 0.012,
+        ease: "power3.out",
+      });
+      return () => {
+        tw.kill();
+        split.revert();
+      };
+    } catch {
+      return undefined;
     }
-    const tw = gsap.from(split.chars, {
-      y: 14,
-      opacity: 0,
-      duration: 0.5,
-      stagger: 0.012,
-      ease: "power3.out",
-    });
-    return () => {
-      tw.kill();
-      split.revert();
-    };
   }, []);
 
   return (
-    <div className="pointer-events-none max-w-xl">
+    <div className="pointer-events-none max-w-lg">
       <h1 ref={ref} className="landing-display max-w-[12ch] overflow-visible">
         Code it once.
         <br />
         Never again.
       </h1>
-      <p className="mt-3 max-w-md text-[15px] font-medium leading-snug text-foreground/75">
-        A desk for UK brokers. Suggestions only — the broker signs every code.
+      <p className="landing-lede mt-5 max-w-md">
+        We suggest the commodity code. You sign it. Then we scan 3 years of past imports for duty you overpaid and can
+        reclaim.
       </p>
+      <ul className="landing-chips">
+        <li>Never files for you: you sign every code</li>
+        <li>Receipt for every code</li>
+        <li>3-year duty reclaim scan</li>
+      </ul>
     </div>
   );
 }
@@ -137,10 +147,10 @@ export function LandingView() {
     <div className="landing">
       <SiteNav current="home" overlay />
       <section ref={hero} className="landing-hero relative min-h-[100svh]">
-        <div className="relative mx-auto flex min-h-[100svh] max-w-[88rem] flex-col justify-center gap-8 px-5 pb-10 pt-28 lg:flex-row lg:items-center lg:justify-between lg:gap-12 sm:px-8 lg:px-10">
-          <div className="relative z-30 pointer-events-none lg:max-w-xl">
+        <div className="relative mx-auto flex min-h-[100svh] max-w-[86rem] flex-col justify-center gap-8 px-5 pb-10 pt-28 lg:flex-row lg:items-center lg:justify-center lg:gap-10 sm:px-8 lg:px-10">
+          <div className="relative z-30 pointer-events-none lg:max-w-lg">
             <Headline />
-            <p className="mt-8 text-[11px] font-medium uppercase tracking-[0.16em] text-foreground/50">Every lane into the UK</p>
+            <p className="landing-lane mt-7">Every lane into the UK</p>
           </div>
           <div className="globe-slot">
             <EarthGlobe

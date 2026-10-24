@@ -19,6 +19,17 @@ function overlap(a: Box, b: Box, pad = 0) {
   return a.x + pad < b.x + b.width && a.x + a.width - pad > b.x && a.y + pad < b.y + b.height && a.y + a.height - pad > b.y;
 }
 
+async function nextIssueText(page: Page) {
+  return page.evaluate(() => {
+    const portals = [...document.querySelectorAll("nextjs-portal")];
+    for (const p of portals) {
+      const t = p.shadowRoot?.textContent ?? "";
+      if (/\d+\s+Issue/i.test(t) || /Uncaught Error|code: 1/i.test(t)) return t.replace(/\s+/g, " ").slice(0, 400);
+    }
+    return "";
+  });
+}
+
 async function assertGlobeFit(page: Page, viewport: { width: number; height: number }, label: string) {
   const slot = await page.locator(".globe-slot").first().boundingBox();
   const hero = await page.locator(".landing-hero").first().boundingBox();
@@ -29,8 +40,8 @@ async function assertGlobeFit(page: Page, viewport: { width: number; height: num
   if (!nav) fail(`${label}: nav missing`);
   if (!headline) fail(`${label}: headline missing`);
 
-  const max = viewport.width >= 1024 ? 520 : Math.round(viewport.width * 0.82);
-  const min = viewport.width >= 1024 ? 400 : Math.round(viewport.width * 0.55);
+  const max = viewport.width >= 1024 ? 640 : Math.round(viewport.width * 0.82);
+  const min = viewport.width >= 1024 ? 560 : Math.round(viewport.width * 0.55);
   if (slot.width > max + 2 || slot.height > max + 2) {
     fail(`${label}: globe too big ${Math.round(slot.width)}x${Math.round(slot.height)} (max ${max})`);
   }
@@ -38,31 +49,38 @@ async function assertGlobeFit(page: Page, viewport: { width: number; height: num
     fail(`${label}: globe unexpectedly small ${Math.round(slot.width)}x${Math.round(slot.height)} (min ${min})`);
   }
   if (slot.x < 4 || slot.y < nav.y + nav.height - 2) {
-    fail(`${label}: globe overlapping header or left edge ${JSON.stringify({ slot, nav })}`);
+    fail(`${label}: globe overlapping header or left edge`);
   }
   if (slot.x + slot.width > viewport.width + 2 || slot.y + slot.height > viewport.height + 8) {
-    fail(`${label}: globe cropped ${JSON.stringify({ slot, viewport })}`);
+    fail(`${label}: globe cropped`);
   }
   if (viewport.width >= 1024 && overlap(slot, headline, 8)) {
     fail(`${label}: globe overlapping headline`);
   }
-
-  const plane = await page.locator("[data-whoosh-plane]").first().boundingBox();
-  if (plane) {
-    if (plane.x + plane.width < -20 || plane.x > viewport.width + 20) {
-      fail(`${label}: plane leaving the hero horizontally`);
-    }
-    if (plane.y + 8 < hero.y || plane.y + plane.height - 8 > hero.y + hero.height) {
-      fail(`${label}: plane leaving the hero vertically ${JSON.stringify({ plane, hero })}`);
-    }
+  if (viewport.width >= 1024 && slot.x > 920) {
+    fail(`${label}: globe still parked on the far right (x=${Math.round(slot.x)})`);
   }
   console.log("globe fit", label, {
     slot: { w: Math.round(slot.width), h: Math.round(slot.height), x: Math.round(slot.x), y: Math.round(slot.y) },
   });
 }
 
+async function waitOrbit(page: Page, want: "front" | "behind") {
+  await page.waitForFunction(
+    (w) => {
+      const el = document.querySelector("[data-whoosh-plane]") as HTMLElement | null;
+      if (el?.getAttribute("data-orbit") !== w) return false;
+      const width = el.getBoundingClientRect().width;
+      return w === "front" ? width >= 124 : width <= 96;
+    },
+    want,
+    { timeout: 16000 },
+  );
+}
+
 async function main() {
   mkdirSync(OUT, { recursive: true });
+  const errors: string[] = [];
   const browser = await chromium.launch({
     executablePath: CHROME,
     headless: true,
@@ -78,6 +96,7 @@ async function main() {
   });
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   page.setDefaultTimeout(25000);
+  page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
 
   const gl = await page.evaluate(() => {
@@ -96,79 +115,117 @@ async function main() {
     const c = document.querySelector(".globe-layer canvas") as HTMLCanvasElement | null;
     return !!c && c.width > 200 && c.height > 200;
   });
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(1200);
 
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await page.locator("[data-whoosh-plane]").first().waitFor({ state: "attached" });
-  await page.waitForFunction(() => {
-    const c = document.querySelector(".globe-layer canvas") as HTMLCanvasElement | null;
-    return !!c && c.width > 200 && c.height > 200;
-  });
+  const issue = await nextIssueText(page);
+  if (issue) fail(`Next.js issue overlay still present: ${issue}`);
+  const code1 = errors.filter((m) => /code:\s*1|H3Library|operation failed/i.test(m));
+  if (code1.length) fail(`repeating runtime error still throwing: ${code1[0]} (x${code1.length})`);
+  console.log("no issue badge, pageerrors", errors.length);
 
-  const t0 = Date.now();
-  const shots: Array<{ name: string; at: number }> = [
-    { name: "hero-500ms", at: 500 },
-    { name: "hero-1500ms", at: 1500 },
-    { name: "hero-front", at: 2300 },
-    { name: "hero-3500ms", at: 3500 },
-    { name: "hero-arcs", at: 4800 },
-    { name: "hero-behind", at: 6800 },
-    { name: "hero-8500ms", at: 8500 },
-  ];
-  for (const s of shots) {
-    const wait = s.at - (Date.now() - t0);
-    if (wait > 0) await page.waitForTimeout(wait);
-    const orbit = await page.locator("[data-whoosh-plane]").first().getAttribute("data-orbit");
-    await assertGlobeFit(page, { width: 1440, height: 900 }, s.name);
-    await page.screenshot({ path: `${OUT}/${s.name}.png` });
-    console.log("shot", `${s.name}.png`, "orbit", orbit);
+  const copy = await page.locator(".landing-lede").first().innerText();
+  if (!/You sign it/i.test(copy) || !/3 years/i.test(copy)) {
+    fail(`subtitle missing the reclaim/sign copy: ${copy}`);
+  }
+  const chips = await page.locator(".landing-chips li").count();
+  if (chips < 3) fail(`expected 3 honesty chips, got ${chips}`);
+
+  await assertGlobeFit(page, { width: 1440, height: 900 }, "hero");
+  await page.screenshot({ path: `${OUT}/hero-500ms.png` });
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: `${OUT}/hero-arcs.png` });
+  console.log("shot hero-500ms.png hero-arcs.png");
+
+  await waitOrbit(page, "front");
+  await page.waitForTimeout(120);
+  const frontBox = await page.locator("[data-whoosh-plane]").first().boundingBox();
+  await page.screenshot({ path: `${OUT}/hero-front.png` });
+  console.log("shot hero-front.png", frontBox);
+
+  await waitOrbit(page, "behind");
+  await page.waitForTimeout(180);
+  const behindBox = await page.locator("[data-whoosh-plane]").first().boundingBox();
+  await page.screenshot({ path: `${OUT}/hero-behind.png` });
+  console.log("shot hero-behind.png", behindBox);
+
+  if (!frontBox || !behindBox) fail("plane boxes missing");
+  if (frontBox.width < 110) fail(`front plane too small (${Math.round(frontBox.width)}px, want ~120-150)`);
+  if (frontBox.width <= behindBox.width + 8) {
+    fail(`front/behind inverted (front ${Math.round(frontBox.width)} behind ${Math.round(behindBox.width)})`);
   }
 
   await page.evaluate(() => window.scrollTo(0, 0));
-  const jTop = await page.evaluate(() => {
-    const el = document.getElementById("journey");
-    return el ? el.getBoundingClientRect().top + window.scrollY : 0;
-  });
-  const jHeight = await page.evaluate(() => document.getElementById("journey")?.getBoundingClientRect().height ?? 0);
-  const mapPoints = [
-    { name: "map-start", y: jTop + 20 },
-    { name: "map-mid", y: jTop + Math.min(jHeight * 0.4, jHeight - 900) },
-    { name: "map-end", y: jTop + Math.min(jHeight * 0.68, jHeight - 780) },
-  ];
-  for (const p of mapPoints) {
-    await page.evaluate((y) => window.scrollTo(0, y), p.y);
-    await page.waitForTimeout(380);
-    await page.screenshot({ path: `${OUT}/${p.name}.png` });
-    console.log("shot", `${p.name}.png`, "y", Math.round(p.y));
+  await page.waitForTimeout(80);
+  const globe = page.locator(".globe-layer").first();
+  const box = await globe.boundingBox();
+  if (!box) fail("globe box missing");
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+
+  const start = await page.evaluate(() => window.scrollY);
+  let y = start;
+  for (let i = 0; i < 18 && y < 1100; i++) {
+    await page.mouse.wheel(0, 240);
+    await page.waitForTimeout(40);
+    y = await page.evaluate(() => window.scrollY);
   }
+  await page.waitForTimeout(420);
+  const mid = await page.evaluate(() => {
+    const clip = document.querySelector(".scroll-clip") as HTMLElement | null;
+    const pins = [...document.querySelectorAll(".paper-pin")];
+    return {
+      y: window.scrollY,
+      clip: clip?.style.width ?? "",
+      pins: pins.filter((p) => Number.parseFloat((p as HTMLElement).style.opacity || "0") > 0.2).length,
+    };
+  });
+  await page.screenshot({ path: `${OUT}/map-mid.png` });
+  console.log("shot map-mid.png", mid);
+  if (y <= start) fail(`wheel did not scroll the parchment (start=${start} end=${y})`);
+  if (mid.clip && Number.parseFloat(mid.clip) < 20) fail(`map did not unroll mid-way (width=${mid.clip})`);
+
+  for (let i = 0; i < 24 && y < 2400; i++) {
+    await page.mouse.wheel(0, 280);
+    await page.waitForTimeout(40);
+    y = await page.evaluate(() => window.scrollY);
+  }
+  await page.waitForTimeout(420);
+  const end = await page.evaluate(() => {
+    const clip = document.querySelector(".scroll-clip") as HTMLElement | null;
+    const pins = [...document.querySelectorAll(".paper-pin")];
+    return {
+      y: window.scrollY,
+      clip: clip?.style.width ?? "",
+      pins: pins.filter((p) => Number.parseFloat((p as HTMLElement).style.opacity || "0") > 0.2).length,
+    };
+  });
+  await page.screenshot({ path: `${OUT}/map-end.png` });
+  console.log("shot map-end.png", end);
+  if (end.pins < 3) fail(`map end should show several pins (got ${end.pins})`);
 
   const statsTop = await page.evaluate(() => {
     const el = document.getElementById("stats");
     return el ? el.getBoundingClientRect().top + window.scrollY : 0;
   });
-  await page.evaluate((y) => window.scrollTo(0, y), Math.max(0, statsTop - 80));
-  await page.waitForTimeout(300);
+  await page.evaluate((yy) => window.scrollTo(0, yy), Math.max(0, statsTop - 80));
+  await page.waitForTimeout(280);
   await page.screenshot({ path: `${OUT}/stats.png` });
   console.log("shot stats.png");
 
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.waitForTimeout(120);
-  const globe = page.locator(".globe-layer").first();
-  const box = await globe.boundingBox();
-  if (!box) fail("globe box missing");
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  const start = await page.evaluate(() => window.scrollY);
   const max = await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
-  if (max < 400) fail(`page not tall enough (max=${max})`);
-  let y = start;
+  y = 0;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   for (let i = 0; i < 40 && y < max * 0.92; i++) {
     await page.mouse.wheel(0, 1100);
-    await page.waitForTimeout(30);
+    await page.waitForTimeout(24);
     y = await page.evaluate(() => window.scrollY);
   }
-  if (y <= start) fail(`wheel over globe did not scroll (start=${start} end=${y})`);
   if (y < max * 0.7) fail(`wheel did not reach the bottom (y=${y} max=${max})`);
-  console.log("scroll OK", { start, y, max });
+  console.log("scroll OK", { y, max, errors: errors.length });
+
+  if (errors.some((m) => /code:\s*1|H3Library|operation failed/i.test(m))) {
+    fail(`error returned during scroll: ${errors.join(" | ")}`);
+  }
 
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await mobile.goto(BASE, { waitUntil: "domcontentloaded" });

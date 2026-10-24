@@ -17,7 +17,7 @@ const stamp = Special_Elite({
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
-  weight: ["400", "800", "900"],
+  weight: ["400", "500", "600", "800", "900"],
 });
 
 const instrumentSans = Instrument_Sans({

@@ -148,12 +148,13 @@
   }
   html {
     @apply font-sans;
+    overflow-x: clip;
   }
 }
 
 .landing {
-  overflow-x: clip;
-  overflow-y: visible;
+  overflow: visible;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --paper: #f3ead3;
   --ink: #1a1a1a;
   --route: #e63b2e;
@@ -163,7 +164,7 @@
   --pink: #ff5cad;
   --lime: #8be05a;
   --parcel: #8b5a2b;
-  --background: #1638a0;
+  --background: #2563eb;
   --foreground: #f4f8ff;
   --card: rgba(255, 255, 255, 0.1);
   --card-foreground: #f4f8ff;
@@ -172,17 +173,19 @@
   --secondary: #7cffef;
   --secondary-foreground: #0b1f5c;
   --muted: rgba(255, 255, 255, 0.1);
-  --muted-foreground: rgba(244, 248, 255, 0.72);
+  --muted-foreground: #eaf2ff;
   --accent: rgba(255, 255, 255, 0.12);
   --accent-foreground: #f4f8ff;
   --border: rgba(255, 255, 255, 0.16);
   --ring: #ff5a4a;
   --gold: #fde68a;
   color: var(--foreground);
-  background:
-    radial-gradient(ellipse 90% 58% at 78% 0%, rgba(147, 197, 253, 0.55), transparent 58%),
-    radial-gradient(ellipse 48% 42% at 10% 88%, rgba(56, 189, 248, 0.22), transparent 52%),
-    linear-gradient(180deg, #2563eb 0%, #1e4fd8 28%, #1638a0 64%, #0f2a6b 100%);
+  background-color: #2563eb;
+  background-image:
+    radial-gradient(ellipse 58% 54% at 72% 46%, rgba(56, 189, 248, 0.4), transparent 64%),
+    radial-gradient(ellipse 88% 62% at 82% 4%, rgba(96, 165, 250, 0.55), transparent 60%),
+    radial-gradient(ellipse 46% 38% at 8% 16%, rgba(59, 130, 246, 0.32), transparent 58%),
+    linear-gradient(158deg, #60a5fa 0%, #3b82f6 24%, #2563eb 52%, #1d4ed8 78%, #1e3a8a 100%);
 }
 
 .landing-nav {
@@ -290,10 +293,43 @@
 
 .landing-lede {
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  font-size: clamp(1.25rem, 2.4vw, 1.75rem);
-  font-weight: 800;
-  letter-spacing: -0.045em;
-  line-height: 0.95;
+  font-size: 1.2rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.5;
+  color: #eaf2ff;
+  text-shadow: none;
+  background: none;
+  -webkit-text-fill-color: #eaf2ff;
+}
+.landing-lane {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #eaf2ff;
+  text-shadow: none;
+}
+.landing-chips {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin-top: 1.1rem;
+  padding: 0;
+  list-style: none;
+}
+.landing-chips li {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.84rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: #eaf2ff;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(234, 242, 255, 0.22);
+  border-radius: 999px;
+  padding: 0.38rem 0.75rem;
 }
 
 .landing-reveal {
@@ -484,18 +520,17 @@
   left: 86%;
 }
 .landing-hero {
-  overflow: hidden;
+  overflow: visible;
 }
 .globe-slot {
   position: relative;
   z-index: 10;
   isolation: isolate;
   flex: 0 0 auto;
-  /* 48–55vh disc, capped so 1440×900 stays ~468px and never over ~520px. */
-  width: min(52vh, 520px);
-  height: min(52vh, 520px);
-  max-width: 520px;
-  max-height: 520px;
+  width: min(68vh, 640px);
+  height: min(68vh, 640px);
+  max-width: 640px;
+  max-height: 640px;
   align-self: center;
   overflow: visible;
 }
@@ -512,6 +547,12 @@
   position: relative;
   z-index: 10;
 }
+.plane-whoosh-stage[data-orbit="front"] {
+  z-index: 24;
+}
+.plane-whoosh-stage[data-orbit="behind"] {
+  z-index: 2;
+}
 .globe-layer,
 .globe-layer canvas {
   pointer-events: none !important;
@@ -521,7 +562,7 @@
   pointer-events: none;
   position: absolute;
   inset: 0;
-  z-index: auto;
+  z-index: 2;
   overflow: visible;
 }
 .plane-whoosh-mover {
@@ -529,8 +570,8 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: 26%;
-  max-width: 128px;
+  width: 144px;
+  max-width: 34%;
   will-change: transform;
 }
 .plane-whoosh-craft {
@@ -558,7 +599,7 @@
 }
 @media (min-width: 1024px) {
   .landing-journey {
-    min-height: 240vh;
+    min-height: 280vh;
   }
   .landing-journey-stick {
     position: sticky;
