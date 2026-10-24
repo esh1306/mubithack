@@ -10,7 +10,6 @@ datasource db {
 model Broker {
   id          String       @id
   name        String
-  integrations Integration[]
   lines       Line[]
   precedents  Precedent[]
   pastEntries PastEntry[]
@@ -99,14 +98,10 @@ model RetroFinding {
   createdAt     DateTime  @default(now())
 }
 
-// Connection settings per broker and system (e.g. Shopify store + token, HMRC sandbox OAuth).
-model Integration {
-  id        Int      @id @default(autoincrement())
-  brokerId  String
-  broker    Broker   @relation(fields: [brokerId], references: [id])
-  kind      String   // shopify | hmrc
+// Saved sign-ins and settings for each outside system (e.g. Shopify store + token, HMRC OAuth tokens).
+// One per system for the whole app, so a broker signs in once.
+model Credential {
+  kind      String   @id // shopify | hmrc
   config    String   // JSON
   updatedAt DateTime @updatedAt
-
-  @@unique([brokerId, kind])
 }

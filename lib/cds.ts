@@ -8,24 +8,32 @@ export const HMRC = {
   scope: "write:customs-declaration",
 };
 
+// Precedent's own Developer Hub app, from the server environment. Brokers never see or type these.
+export type HmrcApp = { clientId: string; clientSecret: string; redirectUri: string };
+
+export function hmrcApp(origin: string): HmrcApp | null {
+  const clientId = process.env.HMRC_CLIENT_ID;
+  const clientSecret = process.env.HMRC_CLIENT_SECRET;
+  return clientId && clientSecret ? { clientId, clientSecret, redirectUri: `${origin}/api/hmrc/callback` } : null;
+}
+
+// What the app remembers about the broker's HMRC sign-in.
 export type HmrcConfig = {
-  clientId: string;
-  clientSecret: string;
-  redirectUri: string;
-  eori: string; // importer/declarant EORI, also sent as X-Submitter-Identifier
+  eori?: string; // importer/declarant EORI, also sent as X-Submitter-Identifier
   badgeId?: string;
+  testUser?: { userId: string; password: string; name?: string };
   accessToken?: string;
   refreshToken?: string;
   expiresAt?: number;
   lastSubmission?: { at: string; status: number; conversationId: string | null; body: string; lrn: string };
 };
 
-export function authorizeLink(cfg: HmrcConfig, state: string) {
+export function authorizeLink(app: HmrcApp, state: string) {
   const u = new URL(HMRC.authorizeUrl);
   u.searchParams.set("response_type", "code");
-  u.searchParams.set("client_id", cfg.clientId);
+  u.searchParams.set("client_id", app.clientId);
   u.searchParams.set("scope", HMRC.scope);
-  u.searchParams.set("redirect_uri", cfg.redirectUri);
+  u.searchParams.set("redirect_uri", app.redirectUri);
   u.searchParams.set("state", state);
   return u.toString();
 }
@@ -41,21 +49,21 @@ async function token(params: Record<string, string>) {
   return { accessToken: body.access_token as string, refreshToken: body.refresh_token as string, expiresAt: Date.now() + (body.expires_in ?? 14400) * 1000 };
 }
 
-export function exchangeCode(cfg: HmrcConfig, code: string) {
-  return token({ grant_type: "authorization_code", client_id: cfg.clientId, client_secret: cfg.clientSecret, redirect_uri: cfg.redirectUri, code });
+export function exchangeCode(app: HmrcApp, code: string) {
+  return token({ grant_type: "authorization_code", client_id: app.clientId, client_secret: app.clientSecret, redirect_uri: app.redirectUri, code });
 }
 
-export function refresh(cfg: HmrcConfig) {
-  return token({ grant_type: "refresh_token", client_id: cfg.clientId, client_secret: cfg.clientSecret, refresh_token: cfg.refreshToken! });
+export function refresh(app: HmrcApp, refreshToken: string) {
+  return token({ grant_type: "refresh_token", client_id: app.clientId, client_secret: app.clientSecret, refresh_token: refreshToken });
 }
 
 // Sandbox test organisation enrolled for customs ("customs-services"), via the Create Test User API.
 // Needs an application-restricted token (client credentials) and a subscription to that API.
-export async function createTestOrganisation(cfg: Pick<HmrcConfig, "clientId" | "clientSecret">) {
+export async function createTestOrganisation(app: HmrcApp) {
   const tokenRes = await fetch(HMRC.tokenUrl, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "client_credentials", client_id: cfg.clientId, client_secret: cfg.clientSecret }),
+    body: new URLSearchParams({ grant_type: "client_credentials", client_id: app.clientId, client_secret: app.clientSecret }),
   });
   const tok = await tokenRes.json().catch(() => ({}));
   if (!tokenRes.ok) throw new Error(`HMRC token ${tokenRes.status}: ${tok.error_description ?? tok.error ?? tokenRes.statusText}`);
@@ -85,7 +93,7 @@ function countryCode(origin: string | null) {
 
 // A Type H1 import declaration (DE 1/1 IM, 1/2 Z: pre-lodged), procedure 40 00 (release for free circulation).
 // DE 6/14 is the first 8 digits of the commodity code and DE 6/15 the 2 TARIC digits.
-export function importDeclarationXml(cfg: HmrcConfig, lrn: string, items: DeclarationItem[]) {
+export function importDeclarationXml(cfg: HmrcConfig & { eori: string }, lrn: string, items: DeclarationItem[]) {
   const total = items.reduce((s, i) => s + (i.value ?? 0), 0);
   const goods = items
     .map(
@@ -179,7 +187,7 @@ export function importDeclarationXml(cfg: HmrcConfig, lrn: string, items: Declar
 </md:MetaData>`;
 }
 
-export async function submitDeclaration(cfg: HmrcConfig, xml: string) {
+export async function submitDeclaration(cfg: HmrcConfig & { eori: string }, xml: string) {
   const headers: Record<string, string> = {
     Accept: "application/vnd.hmrc.1.0+xml",
     "Content-Type": "application/xml; charset=UTF-8",

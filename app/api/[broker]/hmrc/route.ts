@@ -1,70 +1,95 @@
 import { db } from "@/lib/db";
-import { clearConfig, getConfig, mask, setConfig } from "@/lib/integrations";
-import { authorizeLink, createTestOrganisation, importDeclarationXml, refresh, submitDeclaration, type HmrcConfig } from "@/lib/cds";
+import { clearConfig, getConfig, setConfig } from "@/lib/integrations";
+import {
+  authorizeLink,
+  createTestOrganisation,
+  hmrcApp,
+  importDeclarationXml,
+  refresh,
+  submitDeclaration,
+  type HmrcApp,
+  type HmrcConfig,
+} from "@/lib/cds";
 
 type Params = { params: Promise<{ broker: string }> };
 
-function status(cfg: HmrcConfig | null) {
-  if (!cfg) return { configured: false };
+function status(app: HmrcApp | null, cfg: HmrcConfig | null) {
   return {
-    configured: true,
-    clientId: cfg.clientId,
-    clientSecret: mask(cfg.clientSecret),
-    redirectUri: cfg.redirectUri,
-    eori: cfg.eori,
-    badgeId: cfg.badgeId ?? null,
-    connected: !!cfg.accessToken,
-    expiresAt: cfg.expiresAt ?? null,
-    lastSubmission: cfg.lastSubmission ?? null,
+    appReady: !!app, // Precedent's HMRC app is set up on the server
+    redirectUri: app?.redirectUri ?? null,
+    connected: !!cfg?.accessToken,
+    eori: cfg?.eori ?? null,
+    badgeId: cfg?.badgeId ?? null,
+    testUser: cfg?.testUser ?? null,
+    expiresAt: cfg?.expiresAt ?? null,
+    lastSubmission: cfg?.lastSubmission ?? null,
   };
 }
 
-export async function GET(req: Request, { params }: Params) {
-  const { broker } = await params;
-  // The redirect URI to register on the Developer Hub, even before anything is saved.
-  return Response.json({ redirectUri: `${new URL(req.url).origin}/api/hmrc/callback`, ...status(await getConfig<HmrcConfig>(broker, "hmrc")) });
+// The saved sign-in, with the access token refreshed first if it's about to expire.
+// HMRC access tokens last 4 hours; the refresh token keeps the app signed in long after that.
+async function freshConfig(app: HmrcApp | null) {
+  const cfg = await getConfig<HmrcConfig>("hmrc");
+  if (!app || !cfg?.accessToken || !cfg.refreshToken || (cfg.expiresAt ?? 0) > Date.now() + 5 * 60_000) return cfg;
+  try {
+    const next = { ...cfg, ...(await refresh(app, cfg.refreshToken)) };
+    await setConfig("hmrc", next);
+    return next;
+  } catch {
+    // Refresh token revoked or expired: keep the EORI etc., but sign out.
+    const signedOut = { ...cfg, accessToken: undefined, refreshToken: undefined, expiresAt: undefined };
+    await setConfig("hmrc", signedOut);
+    return signedOut;
+  }
 }
 
-// POST { action: "save", clientId, clientSecret, eori, badgeId? } → saves app settings, returns the HMRC sign-in link
-//      { action: "test-user", clientId?, clientSecret? } → a sandbox organisation with customs-services (user ID, password, EORI)
-//      { action: "disconnect" }
+export async function GET(req: Request) {
+  const app = hmrcApp(new URL(req.url).origin);
+  return Response.json(status(app, await freshConfig(app)));
+}
+
+// POST { action: "sign-in" } → the HMRC sign-in link
+//      { action: "test-user" } → a sandbox organisation with customs-services; its EORI is saved
+//      { action: "save", eori, badgeId? } → declarant details
+//      { action: "sign-out" }
 //      { action: "preview" | "submit", batchId } → the declaration XML (and for submit, HMRC's response)
 export async function POST(req: Request, { params }: Params) {
   const { broker } = await params;
   const body = await req.json();
-  const origin = new URL(req.url).origin;
+  const app = hmrcApp(new URL(req.url).origin);
+  if (!app) return Response.json({ error: "Set HMRC_CLIENT_ID and HMRC_CLIENT_SECRET in .env.local" }, { status: 500 });
+  const cfg = (await freshConfig(app)) ?? {};
 
-  if (body.action === "save") {
-    const prev = await getConfig<HmrcConfig>(broker, "hmrc");
-    const cfg: HmrcConfig = {
-      clientId: String(body.clientId).trim(),
-      clientSecret: body.clientSecret ? String(body.clientSecret).trim() : prev?.clientSecret ?? "",
-      redirectUri: `${origin}/api/hmrc/callback`,
-      eori: String(body.eori).trim().toUpperCase(),
-      badgeId: body.badgeId ? String(body.badgeId).trim().toUpperCase() : undefined,
-    };
-    await setConfig(broker, "hmrc", cfg);
-    return Response.json({ ...status(cfg), authorizeUrl: authorizeLink(cfg, broker) });
-  }
+  if (body.action === "sign-in") return Response.json({ authorizeUrl: authorizeLink(app, broker) });
+
   if (body.action === "test-user") {
-    // Uses the saved app, or the client ID and secret typed into the form.
-    const prev = await getConfig<HmrcConfig>(broker, "hmrc");
-    const clientId = String(body.clientId || prev?.clientId || "").trim();
-    const clientSecret = String(body.clientSecret || prev?.clientSecret || "").trim();
-    if (!clientId || !clientSecret) return Response.json({ error: "Enter the app's client ID and secret first" }, { status: 400 });
     try {
-      return Response.json(await createTestOrganisation({ clientId, clientSecret }));
+      const u = await createTestOrganisation(app);
+      const next = { ...cfg, eori: u.eori, testUser: { userId: u.userId, password: u.password, name: u.name } };
+      await setConfig("hmrc", next);
+      return Response.json(status(app, next));
     } catch (e) {
       return Response.json({ error: (e as Error).message }, { status: 502 });
     }
   }
-  if (body.action === "disconnect") {
-    await clearConfig(broker, "hmrc");
-    return Response.json(status(null));
+
+  if (body.action === "save") {
+    const next = {
+      ...cfg,
+      eori: String(body.eori ?? "").trim().toUpperCase() || cfg.eori,
+      badgeId: body.badgeId ? String(body.badgeId).trim().toUpperCase() : undefined,
+    };
+    await setConfig("hmrc", next);
+    return Response.json(status(app, next));
   }
 
-  let cfg = await getConfig<HmrcConfig>(broker, "hmrc");
-  if (!cfg) return Response.json({ error: "Add your HMRC Developer Hub app first" }, { status: 400 });
+  if (body.action === "sign-out") {
+    await clearConfig("hmrc");
+    return Response.json(status(app, null));
+  }
+
+  if (!cfg.eori) return Response.json({ error: "Add the importer's EORI first (or create a test user)" }, { status: 400 });
+  const declarant = { ...cfg, eori: cfg.eori };
 
   const lines = await db.line.findMany({
     where: { brokerId: broker, batchId: String(body.batchId) },
@@ -76,19 +101,15 @@ export async function POST(req: Request, { params }: Params) {
     .map((l) => ({ description: l.text, code: l.suggestions[0].code, value: l.value, origin: l.origin, qty: l.qty }));
   if (items.length === 0) return Response.json({ error: "That invoice has no classified lines" }, { status: 400 });
   const lrn = `PREC${Date.now().toString(36).toUpperCase()}`.slice(0, 22);
-  const xml = importDeclarationXml(cfg, lrn, items);
+  const xml = importDeclarationXml(declarant, lrn, items);
 
   if (body.action === "preview") return Response.json({ lrn, xml });
 
   if (body.action === "submit") {
-    if (!cfg.accessToken) return Response.json({ error: "Sign in to the HMRC sandbox first", lrn, xml }, { status: 400 });
+    if (!cfg.accessToken) return Response.json({ error: "Sign in with HMRC first", lrn, xml }, { status: 400 });
     try {
-      if (cfg.expiresAt && cfg.expiresAt < Date.now() + 60_000 && cfg.refreshToken) {
-        cfg = { ...cfg, ...(await refresh(cfg)) };
-        await setConfig(broker, "hmrc", cfg);
-      }
-      const result = await submitDeclaration(cfg, xml);
-      await setConfig(broker, "hmrc", { ...cfg, lastSubmission: { at: new Date().toISOString(), lrn, ...result } });
+      const result = await submitDeclaration(declarant, xml);
+      await setConfig("hmrc", { ...cfg, lastSubmission: { at: new Date().toISOString(), lrn, ...result } });
       return Response.json({ lrn, xml, ...result });
     } catch (e) {
       return Response.json({ error: (e as Error).message, lrn, xml }, { status: 502 });

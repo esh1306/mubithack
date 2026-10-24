@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BookOpen, ShoppingBag, FileSpreadsheet, Landmark, Download, Cpu, Loader2, ExternalLink, Check, Copy } from "lucide-react";
+import { BookOpen, ShoppingBag, FileSpreadsheet, Landmark, Download, Cpu, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -13,14 +13,13 @@ import { readSse } from "@/lib/sse";
 
 type Batch = { batchId: string; lines: number; createdAt: string };
 type Hmrc = {
-  configured: boolean;
-  clientId?: string;
-  clientSecret?: string;
-  redirectUri?: string;
-  eori?: string;
-  badgeId?: string | null;
-  connected?: boolean;
-  lastSubmission?: { at: string; status: number; conversationId: string | null; body: string; lrn: string } | null;
+  appReady: boolean;
+  redirectUri: string | null;
+  connected: boolean;
+  eori: string | null;
+  badgeId: string | null;
+  testUser: { userId: string; password: string; name?: string } | null;
+  lastSubmission: { at: string; status: number; conversationId: string | null; body: string; lrn: string } | null;
 };
 
 function Card({ icon: Icon, title, info, status, children }: {
@@ -48,6 +47,16 @@ function Card({ icon: Icon, title, info, status, children }: {
   );
 }
 
+// A failed route can answer with an empty body; turn that into a readable error.
+async function safeJson(res: Response) {
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : { error: `Server error ${res.status}` };
+  } catch {
+    return { error: `Server error ${res.status}: ${text.slice(0, 120)}` };
+  }
+}
+
 const On = ({ children = "Connected" }: { children?: React.ReactNode }) => (
   <Badge className="bg-emerald-600/10 text-emerald-700 hover:bg-emerald-600/10"><Check /> {children}</Badge>
 );
@@ -67,14 +76,11 @@ export function IntegrationsView({ broker }: { broker: string }) {
   const [shopError, setShopError] = useState<string | null>(null);
 
   const [hmrc, setHmrc] = useState<Hmrc | null>(null);
-  const [hmrcForm, setHmrcForm] = useState({ clientId: "", clientSecret: "", eori: "", badgeId: "" });
   const [hmrcBusy, setHmrcBusy] = useState<string | null>(null);
   const [hmrcError, setHmrcError] = useState<string | null>(search.get("hmrc") === "error" ? search.get("message") : null);
   const [xml, setXml] = useState<string | null>(null);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [batchId, setBatchId] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [testUser, setTestUser] = useState<{ userId: string; password: string; eori: string; name?: string } | null>(null);
 
   const load = useCallback(async () => {
     const [t, s, h, b] = await Promise.all([
@@ -86,7 +92,6 @@ export function IntegrationsView({ broker }: { broker: string }) {
     setTariff(t);
     setShop(s);
     setHmrc(h);
-    if (h.configured) setHmrcForm({ clientId: h.clientId, clientSecret: "", eori: h.eori, badgeId: h.badgeId ?? "" });
     setBatches(b);
     setBatchId((cur) => cur ?? b[0]?.batchId ?? null);
   }, [broker]);
@@ -111,7 +116,7 @@ export function IntegrationsView({ broker }: { broker: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...extra }),
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (!res.ok) throw new Error(data.error);
       return data;
     } catch (e) {
@@ -153,7 +158,7 @@ export function IntegrationsView({ broker }: { broker: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...extra }),
       });
-      const data = await res.json();
+      const data = await safeJson(res);
       if (data.xml) setXml(data.xml);
       if (!res.ok) throw new Error(data.error);
       return data;
@@ -252,121 +257,104 @@ export function IntegrationsView({ broker }: { broker: string }) {
         icon={Landmark}
         title="HMRC Customs Declarations (sandbox)"
         info="hmrc"
-        status={hmrc?.connected ? <On>Signed in</On> : hmrc?.configured ? <Off>App saved · sign in</Off> : <Off />}
+        status={hmrc?.connected ? <On>Signed in</On> : <Off />}
       >
-        <div className="space-y-1 text-sm text-muted-foreground">
-          <p>Files the classified invoice as an H1 import declaration (WCO DEC-DMS XML) to HMRC&apos;s Customs Declarations API in the sandbox.</p>
-          <p className="flex flex-wrap items-center gap-2">
-            Redirect URI for your Developer Hub app: <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{hmrc?.redirectUri}</code>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="size-6"
-              onClick={async () => {
-                await navigator.clipboard.writeText(hmrc?.redirectUri ?? "");
-                setCopied(true);
-              }}
-            >
-              {copied ? <Check /> : <Copy />}
-            </Button>
-          </p>
-          <a href="https://developer.service.hmrc.gov.uk/developer/applications" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
-            HMRC Developer Hub <ExternalLink className="size-3" />
-          </a>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          Files a classified invoice as an H1 import declaration (WCO DEC-DMS XML) through HMRC&apos;s Customs Declarations API. Sign in once:
+          the app keeps the HMRC sign-in for every broker and refreshes it automatically.
+        </p>
 
-        <div className="grid gap-2 sm:grid-cols-2">
-          <Input placeholder="Client ID" value={hmrcForm.clientId} onChange={(e) => setHmrcForm({ ...hmrcForm, clientId: e.target.value })} />
-          <Input
-            type="password"
-            placeholder={hmrc?.clientSecret ? `Client secret (saved ${hmrc.clientSecret})` : "Client secret"}
-            value={hmrcForm.clientSecret}
-            onChange={(e) => setHmrcForm({ ...hmrcForm, clientSecret: e.target.value })}
-          />
-          <Input placeholder="Importer EORI, e.g. GB123456789000" value={hmrcForm.eori} onChange={(e) => setHmrcForm({ ...hmrcForm, eori: e.target.value })} />
-          <Input placeholder="Badge ID (optional, CSP users)" value={hmrcForm.badgeId} onChange={(e) => setHmrcForm({ ...hmrcForm, badgeId: e.target.value })} />
-        </div>
-        {testUser && (
-          <div className="rounded-md border border-emerald-600/30 bg-emerald-600/5 p-3 text-sm">
-            <p className="font-medium">Sandbox test user created{testUser.name ? ` · ${testUser.name}` : ""}</p>
-            <p className="text-muted-foreground">Sign in to HMRC with these. Its EORI is filled in below.</p>
-            <dl className="mt-2 grid grid-cols-[6rem_1fr] gap-y-1 font-mono text-xs">
-              <dt className="text-muted-foreground">User ID</dt><dd>{testUser.userId}</dd>
-              <dt className="text-muted-foreground">Password</dt><dd>{testUser.password}</dd>
-              <dt className="text-muted-foreground">EORI</dt><dd>{testUser.eori}</dd>
-            </dl>
-          </div>
+        {hmrc && !hmrc.appReady && (
+          <p className="text-sm text-destructive">Precedent&apos;s HMRC app isn&apos;t set up on this server (HMRC_CLIENT_ID / HMRC_CLIENT_SECRET in .env.local).</p>
         )}
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            disabled={!hmrcForm.clientId || (!hmrcForm.clientSecret && !hmrc?.clientSecret) || !!hmrcBusy}
-            onClick={async () => {
-              const d = await hmrcCall("test-user", { clientId: hmrcForm.clientId, clientSecret: hmrcForm.clientSecret });
-              if (d) {
-                setTestUser(d);
-                if (d.eori) setHmrcForm((f) => ({ ...f, eori: d.eori }));
-              }
-            }}
-          >
-            {hmrcBusy === "test-user" && <Loader2 className="animate-spin" />} Create test user
-          </Button>
-          <Button
-            disabled={!hmrcForm.clientId || (!hmrcForm.clientSecret && !hmrc?.clientSecret) || !hmrcForm.eori || !!hmrcBusy}
-            onClick={async () => {
-              const d = await hmrcCall("save", hmrcForm);
-              if (d?.authorizeUrl) window.location.assign(d.authorizeUrl);
-            }}
-          >
-            {hmrcBusy === "save" && <Loader2 className="animate-spin" />} {hmrc?.connected ? "Save and sign in again" : "Save and sign in to HMRC"}
-          </Button>
-          {hmrc?.configured && (
-            <Button variant="ghost" onClick={async () => setHmrc(await hmrcCall("disconnect"))}>
-              Disconnect
-            </Button>
-          )}
-        </div>
 
-        {hmrc?.configured && batches.length > 0 && (
-          <div className="space-y-3 border-t pt-4">
+        {hmrc?.appReady && (
+          <>
+            {hmrc.testUser && !hmrc.connected && (
+              <div className="rounded-md border p-3 text-sm">
+                <p className="font-medium">Sandbox test company{hmrc.testUser.name ? ` · ${hmrc.testUser.name}` : ""}</p>
+                <p className="text-muted-foreground">Sign in to HMRC with this test user.</p>
+                <dl className="mt-2 grid grid-cols-[6rem_1fr] gap-y-1 font-mono text-xs">
+                  <dt className="text-muted-foreground">User ID</dt><dd>{hmrc.testUser.userId}</dd>
+                  <dt className="text-muted-foreground">Password</dt><dd>{hmrc.testUser.password}</dd>
+                  <dt className="text-muted-foreground">EORI</dt><dd>{hmrc.eori}</dd>
+                </dl>
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center gap-2">
-              <Select value={batchId ?? undefined} onValueChange={setBatchId}>
-                <SelectTrigger className="w-72"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {batches.map((b) => (
-                    <SelectItem key={b.batchId} value={b.batchId}>
-                      #{b.batchId.slice(0, 8)} · {b.lines} lines · {new Date(b.createdAt).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button variant="outline" disabled={!batchId || !!hmrcBusy} onClick={() => hmrcCall("preview", { batchId })}>
-                Preview declaration
-              </Button>
-              <Button disabled={!batchId || !hmrc.connected || !!hmrcBusy} onClick={async () => { if (await hmrcCall("submit", { batchId })) load(); }}>
-                {hmrcBusy === "submit" && <Loader2 className="animate-spin" />} Submit to HMRC sandbox
-              </Button>
+              {hmrc.connected ? (
+                <>
+                  <span className="text-sm">
+                    Declaring as <span className="font-mono">{hmrc.eori}</span>
+                    {hmrc.testUser?.name && <span className="text-muted-foreground"> · {hmrc.testUser.name}</span>}
+                  </span>
+                  <Button variant="ghost" size="sm" disabled={!!hmrcBusy} onClick={async () => { const d = await hmrcCall("sign-out"); if (d) setHmrc(d); }}>
+                    Sign out
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    disabled={!!hmrcBusy}
+                    onClick={async () => {
+                      const d = await hmrcCall("sign-in");
+                      if (d?.authorizeUrl) window.location.assign(d.authorizeUrl);
+                    }}
+                  >
+                    {hmrcBusy === "sign-in" && <Loader2 className="animate-spin" />} Sign in with HMRC
+                  </Button>
+                  {!hmrc.testUser && (
+                    <Button variant="outline" disabled={!!hmrcBusy} onClick={async () => { const d = await hmrcCall("test-user"); if (d) setHmrc(d); }}>
+                      {hmrcBusy === "test-user" && <Loader2 className="animate-spin" />} Create sandbox test company
+                    </Button>
+                  )}
+                </>
+              )}
             </div>
-            {hmrc.lastSubmission && (
-              <div className="space-y-1 rounded-md border p-3 text-sm">
-                <p>
-                  Last submission <span className="font-mono">{hmrc.lastSubmission.lrn}</span> ·{" "}
-                  <span className={hmrc.lastSubmission.status === 202 ? "text-emerald-700" : "text-destructive"}>HTTP {hmrc.lastSubmission.status}</span>
-                  {hmrc.lastSubmission.status === 202 && " accepted for processing"}
-                  {hmrc.lastSubmission.conversationId && <> · conversation <span className="font-mono text-xs">{hmrc.lastSubmission.conversationId}</span></>}
-                </p>
-                {hmrc.lastSubmission.body && (
-                  <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-muted p-2 font-mono text-xs">{hmrc.lastSubmission.body}</pre>
+
+            {batches.length > 0 && (
+              <div className="space-y-3 border-t pt-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select value={batchId ?? undefined} onValueChange={setBatchId}>
+                    <SelectTrigger className="w-72"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {batches.map((b) => (
+                        <SelectItem key={b.batchId} value={b.batchId}>
+                          #{b.batchId.slice(0, 8)} · {b.lines} lines · {new Date(b.createdAt).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" disabled={!batchId || !hmrc.eori || !!hmrcBusy} onClick={() => hmrcCall("preview", { batchId })}>
+                    Preview declaration
+                  </Button>
+                  <Button disabled={!batchId || !hmrc.connected || !!hmrcBusy} onClick={async () => { if (await hmrcCall("submit", { batchId })) load(); }}>
+                    {hmrcBusy === "submit" && <Loader2 className="animate-spin" />} Submit to HMRC sandbox
+                  </Button>
+                </div>
+                {hmrc.lastSubmission && (
+                  <div className="space-y-1 rounded-md border p-3 text-sm">
+                    <p>
+                      Last submission <span className="font-mono">{hmrc.lastSubmission.lrn}</span> ·{" "}
+                      <span className={hmrc.lastSubmission.status === 202 ? "text-emerald-700" : "text-destructive"}>HTTP {hmrc.lastSubmission.status}</span>
+                      {hmrc.lastSubmission.status === 202 && " accepted for processing"}
+                      {hmrc.lastSubmission.conversationId && <> · conversation <span className="font-mono text-xs">{hmrc.lastSubmission.conversationId}</span></>}
+                    </p>
+                    {hmrc.lastSubmission.body && (
+                      <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-muted p-2 font-mono text-xs">{hmrc.lastSubmission.body}</pre>
+                    )}
+                  </div>
+                )}
+                {xml && (
+                  <details className="rounded-md border">
+                    <summary className="cursor-pointer px-3 py-2 text-sm">Declaration XML (WCO DEC-DMS)</summary>
+                    <pre className="max-h-80 overflow-auto border-t p-3 font-mono text-[11px] leading-relaxed">{xml}</pre>
+                  </details>
                 )}
               </div>
             )}
-            {xml && (
-              <details className="rounded-md border">
-                <summary className="cursor-pointer px-3 py-2 text-sm">Declaration XML (WCO DEC-DMS)</summary>
-                <pre className="max-h-80 overflow-auto border-t p-3 font-mono text-[11px] leading-relaxed">{xml}</pre>
-              </details>
-            )}
-          </div>
+          </>
         )}
         {hmrcError && <p className="text-sm text-destructive">{hmrcError}</p>}
       </Card>

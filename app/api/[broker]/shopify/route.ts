@@ -5,9 +5,8 @@ import { listProducts, normaliseShop, shopInfo, writeCode, type ShopifyConfig } 
 type Params = { params: Promise<{ broker: string }> };
 
 // GET → connection status (never the token itself).
-export async function GET(_req: Request, { params }: Params) {
-  const { broker } = await params;
-  const cfg = await getConfig<ShopifyConfig & { name?: string }>(broker, "shopify");
+export async function GET() {
+  const cfg = await getConfig<ShopifyConfig & { name?: string }>("shopify");
   return Response.json(cfg ? { connected: true, shop: cfg.shop, name: cfg.name, token: mask(cfg.token) } : { connected: false });
 }
 
@@ -20,15 +19,15 @@ export async function POST(req: Request, { params }: Params) {
     if (body.action === "connect") {
       const cfg = { shop: normaliseShop(body.shop), token: String(body.token).trim() };
       const shop = await shopInfo(cfg);
-      await setConfig(broker, "shopify", { ...cfg, name: shop.name });
+      await setConfig("shopify", { ...cfg, name: shop.name });
       return Response.json({ connected: true, shop: cfg.shop, name: shop.name, token: mask(cfg.token) });
     }
     if (body.action === "disconnect") {
-      await clearConfig(broker, "shopify");
+      await clearConfig("shopify");
       return Response.json({ connected: false });
     }
 
-    const cfg = await getConfig<ShopifyConfig>(broker, "shopify");
+    const cfg = await getConfig<ShopifyConfig>("shopify");
     if (!cfg) return Response.json({ error: "Connect a Shopify store first" }, { status: 400 });
 
     if (body.action === "import") {

@@ -60,7 +60,7 @@ export const INFO = {
   },
   hmrc: {
     title: "HMRC Customs Declarations (sandbox)",
-    body: "Register an app on the HMRC Developer Hub (sandbox), subscribe it to Customs Declarations, add this redirect URI, and create a test user with the 'customs-services' service. Sign in with that test user, then submit a classified invoice as an H1 import declaration.",
+    body: "Click Sign in with HMRC and log in as the importer (in the sandbox, a test company: create one with the button). The app keeps that sign-in for every broker and refreshes it, then files a classified invoice as an H1 import declaration.",
   },
   export: {
     title: "Export",
