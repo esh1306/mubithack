@@ -12,6 +12,7 @@ const SECTIONS = [
   { id: "problem", num: "01" },
   { id: "how", num: "02" },
   { id: "receipt", num: "03" },
+  { id: "retro", num: "04" },
 ] as const;
 const SECTION_IDS = SECTIONS.map((s) => s.id);
 
@@ -199,6 +200,13 @@ function LandingBody() {
           <p>
             When it was decided, which tariff notes were read, which precedent was followed, and the Mubit request IDs.
             So you can show your work.
+          </p>
+        </Section>
+
+        <Section id="retro" num="04" kicker="Three years" title={<>Look back.</>}>
+          <p>
+            Scan past entries with today&apos;s precedents. Overpaid duty is a reclaim. Underpaid — for example 0% recoded
+            to 6% — is a disclosure. Rows that don&apos;t change the money are not findings.
           </p>
         </Section>
       </div>
