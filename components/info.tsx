@@ -32,7 +32,7 @@ export const INFO = {
   },
   learning: {
     title: "Learning",
-    body: "After a fix, the app re-checks similar lines in the invoice, then runs products this broker has never classified. Struck-through codes are what the AI said before the fix.",
+    body: "After a fix you see before and after on the same screen, then products this broker has never classified. Paraphrases go through Mubit with request IDs. Struck-through codes are what the AI said before the fix.",
   },
   neverSeen: {
     title: "Never-seen products",

@@ -52,12 +52,16 @@ type Precedent = { id: number; lineText: string; oldCode: string; newCode: strin
 export function ReceiptSheet({
   row,
   broker,
+  preferredCode,
+  defaultReason,
   onClose,
   onFix,
   onApprove,
 }: {
   row: { text: string; suggestion?: Suggestion } | null;
   broker?: string;
+  preferredCode?: string;
+  defaultReason?: string;
   onClose: () => void;
   onFix: (suggestion: Suggestion, code: string, reason: string) => void;
   onApprove: (suggestion: Suggestion) => void;
@@ -162,6 +166,8 @@ export function ReceiptSheet({
                   <FixForm
                     currentCode={s.code}
                     toolCalls={s.toolCalls}
+                    preferredCode={preferredCode}
+                    defaultReason={defaultReason}
                     onCancel={() => setFixing(false)}
                     onSubmit={(newCode, reason) => {
                       setFixing(false);

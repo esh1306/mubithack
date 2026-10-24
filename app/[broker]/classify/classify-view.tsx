@@ -17,10 +17,12 @@ import {
   ShoppingBag,
   FileText,
   ClipboardPaste,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Kbd } from "@/components/ui/kbd";
+import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Code } from "@/components/code";
@@ -29,7 +31,26 @@ import { Status } from "@/components/page";
 import { ClientEmailButton } from "@/components/client-email";
 import { FixForm } from "@/components/fix-form";
 import { ReceiptSheet, type Suggestion } from "@/components/receipt-sheet";
-import { LearningPanel, RAIL_TEMPLATE, type NeverSeenItem, type RailStep } from "@/components/learning-panel";
+import {
+  LearningPanel,
+  RAIL_TEMPLATE,
+  type Lesson,
+  type NeverSeenItem,
+  type RailStep,
+  type TeachState,
+  type VariantRow,
+} from "@/components/learning-panel";
+import { DemoCoach, type DemoStep } from "@/components/demo-coach";
+import {
+  DEMO_BAMBOO_CODE,
+  DEMO_BAMBOO_REASON,
+  DEMO_SAMPLE_ID,
+  demoSessionKey,
+  isDemoBambooLine,
+  lessonStorageKey,
+  prettyRate,
+  railStorageKey,
+} from "@/lib/demo";
 import { readSse } from "@/lib/sse";
 import { cn } from "@/lib/utils";
 
@@ -47,8 +68,8 @@ type Broker = { id: string; name: string };
 type Sample = { id: string; name: string; supplier: string; about: string };
 type Batch = { batchId: string; lines: number; createdAt: string; client: string | null };
 type Filter = "review" | "all" | "done";
+type SavedLesson = { lesson: Lesson | null; variants: VariantRow[]; teach: TeachState | null };
 
-const railKey = (broker: string) => `precedent:rail:${broker}`;
 const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 function statusOf(r: Row) {
@@ -56,6 +77,18 @@ function statusOf(r: Row) {
   if (r.suggestion.status === "corrected") return "fixed";
   if (r.suggestion.status === "approved") return "approved";
   return r.suggestion.flagged ? "review" : "ready";
+}
+
+function storeCodeLabel(code: string) {
+  const d = code.replace(/\D/g, "");
+  if (d.length === 6) {
+    return (
+      <span className="font-mono text-[11px] tabular-nums">
+        {d.slice(0, 4)} {d.slice(4, 6)} <span className="text-muted-foreground">(6-digit HS)</span>
+      </span>
+    );
+  }
+  return <Code code={code} className="text-[11px]" />;
 }
 
 export function ClassifyView({ broker, brokers }: { broker: string; brokers: Broker[] }) {
@@ -85,6 +118,12 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   const [samples, setSamples] = useState<Sample[]>([]);
   const [clients, setClients] = useState<{ id: number; name: string; eori: string | null }[]>([]);
   const [clientId, setClientId] = useState<number | null>(null);
+  const [demo, setDemo] = useState(false);
+  const [lesson, setLesson] = useState<Lesson | null>(null);
+  const [variants, setVariants] = useState<VariantRow[]>([]);
+  const [teach, setTeach] = useState<TeachState | null>(null);
+  const [receiptSeen, setReceiptSeen] = useState(false);
+  const [fixError, setFixError] = useState<string | null>(null);
 
   const brokerName = brokers.find((b) => b.id === broker)?.name ?? broker;
 
@@ -110,16 +149,36 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   );
 
   const sampleParam = search.get("sample");
+  const demoParam = search.get("demo");
   const batchParam = search.get("batch");
   const started = useRef<string | null>(null);
+  const bambooPicked = useRef(false);
+
+  useEffect(() => {
+    try {
+      if (demoParam === "1" || sessionStorage.getItem(demoSessionKey(broker)) === "1") {
+        if (demoParam === "1") sessionStorage.setItem(demoSessionKey(broker), "1");
+        setDemo(true);
+      }
+    } catch {
+      if (demoParam === "1") setDemo(true);
+    }
+  }, [demoParam, broker]);
 
   useEffect(() => {
     // State is set after the fetches resolve, not synchronously; the lint rule can't see that.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadBatch(batchParam).then(() => {
       try {
-        const saved = localStorage.getItem(railKey(broker));
+        const saved = localStorage.getItem(railStorageKey(broker));
         setRail(saved ? JSON.parse(saved) : null);
+        const packed = localStorage.getItem(lessonStorageKey(broker));
+        if (packed) {
+          const data = JSON.parse(packed) as SavedLesson;
+          setLesson(data.lesson ?? null);
+          setVariants(data.variants ?? []);
+          setTeach(data.teach ?? null);
+        }
       } catch {}
     });
     loadBatches();
@@ -139,9 +198,15 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   useEffect(() => {
     if (!rail) return;
     try {
-      localStorage.setItem(railKey(broker), JSON.stringify(rail));
+      localStorage.setItem(railStorageKey(broker), JSON.stringify(rail));
     } catch {}
   }, [rail, broker]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(lessonStorageKey(broker), JSON.stringify({ lesson, variants, teach }));
+    } catch {}
+  }, [lesson, variants, teach, broker]);
 
   const updateRow = (lineId: number, suggestion: Suggestion) =>
     setRows((rs) => rs.map((r) => (r.id === lineId ? { ...r, status: "done", suggestion, error: undefined } : r)));
@@ -153,6 +218,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
     if ("lines" in body) {
       setRows([]);
       setFilter("all");
+      bambooPicked.current = false;
     } else setRows((rs) => rs.map((r) => (body.lineIds.includes(r.id) ? { ...r, status: "running", error: undefined } : r)));
     try {
       const res = await fetch(`/api/${broker}/classify`, {
@@ -205,13 +271,31 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
     [broker, loadClients],
   );
 
+  function startDemo() {
+    try {
+      sessionStorage.setItem(demoSessionKey(broker), "1");
+    } catch {}
+    setDemo(true);
+    setReceiptSeen(false);
+    setLesson(null);
+    setVariants([]);
+    setTeach(null);
+    loadSample(DEMO_SAMPLE_ID);
+  }
+
   // ?sample=<id> (from Home or ⌘K): classify that sample once, then drop the parameter.
   useEffect(() => {
     if (!sampleParam || started.current === sampleParam) return;
     started.current = sampleParam;
+    if (demoParam === "1") {
+      try {
+        sessionStorage.setItem(demoSessionKey(broker), "1");
+      } catch {}
+      setDemo(true);
+    }
     loadSample(sampleParam);
     router.replace(`/${broker}/classify`);
-  }, [sampleParam, loadSample, router, broker]);
+  }, [sampleParam, demoParam, loadSample, router, broker]);
 
   function classify(lines: InLine[]) {
     if (lines.length > 0) run({ lines, clientId });
@@ -272,6 +356,9 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
     setInlineFix(null);
     setPanelOpen(true);
     setFixing(true);
+    setFixError(null);
+    setVariants([]);
+    setTeach(null);
     setRail(RAIL_TEMPLATE.map((s) => ({ ...s })));
     try {
       const res = await fetch(`/api/${broker}/fix`, {
@@ -279,11 +366,21 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ suggestionId: suggestion.id, code, reason }),
       });
+      if (!res.ok) {
+        setFixError(`Couldn't save the fix (${res.status}). Try again.`);
+        return;
+      }
       await readSse(res, (event, data) => {
         if (event === "step") setRail((r) => (r ?? RAIL_TEMPLATE).map((s) => (s.id === data.id ? { ...s, state: data.state, detail: data.detail } : s)));
         if (event === "line") updateRow(data.lineId, data.suggestion);
         if (event === "never-seen") setItems(data);
+        if (event === "lesson") setLesson(data);
+        if (event === "variant") setVariants((vs) => [...vs.filter((v) => v.text !== data.text), data]);
+        if (event === "teach") setTeach({ examples: data.examples, trainAfter: data.trainAfter });
+        if (event === "fatal") setFixError(data.message);
       });
+    } catch (e) {
+      setFixError((e as Error).message || "Connection lost while teaching. The fix may still have saved.");
     } finally {
       setFixing(false);
       setItems(await (await fetch("/api/never-seen")).json());
@@ -303,12 +400,20 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
     return c;
   }, [rows]);
 
-  const visible = rows.filter((r) => {
-    const s = statusOf(r);
-    if (filter === "review") return s === "review" || s === "error";
-    if (filter === "done") return s === "approved" || s === "fixed";
-    return true;
-  });
+  const visible = useMemo(() => {
+    const filtered = rows.filter((r) => {
+      const s = statusOf(r);
+      if (filter === "review") return s === "review" || s === "error";
+      if (filter === "done") return s === "approved" || s === "fixed";
+      return true;
+    });
+    const bamboo = rows.filter((r) => isDemoBambooLine(r.text));
+    if (!demo || bamboo.length === 0) return filtered;
+    const rest = filtered.filter((r) => !isDemoBambooLine(r.text));
+    const pinned = bamboo.filter((r, i, xs) => xs.findIndex((x) => x.id === r.id) === i);
+    return [...pinned, ...rest];
+  }, [rows, filter, demo]);
+
   const sel = visible[Math.min(selected, Math.max(visible.length - 1, 0))];
   const readyIds = rows.filter((r) => statusOf(r) === "ready").map((r) => r.suggestion!.id);
   const pendingIds = rows.filter((r) => ["ready", "review"].includes(statusOf(r))).map((r) => r.suggestion!.id);
@@ -317,6 +422,44 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
     (r) => r.source === "shopify" && r.suggestion && ["approved", "corrected"].includes(r.suggestion.status) && r.existingCode !== r.suggestion.code,
   );
   const showCompose = composing || (loaded && rows.length === 0 && !busy);
+  const classifying = busy || counts.running > 0;
+  const classifyPct = rows.length ? ((rows.length - counts.running) / rows.length) * 100 : 8;
+  const bambooRow = rows.find((r) => isDemoBambooLine(r.text));
+
+  useEffect(() => {
+    if (!demo || bambooPicked.current) return;
+    const i = visible.findIndex((r) => isDemoBambooLine(r.text) && r.status === "done");
+    if (i >= 0) {
+      bambooPicked.current = true;
+      setSelected(i);
+    }
+  }, [demo, visible]);
+
+  const coachStep: DemoStep = useMemo(() => {
+    if (classifying || (demo && rows.length === 0)) return "classify";
+    if (fixing || (rail && rail.some((s) => s.state === "running"))) return "learn";
+    if (bambooRow && statusOf(bambooRow) !== "fixed") return "fix";
+    if (bambooRow && statusOf(bambooRow) === "fixed" && !receiptSeen) return "receipt";
+    if (bambooRow && statusOf(bambooRow) === "fixed") return "retro";
+    return "classify";
+  }, [classifying, demo, rows.length, fixing, rail, bambooRow, receiptSeen]);
+
+  function exitGuide() {
+    try {
+      sessionStorage.removeItem(demoSessionKey(broker));
+    } catch {}
+    setDemo(false);
+  }
+
+  function openReceipt(row: Row) {
+    setReceipt(row);
+    if (isDemoBambooLine(row.text) && statusOf(row) === "fixed") setReceiptSeen(true);
+  }
+
+  const fixPrefs = (row: Row | null) =>
+    row && isDemoBambooLine(row.text)
+      ? { preferredCode: DEMO_BAMBOO_CODE, defaultReason: DEMO_BAMBOO_REASON }
+      : { preferredCode: undefined, defaultReason: undefined };
 
   // Keyboard: j/k move, a approve, f fix, enter opens the receipt.
   useEffect(() => {
@@ -328,7 +471,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
       else if (!sel?.suggestion) return;
       else if (e.key === "a" && ["review", "ready"].includes(statusOf(sel))) approve([sel.suggestion.id]);
       else if (e.key === "f" && statusOf(sel) !== "fixed") setInlineFix(sel);
-      else if (e.key === "Enter") setReceipt(sel);
+      else if (e.key === "Enter") openReceipt(sel);
       else return;
       e.preventDefault();
     };
@@ -347,7 +490,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
           </Button>
         </div>
         <ul className="flex-1 space-y-1 overflow-y-auto px-3 pb-6">
-          {batches.length === 0 && <li className="px-3 py-8 text-center text-sm text-muted-foreground">No invoices yet</li>}
+          {batches.length === 0 && <li className="px-3 py-8 text-center text-sm text-muted-foreground">No invoices yet. Play the 3-minute demo or drop one in.</li>}
           {batches.map((b) => (
             <li key={b.batchId}>
               <button
@@ -374,6 +517,8 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
 
       {/* Main */}
       <section className="flex min-w-0 flex-1 flex-col gap-6 px-8 pb-12 pt-10">
+        {demo && <DemoCoach step={coachStep} broker={broker} onSkip={exitGuide} />}
+
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0 space-y-2">
             <p className="text-sm text-muted-foreground">Inbox</p>
@@ -415,8 +560,47 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
           </div>
         </header>
 
+        {classifying && (
+          <div className="space-y-2 rounded-xl border border-border/70 bg-card px-5 py-3 shadow-card">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <p className="flex items-center gap-2">
+                <Loader2 className="size-3.5 animate-spin" />
+                {rows.length === 0 ? "Starting the invoice…" : `Checking precedents and the tariff · ${rows.length - counts.running} of ${rows.length} lines back`}
+              </p>
+              <span className="tabular-nums text-muted-foreground">{Math.round(classifyPct)}%</span>
+            </div>
+            <Progress value={classifyPct} />
+          </div>
+        )}
+
+        {lesson && !showCompose && (
+          <div className="rounded-xl border border-primary/30 bg-primary/[0.04] px-5 py-4 shadow-card">
+            <p className="text-xs font-medium uppercase tracking-[0.06em] text-primary">Before / after your fix</p>
+            <p className="mt-2 text-[15px] leading-relaxed">
+              Before your fix: <Code code={lesson.oldCode} className="line-through opacity-60" /> at {prettyRate(lesson.oldRate)}
+              {"  ·  "}
+              After: <Code code={lesson.newCode} className="text-primary" /> at {prettyRate(lesson.newRate)} — because of Precedent #{lesson.precedentId}
+            </p>
+          </div>
+        )}
+
         {showCompose ? (
           <div className="w-full max-w-3xl space-y-8">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={startDemo}
+              className="flex w-full items-start gap-3 rounded-xl border border-primary/30 bg-primary/[0.04] px-4 py-4 text-left shadow-card transition-colors hover:border-primary/50"
+            >
+              <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
+              <span>
+                <span className="block font-medium">Play the 3-minute demo</span>
+                <span className="block text-sm text-muted-foreground">
+                  Ningbo homeware · fix the bamboo dinner set · watch a never-seen line come back right.
+                </span>
+              </span>
+            </button>
+
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="text-muted-foreground">For client</span>
               <Select value={clientId ? String(clientId) : "none"} onValueChange={(v) => setClientId(v === "none" ? null : Number(v))}>
@@ -472,13 +656,14 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
                     key={s.id}
                     type="button"
                     disabled={busy}
-                    onClick={() => loadSample(s.id)}
+                    onClick={() => (s.id === DEMO_SAMPLE_ID ? startDemo() : loadSample(s.id))}
                     className="flex items-start gap-3 rounded-xl border border-border/70 bg-card px-4 py-3.5 text-left shadow-card transition-colors hover:border-primary/40"
                   >
                     <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                     <span className="min-w-0">
                       <span className="block font-medium">{s.name}</span>
                       <span className="block text-sm text-muted-foreground">{s.about}</span>
+                      {s.id === DEMO_SAMPLE_ID && <span className="mt-1 block text-xs text-primary">3-minute demo</span>}
                     </span>
                   </button>
                 ))}
@@ -491,8 +676,8 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
               <div className="flex gap-4">
                 {(
                   [
-                    ["review", "Needs review", counts.review + counts.failed],
                     ["all", "All", counts.all],
+                    ["review", "Needs review", counts.review + counts.failed],
                     ["done", "Signed off", counts.done],
                   ] as [Filter, string, number][]
                 ).map(([key, label, n]) => (
@@ -527,7 +712,13 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
 
             {visible.length === 0 && (
               <p className="px-6 py-16 text-center text-muted-foreground">
-                {filter === "review" ? "Nothing needs review. The rest are confident or signed off." : "No lines here."}
+                {classifying
+                  ? "Lines will appear here as each one comes back. Nothing is frozen."
+                  : filter === "review"
+                    ? "Nothing needs review. Switch to All to see every line, including the bamboo dinner set."
+                    : filter === "done"
+                      ? "Nothing signed off yet. Approve or fix a line first."
+                      : "No lines here."}
               </p>
             )}
 
@@ -535,26 +726,29 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
               {visible.map((r, i) => {
                 const s = statusOf(r);
                 const sug = r.suggestion;
+                const bamboo = isDemoBambooLine(r.text);
                 return (
                   <li
                     key={r.id}
                     onMouseEnter={() => setSelected(i)}
-                    onClick={() => sug && setReceipt(r)}
+                    onClick={() => sug && openReceipt(r)}
                     className={cn(
                       "grid cursor-pointer grid-cols-[minmax(0,1.5fr)_9.5rem_minmax(0,2fr)_3.5rem_6.5rem] items-start gap-x-5 border-b border-border/60 px-6 py-4 last:border-b-0",
                       i === selected && "bg-accent/40",
+                      bamboo && "bg-primary/[0.05] ring-1 ring-inset ring-primary/20",
                     )}
                   >
                     <div className="min-w-0">
                       <p className="font-medium leading-snug">{r.text}</p>
+                      {bamboo && <p className="mt-1 text-xs text-primary">{s === "fixed" ? "Fixed · the demo line" : "The line to fix"}</p>}
                       {r.source === "shopify" && (
                         <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                           <ShoppingBag className="size-3" /> Shopify
                           {r.existingCode ? (
                             <>
                               {" · store has "}
-                              <span className={sug && sug.code.slice(0, 6) !== r.existingCode.slice(0, 6) ? "text-bad" : undefined}>
-                                <Code code={r.existingCode} className="text-[11px]" />
+                              <span className={sug && sug.code.slice(0, 6) !== r.existingCode.replace(/\D/g, "").slice(0, 6) ? "text-bad" : undefined}>
+                                {storeCodeLabel(r.existingCode)}
                               </span>
                             </>
                           ) : (
@@ -659,6 +853,8 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
       <ReceiptSheet
         row={receipt}
         broker={broker}
+        preferredCode={fixPrefs(receipt).preferredCode}
+        defaultReason={fixPrefs(receipt).defaultReason}
         onClose={() => setReceipt(null)}
         onFix={fix}
         onApprove={(sg) => {
@@ -679,6 +875,8 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
             <FixForm
               currentCode={inlineFix.suggestion.code}
               toolCalls={inlineFix.suggestion.toolCalls}
+              preferredCode={fixPrefs(inlineFix).preferredCode}
+              defaultReason={fixPrefs(inlineFix).defaultReason}
               onCancel={() => setInlineFix(null)}
               onSubmit={(code, reason) => fix(inlineFix.suggestion!, code, reason)}
             />
@@ -687,7 +885,18 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
       </Dialog>
 
       {panelOpen && (
-        <LearningPanel broker={broker} brokers={brokers} rail={rail} items={items} preparing={preparing || fixing} onClose={() => setPanelOpen(false)} />
+        <LearningPanel
+          broker={broker}
+          brokers={brokers}
+          rail={rail}
+          items={items}
+          preparing={preparing || fixing}
+          lesson={lesson}
+          variants={variants}
+          teach={teach}
+          error={fixError}
+          onClose={() => setPanelOpen(false)}
+        />
       )}
     </div>
   );

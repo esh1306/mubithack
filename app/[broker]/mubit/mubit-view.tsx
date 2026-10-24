@@ -35,7 +35,7 @@ export function MubitView({ broker }: { broker: string }) {
     fetch(`/api/${broker}/mubit`).then((r) => r.json()).then(setD);
   }, [broker]);
 
-  if (!d) return null;
+  if (!d) return <p className="text-sm text-muted-foreground">Loading what this broker has sent through Mubit…</p>;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -122,6 +122,11 @@ export function MubitView({ broker }: { broker: string }) {
 
       <section className="space-y-3">
         <h2 className="font-serif text-[22px]">Latest examples</h2>
+        {d.recent.length === 0 && (
+          <p className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
+            No classify calls recorded yet for this broker. Play the 3-minute demo from Home to send the first examples.
+          </p>
+        )}
         <ul className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70 bg-card shadow-card">
           {d.recent.map((r, i) => (
             <li key={i} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 text-sm">

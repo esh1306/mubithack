@@ -47,23 +47,15 @@ export async function classifyLine(brokerId: string, lineText: string, opts?: { 
       inputSchema: z.object({ query: z.string() }),
       execute: async ({ query }) => {
         const terms = query.split(/\s+/).filter((t) => t.length > 2);
+        const all = await db.precedent.findMany({ where: { brokerId }, orderBy: { id: "desc" }, take: 40 });
         const rows =
           terms.length === 0
-            ? await db.precedent.findMany({ where: { brokerId }, orderBy: { id: "desc" }, take: 8 })
-            : await db.precedent.findMany({
-                where: {
-                  brokerId,
-                  OR: terms.flatMap((t) => [{ lineText: { contains: t } }, { reason: { contains: t } }]),
-                },
-                take: 10,
-              });
-        // Keyword miss (paraphrase of a recent fix): fall back to overlap with the original line.
-        const found =
-          rows.length > 0
-            ? rows
-            : (await db.precedent.findMany({ where: { brokerId }, orderBy: { id: "desc" }, take: 30 })).filter(
-                (p) => isSimilar(p.lineText, query) || isSimilar(p.reason, query),
-              );
+            ? all.slice(0, 8)
+            : all.filter((p) => terms.some((t) => p.lineText.toLowerCase().includes(t) || p.reason.toLowerCase().includes(t)));
+        // Always include precedents that overlap this product line, even if the model's query was thin.
+        const fromLine = all.filter((p) => isSimilar(p.lineText, lineText) || isSimilar(p.reason, lineText));
+        const fromQuery = all.filter((p) => isSimilar(p.lineText, query) || isSimilar(p.reason, query));
+        const found = [...fromLine, ...fromQuery, ...rows].filter((p, i, xs) => xs.findIndex((x) => x.id === p.id) === i);
         // How to use them goes in the result, not the system prompt: changing the prompt would start a new Mubit task.
         if (found.length === 0) return { precedents: [], note: "No precedents match. Classify from the tariff." };
         return {

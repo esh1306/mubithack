@@ -1,9 +1,10 @@
 // bun run smoke — no-key checks for search, duty maths, variants and error wording.
 import assert from "node:assert/strict";
+import { isDemoBambooLine, prettyRate } from "../lib/demo";
 import { classifyErrorMessage } from "../lib/mubit";
 import { digitsOnly, isUk10, uk10 } from "../lib/codes";
 import { compareDuty, formatDutyTrail, isMoneyFinding, withinThreeYears } from "../lib/duty";
-import { buildIndex, diversifyByHs6, rankLeaves } from "../lib/retrieve";
+import { buildIndex, diversifyByHs6, isSimilar, rankLeaves } from "../lib/retrieve";
 import { searchTariff } from "../lib/tariff";
 import { templateVariants } from "../lib/variants";
 
@@ -109,11 +110,23 @@ async function liveSearchCase() {
   );
 }
 
+function demoCase() {
+  assert.equal(isDemoBambooLine("Bamboo kids' dinner set, plate bowl cup"), true);
+  assert.equal(isDemoBambooLine("Bamboo cups set, 4 pack, kids"), true);
+  assert.equal(isDemoBambooLine("Bamboo chopsticks, 10 pairs"), false);
+  assert.equal(isDemoBambooLine("Bamboo chopping board, large"), false);
+  assert.equal(prettyRate("0.00%"), "0%");
+  assert.equal(prettyRate("6.00%"), "6%");
+  assert.equal(prettyRate(null), "rate unknown");
+  assert.ok(isSimilar("Bamboo kids' dinner set, plate bowl cup", "Bamboo cups set, 4 pack, kids"));
+}
+
 dutyCase();
 windowCase();
 codeCase();
 variantCase();
 errorCase();
 retrieveCase();
+demoCase();
 await liveSearchCase();
-console.log("smoke ok: duty, window, codes, variants, Mubit error wording, bamboo → 3924100019");
+console.log("smoke ok: duty, window, codes, variants, Mubit error wording, demo bamboo pin, bamboo → 3924100019");

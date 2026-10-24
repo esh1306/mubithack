@@ -8,7 +8,9 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Code } from "@/components/code";
-import { PageHeader } from "@/components/page";
+import { Empty, PageHeader } from "@/components/page";
+import { DemoCoach } from "@/components/demo-coach";
+import { demoSessionKey } from "@/lib/demo";
 import { readSse } from "@/lib/sse";
 
 type Maths = {
@@ -71,10 +73,12 @@ function packText(kind: "over" | "under", entries: Entry[]) {
 }
 
 export function RetroScanView({ broker }: { broker: string }) {
-  const [entries, setEntries] = useState<Entry[]>([]);
+  const [entries, setEntries] = useState<Entry[] | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number; skipped?: number } | null>(null);
   const [pack, setPack] = useState<"over" | "under" | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [guided, setGuided] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setEntries(await (await fetch(`/api/${broker}/retro-scan`)).json());
@@ -83,29 +87,38 @@ export function RetroScanView({ broker }: { broker: string }) {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- state is set after the fetch resolves
     load();
-  }, [load]);
+    try {
+      setGuided(sessionStorage.getItem(demoSessionKey(broker)) === "1");
+    } catch {}
+  }, [load, broker]);
 
   async function scan() {
     setProgress({ done: 0, total: 1 });
+    setScanError(null);
     try {
       const res = await fetch(`/api/${broker}/retro-scan`, { method: "POST" });
+      if (!res.ok) throw new Error(`Server error ${res.status}`);
       await readSse(res, (event, data) => {
         if (event === "progress") setProgress(data);
         if (event === "entries") setEntries(data);
+        if (event === "fatal") setScanError(data.message);
       });
+    } catch (e) {
+      setScanError((e as Error).message || "The scan stopped. Try again — nothing is frozen.");
     } finally {
       setProgress(null);
       load();
     }
   }
 
-  const scanned = entries.some((e) => e.finding);
-  const over = entries.filter((e) => e.finding?.direction === "over" && Math.abs(e.finding.dutyDelta) > 0.5);
-  const under = entries.filter((e) => e.finding?.direction === "under" && Math.abs(e.finding.dutyDelta) > 0.5);
+  const list = entries ?? [];
+  const scanned = list.some((e) => e.finding);
+  const over = list.filter((e) => e.finding?.direction === "over" && Math.abs(e.finding.dutyDelta) > 0.5);
+  const under = list.filter((e) => e.finding?.direction === "under" && Math.abs(e.finding.dutyDelta) > 0.5);
   const sum = (es: Entry[]) => es.reduce((s, e) => s + Math.abs(e.finding!.dutyDelta), 0);
-  const inWindow = entries.filter((e) => e.inWindow);
+  const inWindow = list.filter((e) => e.inWindow);
   const years = inWindow.length ? `${inWindow[0].entryDate.slice(0, 7)} to ${inWindow.at(-1)!.entryDate.slice(0, 7)}` : "";
-  const assumed = entries.filter((e) => e.finding?.maths?.rateSource === "current").length;
+  const assumed = list.filter((e) => e.finding?.maths?.rateSource === "current").length;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -114,16 +127,25 @@ export function RetroScanView({ broker }: { broker: string }) {
         info="retroScan"
         description={
           <>
-            Demo history: {entries.length} Harbourline entries. Scan uses only the last 3 years ({years || "no dates"}).
+            Demo history: {list.length} Harbourline entries. Scan uses only the last 3 years ({years || "no dates"}).
             Reclaim = overpaid (old rate higher). Disclose = underpaid (e.g. 0% → 6%). £0 code-only changes are not findings.
           </>
         }
         actions={
-          <Button onClick={scan} disabled={!!progress || entries.length === 0}>
+          <Button onClick={scan} disabled={!!progress || list.length === 0}>
             {progress ? <Loader2 className="animate-spin" /> : <History />} {scanned ? "Scan again" : "Scan past entries"}
           </Button>
         }
       />
+
+      {guided && <DemoCoach step="retro" broker={broker} onSkip={() => setGuided(false)} />}
+      {scanError && <p className="rounded-md border border-bad/30 bg-bad/5 px-4 py-3 text-sm">{scanError}</p>}
+      {entries === null && !progress && <p className="text-sm text-muted-foreground">Loading past entries…</p>}
+      {entries && list.length === 0 && !progress && (
+        <Empty title="No past entries">
+          Use <span className="font-medium">Reset demo</span> in the sidebar to restore Harbourline&apos;s seeded 3-year history, then scan.
+        </Empty>
+      )}
 
       {progress && (
         <div className="space-y-2">
@@ -162,7 +184,7 @@ export function RetroScanView({ broker }: { broker: string }) {
         </p>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-card">
+      {list.length > 0 && <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -175,7 +197,7 @@ export function RetroScanView({ broker }: { broker: string }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {entries.map((e) => {
+            {list.map((e) => {
               const f = e.finding;
               const money = f && (f.direction === "over" || f.direction === "under") && Math.abs(f.dutyDelta) > 0.5;
               const changed = f && f.suggestedCode !== e.declaredCode;
@@ -215,7 +237,7 @@ export function RetroScanView({ broker }: { broker: string }) {
             })}
           </TableBody>
         </Table>
-      </div>
+      </div>}
 
       <Dialog open={openId != null} onOpenChange={(o) => !o && setOpenId(null)}>
         <DialogContent className="sm:max-w-lg">
@@ -224,7 +246,7 @@ export function RetroScanView({ broker }: { broker: string }) {
             <DialogDescription>Import date, codes, rates, value and the arithmetic.</DialogDescription>
           </DialogHeader>
           {(() => {
-            const e = entries.find((x) => x.id === openId);
+            const e = list.find((x) => x.id === openId);
             const m = e?.finding?.maths;
             if (!e) return null;
             return (

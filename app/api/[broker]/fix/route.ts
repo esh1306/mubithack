@@ -2,8 +2,10 @@ import { db } from "@/lib/db";
 import { uk10 } from "@/lib/codes";
 import { possessive } from "@/lib/utils";
 import {
+  bindingPrecedent,
   classifyWithRetry,
   isSimilar,
+  mubitExampleCount,
   neverSeenItems,
   neverSeenLine,
   neverSeenState,
@@ -11,6 +13,7 @@ import {
   sseResponse,
   teachVariants,
 } from "@/lib/run";
+import { TRAIN_AFTER } from "@/lib/mubit";
 
 // POST { suggestionId, code, reason } → SSE stream of rail steps, re-classified lines and never-seen results.
 export async function POST(req: Request, { params }: { params: Promise<{ broker: string }> }) {
@@ -51,11 +54,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ broker:
       });
     }
 
-    // 1. Save the precedent and correct the line. The broker row is not sent through Mubit —
-    // teaching happens as classify calls on paraphrases (same task) below.
     const precedent = await db.precedent.create({
       data: { brokerId: broker, lineText: line.text, oldCode: original.code, newCode, reason },
     });
+    const [oldTariff, newTariff] = await Promise.all([
+      db.tariff.findUnique({ where: { code: original.code } }),
+      db.tariff.findUnique({ where: { code: newCode } }),
+    ]);
     const corrected = await db.suggestion.create({
       data: {
         lineId: line.id,
@@ -71,9 +76,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ broker:
       },
     });
     send("line", { lineId: line.id, suggestion: corrected });
+    send("lesson", {
+      precedentId: precedent.id,
+      lineText: line.text,
+      reason,
+      oldCode: original.code,
+      newCode,
+      oldRate: oldTariff?.dutyRate ?? null,
+      newRate: newTariff?.dutyRate ?? null,
+    });
     step("saved", "done", `Precedent #${precedent.id} saved with your reason`);
 
-    // 2–4 run together: similar lines in this invoice, never-seen items here, and the other brokers.
     const batchLines = (
       await db.line.findMany({
         where: { brokerId: broker, batchId: line.batchId, id: { not: line.id } },
@@ -84,6 +97,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ broker:
     step("batch", "running", batchLines.length ? `Re-checking ${batchLines.length} similar lines in this invoice` : "No similar lines in this invoice");
     step("never-seen", "running", `Trying ${items.length} products ${me.name} has never classified`);
     step("others", "running", `Checking ${others.map((o) => o.name).join(", ")} is unaffected`);
+    step("variants", "running", "Sending paraphrased examples through Mubit");
 
     let mubitCalls = 0;
     let batchDone = 0;
@@ -95,7 +109,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ broker:
       ...others.flatMap((o) => items.map((i) => ({ kind: "others" as const, broker: o.id, text: i.text }))),
     ];
 
-    await pool(jobs, 12, async (job) => {
+    const taughtP = teachVariants(broker, { id: precedent.id, lineText: line.text, newCode }, (p) => {
+      send("variant", p);
+      step("variants", "running", p.skipped === "no-key"
+        ? `Prepared ${p.done} of ${p.total} paraphrases (not sent — no Mubit key)`
+        : `Sent ${p.done} of ${p.total} paraphrases through Mubit`);
+    });
+
+    await pool(jobs, 8, async (job) => {
       try {
         const target = "line" in job ? job.line : await neverSeenLine(job.broker, job.text);
         const r = await classifyWithRetry(job.broker, target);
@@ -110,30 +131,59 @@ export async function POST(req: Request, { params }: { params: Promise<{ broker:
         }
       } catch (e) {
         send("job-error", { message: (e as Error).message });
+        // If the model call failed but a house precedent covers this line, still
+        // apply it so the flip is visible (model:"precedent" — not a Mubit example).
+        if (job.kind === "others") return;
+        const text = "line" in job ? job.line.text : job.text;
+        const hit = await bindingPrecedent(job.broker, text);
+        if (!hit) return;
+        const target = "line" in job ? job.line : await neverSeenLine(job.broker, job.text);
+        const suggestion = await db.suggestion.create({
+          data: {
+            lineId: target.id,
+            code: hit.newCode,
+            reason: `Applied precedent #${hit.id}: ${hit.reason}`,
+            confidence: 1,
+            flagged: false,
+            precedentId: hit.id,
+            model: "precedent",
+            toolCalls: "[]",
+          },
+        });
+        if (job.kind === "batch") {
+          send("line", { lineId: target.id, suggestion });
+          if (++batchDone === batchLines.length) step("batch", "done", `${batchLines.length} similar lines re-checked`);
+        } else {
+          send("never-seen", await neverSeenState(brokers.map((b) => b.id)));
+          if (job.kind === "mine" && ++mineDone === items.length) {
+            step("never-seen", "done", `${items.length} unseen products re-run with precedent #${precedent.id}`);
+          }
+        }
       }
     });
-    // Close out any step whose jobs were empty or failed.
     step("batch", "done", batchLines.length ? `${batchDone} of ${batchLines.length} similar lines re-checked` : "No similar lines in this invoice");
     step("never-seen", "done", items.length ? `${mineDone} unseen products re-run with precedent #${precedent.id}` : "No similar unseen products to try");
     step("others", "done", items.length ? `${others.map((o) => o.name).join(", ")} re-run without it` : "Nothing to compare");
 
-    // 5. Teach the same Mubit task with paraphrases of the corrected line (not the gold in the user message).
-    step("variants", "running", "Sending paraphrased examples through Mubit");
-    const taught = await teachVariants(broker, { id: precedent.id, lineText: line.text, newCode });
+    const taught = await taughtP;
     mubitCalls += taught.requestIds.length;
     step(
       "variants",
       "done",
       taught.skipped === "no-key"
-        ? "No Mubit key — precedent saved; paraphrased examples were not sent"
+        ? "Precedent saved. Paraphrases were prepared but not sent (no Mubit key)."
         : `Sent ${taught.sent} paraphrases through Mubit; ${taught.matched} came back as ${newCode}`,
     );
 
-    step("mubit", "done", `${mubitCalls} calls recorded by Mubit in ${possessive(me.name)} task`);
+    const examples = await mubitExampleCount(broker);
+    send("teach", { examples, trainAfter: TRAIN_AFTER, variants: taught });
+    step("mubit", "done", `${mubitCalls} calls recorded by Mubit in ${possessive(me.name)} task · ${examples} of ${TRAIN_AFTER} examples sent`);
     send("summary", {
       precedentId: precedent.id,
       items: items.map((i) => i.text),
       variants: taught,
+      examples,
+      trainAfter: TRAIN_AFTER,
     });
   });
 }

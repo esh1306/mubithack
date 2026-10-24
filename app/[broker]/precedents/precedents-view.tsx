@@ -44,13 +44,14 @@ export function PrecedentsView({ broker }: { broker: string }) {
         description="Every fix your team makes, with the reason. The AI checks these first, for this broker only."
       />
 
+      {list === null && <p className="text-sm text-muted-foreground">Loading this broker&apos;s fixes…</p>}
       {list?.length === 0 && (
         <div className="rounded-lg border border-dashed px-6 py-12 text-center text-sm text-muted-foreground">
-          No precedents yet. Fix a code on the{" "}
+          No precedents yet. Fix a code in the{" "}
           <Link href={`/${broker}/classify`} className="text-primary underline-offset-4 hover:underline">
-            Classify
+            Inbox
           </Link>{" "}
-          page and it shows up here.
+          and it shows up here.
         </div>
       )}
 

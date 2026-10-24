@@ -146,8 +146,10 @@ export function IntegrationsView({ broker }: { broker: string }) {
         status={tariff ? (tariff.live ? <On>Live</On> : <Off>Offline · using saved copy</Off>) : null}
       >
         <p className="text-sm text-muted-foreground">
-          HMRC&apos;s public tariff API. {tariff?.codes ?? "…"} codes and {tariff?.chapters ?? "…"} chapters saved locally. Any heading the agent
-          or a broker needs that isn&apos;t saved yet is fetched live, with its chapter notes and duty rate, and kept.
+          {tariff
+            ? `HMRC's public tariff API. ${tariff.codes} codes and ${tariff.chapters} chapters saved locally.`
+            : "Checking the live tariff…"}
+          {" "}Any heading the agent or a broker needs that isn&apos;t saved yet is fetched live, with its chapter notes and duty rate, and kept.
         </p>
         <div className="flex gap-2">
           <Input placeholder="Try a code or words, e.g. 8471 or laptop" value={lookup} onChange={(e) => setLookup(e.target.value)} onKeyDown={(e) => e.key === "Enter" && lookupLive()} />
@@ -169,7 +171,12 @@ export function IntegrationsView({ broker }: { broker: string }) {
         )}
       </Card>
 
-      <Card icon={ShoppingBag} title="Shopify · client stores" info="shopify" status={<On>{`${storeCount} connected`}</On>}>
+      <Card
+        icon={ShoppingBag}
+        title="Shopify · client stores"
+        info="shopify"
+        status={storeCount > 0 ? <On>{`${storeCount} connected`}</On> : <Off>Not connected</Off>}
+      >
         <p className="text-sm text-muted-foreground">
           Each client connects its own store. Its catalogue is imported and classified once, and approved codes are written back to every product
           (6-digit HS code and the 10-digit GB code), so the client&apos;s parcels carry the right code.
@@ -304,8 +311,11 @@ export function IntegrationsView({ broker }: { broker: string }) {
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Card icon={Download} title="Declaration software" info="export" status={<On>CSV</On>}>
-          <p className="text-sm text-muted-foreground">ASM, CargoWise and Descartes import CSV worksheets. Export codes split into DE 6/14 and 6/15.</p>
+        <Card icon={Download} title="Declaration software" info="export" status={<On>CSV ready</On>}>
+          <p className="text-sm text-muted-foreground">
+            A CSV with the 10-digit code split into DE 6/14 and DE 6/15. ASM, CargoWise and Descartes can import it.
+            Live push into those systems is coming soon.
+          </p>
           <Button variant="outline" asChild><Link href={`/${broker}/export`}>Go to Export</Link></Button>
         </Card>
         <Card icon={Cpu} title="Mubit" info="mubit" status={tariff?.mubitKey ? <On>Key present</On> : <Off>No key</Off>}>

@@ -29,6 +29,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Info } from "@/components/info";
 import { Prue } from "@/components/prue";
 import { CommandMenu, openCommandMenu } from "@/components/command-menu";
+import { clearDemoClientState } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 
 type Broker = { id: string; name: string };
@@ -139,11 +140,9 @@ export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker
             if (!confirmReset) return setConfirmReset(true);
             setResetting(true);
             await fetch("/api/demo/reset", { method: "POST" });
-            try {
-              brokers.forEach((b) => localStorage.removeItem(`precedent:rail:${b.id}`));
-            } catch {}
-            // Full reload so every page drops its in-memory state.
-            window.location.reload();
+            clearDemoClientState(brokers.map((b) => b.id));
+            // Back to Home with a clean seeded desk.
+            window.location.assign(`/${current.id}/home`);
           }}
           className={cn(
             "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
