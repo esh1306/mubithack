@@ -13,6 +13,7 @@ const SECTIONS = [
   { id: "how", num: "02" },
   { id: "receipt", num: "03" },
   { id: "retro", num: "04" },
+  { id: "try", num: "05" },
 ] as const;
 const SECTION_IDS = SECTIONS.map((s) => s.id);
 
@@ -210,6 +211,36 @@ function LandingBody() {
           </p>
         </Section>
       </div>
+
+      <section id="try" className="flex min-h-[100svh] flex-col justify-center px-5 py-28 sm:px-10 md:px-16 lg:px-20">
+        <Reveal>
+          <p className="mb-6 text-[11px] font-medium uppercase tracking-[0.22em] text-primary">05 · Try it</p>
+          <h2 className="landing-display max-w-[12ch]">See it remember.</h2>
+          <p className="mt-10 max-w-xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
+            Classify a sample invoice, fix the bamboo line, and watch a product this broker has never seen come back
+            right. About three minutes.
+          </p>
+          <div className="mt-12 flex flex-wrap items-center gap-5">
+            <Link
+              href={DEMO_HREF}
+              className="inline-flex h-12 items-center rounded-md bg-primary px-6 text-base font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Try the demo
+            </Link>
+            <Link href={DESK_HREF} className="text-base text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+              Open the desk
+            </Link>
+          </div>
+        </Reveal>
+      </section>
+
+      <footer className="flex flex-wrap items-end justify-between gap-6 border-t border-border px-5 py-10 sm:px-10 md:px-16 lg:px-20">
+        <Wordmark size={22} />
+        <p className="max-w-sm text-sm text-muted-foreground">
+          Teach it once. It remembers. Suggestions only — the broker signs every code. We count what we sent through
+          Mubit; we cannot see whether an adapter is trained or live.
+        </p>
+      </footer>
     </div>
   );
 }
