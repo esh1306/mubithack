@@ -4,5 +4,5 @@ import { searchTariff } from "@/lib/tariff";
 export async function GET(req: Request) {
   const q = new URL(req.url).searchParams.get("q")?.trim() ?? "";
   const digits = q.replace(/\s/g, "");
-  return Response.json(await searchTariff(/^\d{2,10}$/.test(digits) ? { number: digits } : { query: q }));
+  return Response.json(await searchTariff(/^\d{2,10}$/.test(digits) ? { number: digits } : { query: q, limit: 20 }));
 }

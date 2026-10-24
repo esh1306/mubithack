@@ -3,6 +3,7 @@
 import { Check, Loader2, X, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Code } from "@/components/code";
+import { Info } from "@/components/info";
 import { cn } from "@/lib/utils";
 
 export type RailStep = { id: string; state: "waiting" | "running" | "done"; detail: string };
@@ -50,7 +51,7 @@ export function LearningPanel({
     <aside className="fixed inset-y-0 right-0 z-30 flex w-[34rem] max-w-full flex-col border-l bg-background shadow-xl">
       <header className="flex items-center justify-between border-b px-5 py-4">
         <div>
-          <h2 className="text-sm font-semibold">Learning</h2>
+          <h2 className="flex items-center gap-1 text-sm font-semibold">Learning <Info id="learning" /></h2>
           <p className="text-xs text-muted-foreground">One fix, applied to products {me?.name} has never seen.</p>
         </div>
         <Button size="icon" variant="ghost" onClick={onClose}>
@@ -79,7 +80,7 @@ export function LearningPanel({
 
         <section className="space-y-3">
           <div className="flex items-baseline justify-between">
-            <h3 className="text-sm font-semibold">Never-seen products</h3>
+            <h3 className="flex items-center gap-1 text-sm font-semibold">Never-seen products <Info id="neverSeen" side="left" /></h3>
             {preparing && (
               <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Loader2 className="size-3 animate-spin" /> Preparing baseline…

@@ -18,7 +18,9 @@ const seen = new Set<string>();
 for (const c of seed.commodities) {
   if (seen.has(c.code)) continue;
   seen.add(c.code);
-  await db.tariff.create({ data: c });
+  // Some tariff descriptions carry <br> tags from the API.
+  const clean = (t: string) => t.replace(/<br\s*\/?>/g, " ").replace(/\s+/g, " ").trim();
+  await db.tariff.create({ data: { ...c, path: clean(c.path), description: clean(c.description) } });
 }
 
 // Past entries for the retro-scan (Harbourline only).

@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Code } from "@/components/code";
+import { Info } from "@/components/info";
 import { readSse } from "@/lib/sse";
 
 type Entry = {
@@ -80,7 +81,7 @@ export function RetroScanView({ broker }: { broker: string }) {
     <div className="mx-auto max-w-6xl space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Retro-scan</h1>
+          <h1 className="flex items-center gap-1.5 text-2xl font-semibold tracking-tight">Retro-scan <Info id="retroScan" /></h1>
           <p className="text-sm text-muted-foreground">
             Re-check {entries.length} past entries ({years}) with today&apos;s precedents. Find duty to reclaim, and duty to disclose before HMRC finds it.
           </p>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FileUp, Sparkles, Flag, Check, Loader2, MessageCircleQuestion, RotateCw, PencilLine, GraduationCap, Plus } from "lucide-react";
+import { FileUp, Sparkles, Flag, Check, Loader2, MessageCircleQuestion, RotateCw, PencilLine, GraduationCap, Plus, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Code } from "@/components/code";
+import { Info } from "@/components/info";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { FixForm } from "@/components/fix-form";
 import { ReceiptSheet, type Suggestion } from "@/components/receipt-sheet";
 import { LearningPanel, RAIL_TEMPLATE, type NeverSeenItem, type RailStep } from "@/components/learning-panel";
@@ -18,6 +27,7 @@ import { readSse } from "@/lib/sse";
 type InLine = { description: string; qty?: number; value?: number; origin?: string };
 type Row = { id: number; text: string; status: "running" | "done" | "error"; suggestion?: Suggestion; error?: string };
 type Broker = { id: string; name: string };
+type Sample = { id: string; name: string; supplier: string; about: string };
 
 const railKey = (broker: string) => `precedent:rail:${broker}`;
 
@@ -36,6 +46,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   const [items, setItems] = useState<NeverSeenItem[]>([]);
   const [preparing, setPreparing] = useState(false);
   const [fixing, setFixing] = useState(false);
+  const [samples, setSamples] = useState<Sample[]>([]);
 
   // Saved state: the latest invoice from the database, and the last rail from this browser.
   const loadBatch = useCallback(async () => {
@@ -56,7 +67,12 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
       } catch {}
     });
     fetch("/api/never-seen").then((r) => r.json()).then(setItems);
+    fetch("/api/sample").then((r) => r.json()).then(setSamples);
   }, [broker, loadBatch]);
+
+  async function loadSample(id: string) {
+    classify(await (await fetch(`/api/sample?id=${id}`)).json());
+  }
 
   // Lines still being classified server-side (e.g. after switching pages): poll until they land.
   const pending = !busy && rows.some((r) => r.status === "running");
@@ -178,6 +194,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   const unflaggedPending = done.filter((r) => !r.suggestion!.flagged && r.suggestion!.status === "pending");
   const flaggedCount = done.filter((r) => r.suggestion!.flagged && r.suggestion!.status === "pending").length;
   const failed = rows.filter((r) => r.status === "error");
+  const allPending = done.filter((r) => r.suggestion!.status === "pending");
   const inputOpen = showInput || (loaded && rows.length === 0);
 
   return (
@@ -185,7 +202,9 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
       <div className="mx-auto max-w-6xl space-y-8">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Classify</h1>
+            <h1 className="flex items-center gap-1.5 text-2xl font-semibold tracking-tight">
+              Classify <Info id="classify" />
+            </h1>
             <p className="text-sm text-muted-foreground">Drop in an invoice. Every line gets a code, a reason and a receipt.</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -197,9 +216,29 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
                 <Plus /> New invoice
               </Button>
             )}
-            <Button onClick={async () => classify(await (await fetch("/api/sample")).json())} disabled={busy}>
-              <Sparkles /> Load sample invoice
-            </Button>
+            <div className="flex">
+              <Button className="rounded-r-none" onClick={() => loadSample(samples[0]?.id ?? "01-ningbo-homeware")} disabled={busy}>
+                <Sparkles /> Load sample invoice
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild disabled={busy}>
+                  <Button className="rounded-l-none border-l border-primary-foreground/20 px-2" aria-label="Choose a sample invoice">
+                    <ChevronDown />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80">
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">Sample invoices · 10 lines each</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {samples.map((sm) => (
+                    <DropdownMenuItem key={sm.id} onSelect={() => loadSample(sm.id)} className="flex-col items-start gap-0.5">
+                      <span className="font-medium">{sm.name}</span>
+                      <span className="text-xs text-muted-foreground">{sm.supplier}</span>
+                      <span className="text-xs text-muted-foreground">{sm.about}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </header>
 
@@ -265,6 +304,11 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
                 >
                   <Check /> Approve {unflaggedPending.length} unflagged
                 </Button>
+                {flaggedCount > 0 && (
+                  <Button size="sm" variant="ghost" onClick={() => approve(allPending.map((r) => r.suggestion!.id))}>
+                    Approve all {allPending.length}
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -273,10 +317,14 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[30%]">Product line</TableHead>
-                    <TableHead className="w-44">Code</TableHead>
+                    <TableHead className="w-44">
+                      <span className="flex items-center gap-1">Code <Info id="code" /></span>
+                    </TableHead>
                     <TableHead>Reason</TableHead>
-                    <TableHead className="w-24 text-right">Confidence</TableHead>
-                    <TableHead className="w-28" />
+                    <TableHead className="w-24 text-right">
+                      <span className="flex items-center justify-end gap-1">Confidence <Info id="confidence" /></span>
+                    </TableHead>
+                    <TableHead className="w-44 text-right">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -342,10 +390,36 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
                               <Badge className="bg-primary/10 text-primary hover:bg-primary/10"><PencilLine /> Fixed</Badge>
                             ) : r.suggestion.status === "approved" ? (
                               <Badge variant="secondary"><Check /> Approved</Badge>
-                            ) : r.suggestion.flagged ? (
-                              <Badge variant="outline" className="border-primary/40 text-primary"><Flag /> Review</Badge>
                             ) : (
-                              <Badge variant="outline">Ready</Badge>
+                              <div className="flex items-center justify-end gap-1.5">
+                                {r.suggestion.flagged && (
+                                  <Badge variant="outline" className="border-primary/40 text-primary"><Flag /> Review</Badge>
+                                )}
+                                <Button
+                                  size="icon"
+                                  variant="outline"
+                                  className="size-7"
+                                  title="Approve as it is"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    approve([r.suggestion!.id]);
+                                  }}
+                                >
+                                  <Check />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="outline"
+                                  className="size-7"
+                                  title="Fix the code"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setInlineFix(r);
+                                  }}
+                                >
+                                  <PencilLine />
+                                </Button>
+                              </div>
                             )}
                           </TableCell>
                         </>
@@ -355,12 +429,20 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
                 </TableBody>
               </Table>
             </div>
-            <p className="text-xs text-muted-foreground">Click a code to fix it, or a row to see its receipt.</p>
+            <p className="text-xs text-muted-foreground">Approve a code as it is (✓), fix it (✎), or click a row to see its receipt.</p>
           </section>
         )}
       </div>
 
-      <ReceiptSheet row={receipt} onClose={() => setReceipt(null)} onFix={fix} />
+      <ReceiptSheet
+        row={receipt}
+        onClose={() => setReceipt(null)}
+        onFix={fix}
+        onApprove={(sg) => {
+          approve([sg.id]);
+          setReceipt(null);
+        }}
+      />
 
       <Dialog open={!!inlineFix} onOpenChange={(o) => !o && setInlineFix(null)}>
         <DialogContent className="sm:max-w-lg">
@@ -373,6 +455,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
           {inlineFix?.suggestion && (
             <FixForm
               currentCode={inlineFix.suggestion.code}
+              toolCalls={inlineFix.suggestion.toolCalls}
               onCancel={() => setInlineFix(null)}
               onSubmit={(code, reason) => fix(inlineFix.suggestion!, code, reason)}
             />

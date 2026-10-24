@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Code } from "@/components/code";
+import { Info } from "@/components/info";
 
 type Batch = { batchId: string; lines: number; createdAt: string };
 type Row = { id: number; text: string; qty: number | null; value: number | null; origin: string | null; suggestion?: { code: string; status: string } };
@@ -39,7 +40,7 @@ export function ExportView({ broker }: { broker: string }) {
     <div className="mx-auto max-w-5xl space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Export</h1>
+          <h1 className="flex items-center gap-1.5 text-2xl font-semibold tracking-tight">Export <Info id="export" /></h1>
           <p className="text-sm text-muted-foreground">
             Codes as a CSV for your declaration software: DE 6/14 (8 digits) and DE 6/15 (TARIC) split out. No retyping.
           </p>

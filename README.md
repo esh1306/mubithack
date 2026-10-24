@@ -36,6 +36,9 @@ Scripts run on Node through `bun run script scripts/<name>.mts`, because better-
 - `ping-mubit.mts`: one test call through Mubit
 - `pull-tariff.mts`: re-pull the tariff seed from the UK Trade Tariff API
 - `test-tricky.mts`: run the 24 tricky items in `docs/tricky-items.md` through the agent
+- `warm-up.mts [broker]`: send all 60 sample lines through a broker's Mubit task, so its adapter has varied examples to train on
+
+Sample invoices live in `data/samples/`: 6 suppliers, 10 lines each, all selectable from **Load sample invoice ▾** in the app.
 
 ## Mubit notes
 

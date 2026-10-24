@@ -6,7 +6,8 @@ import { Separator } from "@/components/ui/separator";
 import { Code } from "@/components/code";
 import { Button } from "@/components/ui/button";
 import { FixForm } from "@/components/fix-form";
-import { PencilLine } from "lucide-react";
+import { Info } from "@/components/info";
+import { Check, PencilLine } from "lucide-react";
 
 export type Suggestion = {
   id: number;
@@ -45,10 +46,12 @@ export function ReceiptSheet({
   row,
   onClose,
   onFix,
+  onApprove,
 }: {
   row: { text: string; suggestion?: Suggestion } | null;
   onClose: () => void;
   onFix: (suggestion: Suggestion, code: string, reason: string) => void;
+  onApprove: (suggestion: Suggestion) => void;
 }) {
   const s = row?.suggestion;
   const code = s?.code;
@@ -78,7 +81,9 @@ export function ReceiptSheet({
         {s && (
           <>
             <SheetHeader>
-              <SheetDescription>Receipt</SheetDescription>
+              <SheetDescription className="flex items-center gap-1">
+                Receipt <Info id="receipt" />
+              </SheetDescription>
               <SheetTitle className="text-base leading-snug">{row!.text}</SheetTitle>
             </SheetHeader>
 
@@ -101,7 +106,17 @@ export function ReceiptSheet({
                     <dd className="font-medium">{s.model}</dd>
                   </div>
                 </dl>
-                {!fixing && s.status !== "corrected" && (
+                {!fixing && s.status === "pending" && (
+                  <div className="flex gap-2 pt-2">
+                    <Button size="sm" onClick={() => onApprove(s)}>
+                      <Check /> Approve this code
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setFixing(true)}>
+                      <PencilLine /> Fix this code
+                    </Button>
+                  </div>
+                )}
+                {!fixing && s.status === "approved" && (
                   <Button variant="outline" size="sm" className="mt-2" onClick={() => setFixing(true)}>
                     <PencilLine /> Fix this code
                   </Button>
@@ -112,6 +127,7 @@ export function ReceiptSheet({
                 <div className="rounded-lg border p-4">
                   <FixForm
                     currentCode={s.code}
+                    toolCalls={s.toolCalls}
                     onCancel={() => setFixing(false)}
                     onSubmit={(newCode, reason) => {
                       setFixing(false);
@@ -125,6 +141,7 @@ export function ReceiptSheet({
 
               <section className="space-y-3">
                 <h3 className="text-sm font-medium">How the agent got there</h3>
+                {calls.length === 0 && <p className="text-xs text-muted-foreground">Set by the broker, not the agent.</p>}
                 <ol className="space-y-3">
                   {calls.map((c, i) => (
                     <li key={i} className="flex gap-3 text-sm">
@@ -146,7 +163,9 @@ export function ReceiptSheet({
               <Separator />
 
               <section className="space-y-2">
-                <h3 className="text-sm font-medium">Sent through Mubit</h3>
+                <h3 className="flex items-center gap-1 text-sm font-medium">
+                  Sent through Mubit <Info id="mubit" />
+                </h3>
                 <p className="text-xs text-muted-foreground">{mreqs.length} model calls, each recorded by Mubit for this broker&apos;s task.</p>
                 <ul className="space-y-1 font-mono text-xs text-muted-foreground">
                   {mreqs.map((m) => <li key={m}>{m}</li>)}

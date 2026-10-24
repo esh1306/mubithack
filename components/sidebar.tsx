@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { ChevronsUpDown, ScanLine, BookMarked, History, Download, Check, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Info } from "@/components/info";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,7 +43,7 @@ export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker
           <ChevronsUpDown className="size-4 text-muted-foreground" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">
-          <DropdownMenuLabel className="text-xs text-muted-foreground">Brokers</DropdownMenuLabel>
+          <DropdownMenuLabel className="text-xs text-muted-foreground">Brokers · each has its own precedents and Mubit task</DropdownMenuLabel>
           <DropdownMenuSeparator />
           {brokers.map((b) => (
             <DropdownMenuItem key={b.id} onSelect={() => router.push(`/${b.id}/${section}`)}>
@@ -54,6 +55,9 @@ export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker
       </DropdownMenu>
 
       <nav className="flex flex-col gap-0.5">
+        <p className="flex items-center gap-1 px-2 pb-1 text-xs text-muted-foreground">
+          Workspace <Info id="brokers" side="right" />
+        </p>
         {NAV.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}

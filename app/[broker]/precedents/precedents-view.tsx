@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Code } from "@/components/code";
+import { Info } from "@/components/info";
 
 type Precedent = {
   id: number;
@@ -36,7 +37,7 @@ export function PrecedentsView({ broker }: { broker: string }) {
   return (
     <div className="mx-auto max-w-4xl space-y-8">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Precedents</h1>
+        <h1 className="flex items-center gap-1.5 text-2xl font-semibold tracking-tight">Precedents <Info id="precedents" /></h1>
         <p className="text-sm text-muted-foreground">
           Every fix your team makes, with the reason. The AI checks these first, for this broker only.
         </p>
