@@ -149,3 +149,40 @@
     @apply font-sans;
   }
 }
+
+.landing {
+  overflow-x: clip;
+}
+
+.landing-display {
+  font-family: var(--font-serif-display), ui-serif, Georgia, serif;
+  font-size: clamp(3.4rem, 15vw, 12rem);
+  line-height: 0.84;
+  letter-spacing: -0.048em;
+  font-weight: 400;
+}
+
+.landing-reveal {
+  opacity: 0;
+  transform: translate3d(0, 2.25rem, 0);
+  transition:
+    opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.landing-reveal.is-on {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  html.lenis,
+  html.lenis body {
+    height: auto;
+  }
+}

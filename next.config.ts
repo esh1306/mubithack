@@ -1,10 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Every page reads live SQLite data, so no prerendering (Cache Components off).
-  async redirects() {
-    return [{ source: "/", destination: "/harbourline/home", permanent: false }];
-  },
+  // App pages under /[broker] read live SQLite. The landing page at / is static.
   turbopack: {
     rules: {
       "*.css": {

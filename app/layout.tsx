@@ -21,7 +21,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Precedent",
-  description: "Customs codes that learn from your own corrections.",
+  description: "Teach a commodity code once. It remembers — for that broker only.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
