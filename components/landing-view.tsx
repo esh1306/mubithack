@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ReactLenis, useLenis } from "lenis/react";
 import "lenis/dist/lenis.css";
 import { Wordmark } from "@/components/mark";
+import { registerLandingMotion, wireLenisToScrollTrigger } from "@/components/landing-motion";
 import { DEMO_SAMPLE_ID } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 
@@ -103,6 +104,16 @@ function Section({
       </Reveal>
     </section>
   );
+}
+
+function LenisScrollTrigger() {
+  const lenis = useLenis();
+  useEffect(() => {
+    if (!lenis) return;
+    registerLandingMotion();
+    return wireLenisToScrollTrigger(lenis);
+  }, [lenis]);
+  return null;
 }
 
 function ScrollProgress() {
@@ -256,6 +267,7 @@ export function LandingView() {
 
   return (
     <ReactLenis root options={{ autoRaf: true, lerp: 0.09, smoothWheel: true }}>
+      <LenisScrollTrigger />
       <LandingBody />
     </ReactLenis>
   );
