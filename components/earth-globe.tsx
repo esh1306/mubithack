@@ -8,7 +8,6 @@ import {
   DESTINATIONS,
   diveAmount,
   flightAmount,
-  headingDegrees,
   LONDON,
   SHENZHEN,
   TRADE_ARCS,
@@ -17,12 +16,13 @@ import { StaticGlobe } from "@/components/static-globe";
 
 export type EarthApi = {
   setProgress: (t: number) => void;
+  setWhoosh: (t: number) => void;
   pause: () => void;
   resume: () => void;
 };
 
 type LandFeat = { type: string; geometry?: unknown };
-type HtmlPin = { lat: number; lng: number; name: string; sub: string; kind?: string; heading?: number; alt?: number };
+type HtmlPin = { lat: number; lng: number; name: string; sub: string };
 
 function oceanTexture() {
   const c = document.createElement("canvas");
@@ -61,37 +61,46 @@ function stampEl(title: string, sub: string) {
   return el;
 }
 
-function planeEl(heading: number) {
-  const el = document.createElement("div");
-  el.className = "globe-airliner";
-  el.innerHTML = `<img src="/plane-side.webp" alt="" />`;
-  el.style.transform = `rotate(${90 - heading}deg)`;
-  return el;
+function passWheel(el: HTMLElement) {
+  el.style.pointerEvents = "none";
+  el.style.touchAction = "pan-y";
+  for (const canvas of el.querySelectorAll("canvas")) {
+    canvas.style.pointerEvents = "none";
+    canvas.style.touchAction = "pan-y";
+  }
 }
 
 export function EarthGlobe({
   onApi,
+  onReady,
   mobile,
   reduced,
 }: {
   onApi?: (api: EarthApi) => void;
+  onReady?: () => void;
   mobile: boolean;
   reduced: boolean;
 }) {
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const wrap = useRef<HTMLDivElement>(null);
   const progress = useRef(0);
-  const planeNode = useRef<HTMLDivElement | null>(null);
+  const whoosh = useRef(0);
+  const arcShown = useRef(1);
   const [ready, setReady] = useState(false);
   const [size, setSize] = useState({ w: 800, h: 600 });
   const [tex, setTex] = useState<string | null>(null);
   const [land, setLand] = useState<LandFeat[]>([]);
-  const [craft, setCraft] = useState(() => ({
-    lat: SHENZHEN.lat,
-    lng: SHENZHEN.lng,
-    alt: 0.18,
-    heading: headingDegrees(SHENZHEN, LONDON),
-  }));
+  const [arcN, setArcN] = useState(1);
+
+  const spin = (t = whoosh.current) => {
+    const g = globeRef.current;
+    if (!g) return;
+    const controls = g.controls();
+    controls.enableZoom = false;
+    controls.enablePan = false;
+    controls.autoRotate = !reduced;
+    controls.autoRotateSpeed = 0.32 + 0.55 * Math.sin(Math.PI * t);
+  };
 
   useEffect(() => {
     setTex(oceanTexture());
@@ -116,6 +125,7 @@ export function EarthGlobe({
   useEffect(() => {
     const el = wrap.current;
     if (!el) return;
+    passWheel(el);
     const io = new IntersectionObserver(
       ([entry]) => {
         const g = globeRef.current;
@@ -134,22 +144,9 @@ export function EarthGlobe({
     const u = flightAmount(t);
     const d = diveAmount(t);
     const here = alongGreatCircle(SHENZHEN, LONDON, u);
-    const next = alongGreatCircle(SHENZHEN, LONDON, Math.min(1, u + 0.02));
-    const heading = headingDegrees({ ...here, name: "" }, { ...next, name: "" });
-    setCraft({
-      lat: here.lat,
-      lng: here.lng,
-      alt: 0.1 + 0.22 * Math.sin(Math.PI * u),
-      heading,
-    });
-    if (planeNode.current) {
-      planeNode.current.style.transform = `rotate(${90 - heading}deg)`;
-    }
+    spin();
     const g = globeRef.current;
     if (!g) return;
-    const controls = g.controls();
-    controls.autoRotate = t < 0.05 && !reduced;
-    controls.autoRotateSpeed = 0.35;
     if (d <= 0) {
       g.pointOfView(
         {
@@ -171,9 +168,20 @@ export function EarthGlobe({
     }
   };
 
+  const setWhoosh = (t: number) => {
+    whoosh.current = t;
+    spin(t);
+    const n = Math.max(1, Math.ceil(t * TRADE_ARCS.length));
+    if (n !== arcShown.current) {
+      arcShown.current = n;
+      setArcN(n);
+    }
+  };
+
   useEffect(() => {
     onApi?.({
       setProgress: apply,
+      setWhoosh,
       pause: () => globeRef.current?.pauseAnimation(),
       resume: () => globeRef.current?.resumeAnimation(),
     });
@@ -181,7 +189,7 @@ export function EarthGlobe({
 
   const arcs = useMemo(
     () =>
-      TRADE_ARCS.map((a) => ({
+      TRADE_ARCS.slice(0, arcN).map((a) => ({
         startLat: a.start.lat,
         startLng: a.start.lng,
         endLat: a.end.lat,
@@ -190,26 +198,10 @@ export function EarthGlobe({
         dash: a.dash,
         main: a.main,
       })),
-    [],
+    [arcN],
   );
 
   const pins = useMemo<HtmlPin[]>(() => DESTINATIONS.map((d) => ({ ...d, sub: "UK" })), []);
-
-  const htmlData = useMemo<HtmlPin[]>(() => {
-    if (mobile) return pins;
-    return [
-      ...pins,
-      {
-        lat: craft.lat,
-        lng: craft.lng,
-        name: "plane",
-        sub: "",
-        kind: "plane",
-        heading: craft.heading,
-        alt: craft.alt,
-      },
-    ];
-  }, [pins, craft, mobile]);
 
   const rings = useMemo(
     () => DESTINATIONS.map((d, i) => ({ lat: d.lat, lng: d.lng, maxR: 3.2 + i * 0.4, period: 900 + i * 220 })),
@@ -218,14 +210,14 @@ export function EarthGlobe({
 
   if (reduced) {
     return (
-      <div ref={wrap} className="absolute inset-0 grid place-items-center">
+      <div ref={wrap} className="globe-layer absolute inset-0 grid place-items-center">
         <StaticGlobe className={mobile ? "h-[46vw] max-h-[280px] w-[46vw] max-w-[280px]" : "h-[min(72vh,640px)] w-[min(72vh,640px)]"} />
       </div>
     );
   }
 
   return (
-    <div ref={wrap} className="absolute inset-0">
+    <div ref={wrap} className="globe-layer absolute inset-0">
       {!ready && (
         <div className="absolute inset-0 grid place-items-center">
           <StaticGlobe className={mobile ? "h-[46vw] max-h-[280px] w-[46vw] max-w-[280px]" : "h-[min(72vh,640px)] w-[min(72vh,640px)]"} />
@@ -255,36 +247,28 @@ export function EarthGlobe({
           arcDashGap={0.55}
           arcDashAnimateTime={(d: object) => (d as { dash: number }).dash}
           arcAltitudeAutoScale={0.42}
-          arcsTransitionDuration={0}
+          arcsTransitionDuration={600}
           ringsData={rings}
           ringColor={() => (t: number) => `rgba(232,244,255,${0.7 * (1 - t)})`}
           ringMaxRadius="maxR"
           ringPropagationSpeed={2.4}
           ringRepeatPeriod="period"
-          htmlElementsData={htmlData}
+          htmlElementsData={pins}
           htmlLat="lat"
           htmlLng="lng"
-          htmlAltitude={(d: object) => ((d as HtmlPin).kind === "plane" ? ((d as HtmlPin).alt ?? 0.16) : 0.018)}
-          htmlElement={(d) => {
-            const pin = d as HtmlPin;
-            if (pin.kind === "plane") {
-              const el = planeEl(pin.heading ?? craft.heading);
-              planeNode.current = el;
-              return el;
-            }
-            return stampEl(pin.name.toUpperCase(), pin.sub);
-          }}
+          htmlAltitude={0.018}
+          htmlElement={(d) => stampEl((d as HtmlPin).name.toUpperCase(), (d as HtmlPin).sub)}
           htmlTransitionDuration={0}
-          enablePointerInteraction
+          enablePointerInteraction={false}
           onGlobeReady={() => {
             const g = globeRef.current;
             if (!g) return;
-            g.controls().enableZoom = false;
-            g.controls().autoRotate = true;
-            g.controls().autoRotateSpeed = 0.35;
+            spin(0);
             g.pointOfView({ lat: 28, lng: 55, altitude: mobile ? 2.55 : 2.05 }, 0);
+            if (wrap.current) passWheel(wrap.current);
             setReady(true);
             apply(progress.current);
+            onReady?.();
           }}
         />
       )}

@@ -4,7 +4,6 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { SiteNav } from "@/components/site-nav";
 import { StaticGlobe } from "@/components/static-globe";
-import { AirlinerSide } from "@/components/cargo-craft";
 import { PlaneWhoosh } from "@/components/plane-whoosh";
 import { PaperMap } from "@/components/paper-map";
 import { LandingStats } from "@/components/landing-stats";
@@ -12,7 +11,6 @@ import { MubitShowcase } from "@/components/mubit-showcase";
 import { LogoLoop } from "@/components/bits/logo-loop";
 import { HmrcMark, MubitMark, QwenMark, ShopifyMark } from "@/components/partner-marks";
 import { gsap, registerLandingMotion, ScrollTrigger, SplitText } from "@/components/landing-motion";
-import { SCENE_AT, sceneFromProgress } from "@/lib/landing-geo";
 import type { EarthApi } from "@/components/earth-globe";
 
 const EarthGlobe = dynamic(() => import("@/components/earth-globe"), {
@@ -24,7 +22,7 @@ const EarthGlobe = dynamic(() => import("@/components/earth-globe"), {
   ),
 });
 
-function Headline({ show }: { show: boolean }) {
+function Headline() {
   const ref = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -50,7 +48,7 @@ function Headline({ show }: { show: boolean }) {
   }, []);
 
   return (
-    <div className="pointer-events-none max-w-xl transition-opacity duration-500" style={{ opacity: show ? 1 : 0 }}>
+    <div className="pointer-events-none max-w-xl">
       <h1 ref={ref} className="landing-display max-w-[12ch] overflow-visible">
         Code it once.
         <br />
@@ -76,15 +74,9 @@ function Credits() {
 
 export function LandingView() {
   const story = useRef<HTMLElement>(null);
-  const viewport = useRef<HTMLDivElement>(null);
   const earth = useRef<EarthApi | null>(null);
   const [reduce, setReduce] = useState(false);
   const [mobile, setMobile] = useState(false);
-  const [ready, setReady] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [scene, setScene] = useState(0);
-
-  const pinOn = ready && !reduce && !mobile;
 
   useEffect(() => {
     const r = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -92,7 +84,6 @@ export function LandingView() {
     const apply = () => {
       setReduce(r.matches);
       setMobile(n.matches);
-      setReady(true);
     };
     apply();
     r.addEventListener("change", apply);
@@ -104,141 +95,78 @@ export function LandingView() {
   }, []);
 
   useEffect(() => {
-    if (!pinOn) return;
     const root = story.current;
-    const pin = viewport.current;
-    if (!root || !pin) return;
+    if (!root) return;
     registerLandingMotion();
-
     const st = ScrollTrigger.create({
       trigger: root,
       start: "top top",
-      end: "+=720%",
-      pin,
-      pinSpacing: true,
-      scrub: 0.55,
-      anticipatePin: 1,
+      end: "bottom top",
+      scrub: 0.45,
       onUpdate: (self) => {
         earth.current?.setProgress(self.progress);
-        setProgress(self.progress);
-        const s = sceneFromProgress(self.progress);
-        setScene((prev) => (prev === s ? prev : s));
       },
     });
-
-    const go = (dir: number) => {
-      const i = Math.max(0, Math.min(SCENE_AT.length - 1, sceneFromProgress(st.progress) + dir));
-      const y = st.start + (st.end - st.start) * SCENE_AT[i];
-      window.scrollTo({ top: y, behavior: "smooth" });
-    };
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowDown" || e.key === "ArrowRight") {
-        e.preventDefault();
-        go(1);
-      } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
-        e.preventDefault();
-        go(-1);
-      }
-    };
-
-    let startY = 0;
-    const onStart = (e: TouchEvent) => {
-      startY = e.touches[0]?.clientY ?? 0;
-    };
-    const onEnd = (e: TouchEvent) => {
-      const y = e.changedTouches[0]?.clientY ?? startY;
-      const dy = y - startY;
-      if (Math.abs(dy) > 80) go(dy < 0 ? 1 : -1);
-    };
-
-    window.addEventListener("keydown", onKey);
-    pin.addEventListener("touchstart", onStart, { passive: true });
-    pin.addEventListener("touchend", onEnd);
-
-    if (window.location.hash === "#journey") {
-      window.scrollTo({ top: st.start + (st.end - st.start) * 0.5, behavior: "instant" as ScrollBehavior });
-    }
-
+    const refresh = () => ScrollTrigger.refresh();
+    window.addEventListener("load", refresh);
+    requestAnimationFrame(refresh);
     return () => {
-      window.removeEventListener("keydown", onKey);
-      pin.removeEventListener("touchstart", onStart);
-      pin.removeEventListener("touchend", onEnd);
+      window.removeEventListener("load", refresh);
       st.kill();
     };
-  }, [pinOn]);
-
-  const mapOn = pinOn ? progress >= 0.46 : true;
-  const globeFade = pinOn ? (progress < 0.46 ? 1 : Math.max(0, 1 - (progress - 0.46) / 0.08)) : 1;
-  const showHead = !pinOn || scene <= 1;
+  }, []);
 
   return (
     <div className="landing">
       <SiteNav current="home" overlay />
-      <section ref={story} className="relative">
-        <div ref={viewport} className="relative isolate min-h-[100svh] overflow-hidden">
-          <div className="absolute inset-0" style={{ opacity: globeFade }}>
-            <EarthGlobe
-              mobile={mobile}
-              reduced={reduce}
-              onApi={(api) => {
-                earth.current = api;
-              }}
-            />
-          </div>
-          <PlaneWhoosh reduced={reduce} />
-          {pinOn && (
-            <div
-              id="journey"
-              className="absolute inset-0 z-20 flex flex-col justify-end px-5 pb-8 pt-28 sm:px-8 lg:px-10"
-              style={{
-                opacity: mapOn ? 1 : 0,
-                pointerEvents: mapOn ? "auto" : "none",
-              }}
-            >
-              <p className="landing-kicker text-[#FDE68A]">Store to sandbox</p>
-              <h2 className="landing-display mt-2 max-w-[16ch] overflow-visible">The parcel&apos;s journey.</h2>
-              <div className="mt-5 max-h-[min(64vh,620px)]">
-                <PaperMap mobile={false} reduced={false} progress={progress} />
-              </div>
-            </div>
-          )}
-          <div
-            className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#1236A8]/80 via-[#1E4FD8]/30 to-transparent"
-            aria-hidden
+      <section ref={story} className="landing-hero relative min-h-[100svh]">
+        <div className="absolute inset-0">
+          <EarthGlobe
+            mobile={mobile}
+            reduced={reduce}
+            onApi={(api) => {
+              earth.current = api;
+            }}
+            onReady={() => {
+              registerLandingMotion();
+              ScrollTrigger.refresh();
+            }}
           />
-          <div
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#0F2A6B] to-transparent"
-            aria-hidden
-          />
-          <div className="pointer-events-none relative z-30 flex min-h-[100svh] flex-col">
-            <div className="relative flex flex-1 flex-col justify-center px-5 pb-8 pt-28 sm:px-8 lg:px-10">
-              <Headline show={showHead} />
-              {mobile && (
-                <div className="mt-8 flex justify-end">
-                  <AirlinerSide className="w-36 cargo-drift sm:w-44" />
-                </div>
-              )}
-            </div>
-            <p className="px-5 pb-5 text-[11px] font-medium uppercase tracking-[0.16em] text-foreground/50 sm:px-8 lg:px-10">
-              {pinOn ? "Scroll · the map unrolls" : "Shenzhen → London"}
-            </p>
+        </div>
+        <PlaneWhoosh
+          reduced={reduce}
+          onFlight={(t) => {
+            earth.current?.setWhoosh(t);
+          }}
+        />
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#1236A8]/80 via-[#1E4FD8]/30 to-transparent"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#0F2A6B] to-transparent"
+          aria-hidden
+        />
+        <div className="pointer-events-none relative z-30 flex min-h-[100svh] flex-col">
+          <div className="relative flex flex-1 flex-col justify-center px-5 pb-8 pt-28 sm:px-8 lg:px-10">
+            <Headline />
           </div>
+          <p className="px-5 pb-5 text-[11px] font-medium uppercase tracking-[0.16em] text-foreground/50 sm:px-8 lg:px-10">
+            Shenzhen → London
+          </p>
         </div>
       </section>
 
-      {ready && !pinOn && (
-        <section id="journey" className="relative z-20 border-t border-white/10 px-5 py-16 sm:px-8 lg:px-10">
-          <p className="landing-kicker text-[#FDE68A]">Store to sandbox</p>
-          <h2 className="landing-display mt-2 max-w-[16ch] overflow-visible">The parcel&apos;s journey.</h2>
-          <p className="mt-3 max-w-xl text-[15px] font-medium text-foreground/75">
-            Pins drop in order from the Shopify store to the HMRC sandbox.
-          </p>
-          <div className="mt-8">
-            <PaperMap mobile reduced={reduce} progress={1} />
-          </div>
-        </section>
-      )}
+      <section id="journey" className="relative z-20 border-t border-white/10 px-5 py-16 sm:px-8 lg:px-10">
+        <p className="landing-kicker text-[#FDE68A]">Store to sandbox</p>
+        <h2 className="landing-display mt-2 max-w-[16ch] overflow-visible">The parcel&apos;s journey.</h2>
+        <p className="mt-3 max-w-xl text-[15px] font-medium text-foreground/75">
+          Pins drop in order from the Shopify store to the HMRC sandbox.
+        </p>
+        <div className="mt-8">
+          <PaperMap mobile={mobile} reduced={reduce} progress={1} />
+        </div>
+      </section>
 
       <LandingStats />
       <MubitShowcase />

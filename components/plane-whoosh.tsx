@@ -1,64 +1,142 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { AirlinerBanking } from "@/components/cargo-craft";
 import { gsap, registerLandingMotion } from "@/components/landing-motion";
 
-/** Intro whoosh: banking airliner enters off-screen, banks, scales for depth, leaves a contrail. */
-export function PlaneWhoosh({ reduced }: { reduced: boolean }) {
-  const root = useRef<HTMLDivElement>(null);
+const PATH = "M -16 88 C 14 80, 26 62, 42 48 S 70 30, 122 4";
+
+/** Banking airliner: off-screen → across the globe → off-screen. Never parked. */
+export function PlaneWhoosh({
+  reduced,
+  onFlight,
+}: {
+  reduced: boolean;
+  onFlight?: (t: number) => void;
+}) {
+  const stage = useRef<HTMLDivElement>(null);
+  const mover = useRef<HTMLDivElement>(null);
+  const path = useRef<SVGPathElement>(null);
+  const flight = useRef(onFlight);
+  flight.current = onFlight;
 
   useEffect(() => {
-    const el = root.current;
-    if (!el || reduced) return;
+    const stageEl = stage.current;
+    const moverEl = mover.current;
+    const pathEl = path.current;
+    if (!stageEl || !moverEl || !pathEl) return;
     registerLandingMotion();
-    const trail = el.querySelector<HTMLElement>("[data-trail]");
-    const streak = el.querySelector<HTMLElement>("[data-streak]");
-    const craft = el.querySelector<HTMLElement>("[data-craft]");
-    const tl = gsap.timeline();
-    gsap.set(el, { x: "-52vw", y: "42vh", scale: 0.26, rotate: -34, opacity: 0 });
-    gsap.set(craft, { rotate: -6, filter: "blur(1.2px)" });
-    tl.to(el, { opacity: 1, duration: 0.1, ease: "none" }, 0);
-    tl.to(
-      el,
-      { x: "6vw", y: "14vh", scale: 1.38, rotate: -10, duration: 0.72, ease: "power3.out" },
-      0,
-    );
-    tl.to(craft, { rotate: 4, filter: "blur(0px)", duration: 0.72, ease: "power2.out" }, 0);
-    if (trail) {
-      tl.fromTo(
-        trail,
-        { scaleX: 0.12, opacity: 0 },
-        { scaleX: 1.15, opacity: 0.95, duration: 0.38, ease: "power2.out" },
-        0.04,
+
+    let dead = false;
+    const craft = moverEl.querySelector<HTMLElement>("[data-craft]");
+    const trail = moverEl.querySelector<HTMLElement>("[data-trail]");
+    const img = moverEl.querySelector("img");
+    const duration = reduced ? 0.85 : 4.4;
+
+    const place = (t: number, scale: number) => {
+      gsap.set(moverEl, {
+        motionPath: {
+          path: pathEl,
+          align: pathEl,
+          alignOrigin: [0.5, 0.5],
+          autoRotate: 12,
+          start: t,
+          end: t,
+        },
+      });
+      if (craft) gsap.set(craft, { scale });
+    };
+
+    const run = () => {
+      if (dead || !moverEl || !pathEl) return;
+      moverEl.dataset.whooshState = "flying";
+      place(0, 0.52);
+      gsap.set(moverEl, { opacity: 0 });
+      if (trail) gsap.set(trail, { opacity: 0, scaleX: 0.15 });
+
+      const tl = gsap.timeline({
+        repeat: reduced ? 0 : -1,
+        repeatDelay: reduced ? 0 : 7.6,
+        defaults: { ease: "power2.inOut" },
+      });
+
+      const flightT = { t: 0 };
+      tl.to(moverEl, { opacity: 1, duration: Math.min(0.28, duration * 0.12) }, 0);
+      tl.to(
+        flightT,
+        {
+          t: 1,
+          duration,
+          ease: "power2.inOut",
+          onUpdate: () => {
+            const p = flightT.t;
+            if (craft) gsap.set(craft, { scale: 0.5 + 0.62 * Math.sin(Math.PI * p) });
+            flight.current?.(p);
+          },
+        },
+        0,
       );
-    }
-    if (streak) {
-      tl.fromTo(
-        streak,
-        { scaleX: 0.2, opacity: 0 },
-        { scaleX: 1, opacity: 0.7, duration: 0.42, ease: "power2.out" },
-        0.08,
+      tl.to(
+        moverEl,
+        {
+          motionPath: {
+            path: pathEl,
+            align: pathEl,
+            alignOrigin: [0.5, 0.5],
+            autoRotate: 12,
+            start: 0,
+            end: 1,
+          },
+          duration,
+          ease: "power2.inOut",
+          onComplete() {
+            moverEl.dataset.whooshState = "done";
+            flight.current?.(1);
+          },
+        },
+        0,
       );
+      if (trail) {
+        tl.to(trail, { opacity: 0.85, scaleX: 1, duration: Math.min(0.55, duration * 0.2), ease: "sine.out" }, 0.08);
+        tl.to(trail, { opacity: 0, duration: 0.35, ease: "power2.in" }, duration - 0.4);
+      }
+      tl.to(moverEl, { opacity: 0, duration: 0.32, ease: "power2.in" }, duration - 0.36);
+      tl.add(() => {
+        place(1, 0.32);
+        flight.current?.(0);
+      });
+
+      return tl;
+    };
+
+    let tl: gsap.core.Timeline | undefined;
+    const start = () => {
+      if (dead) return;
+      tl = run();
+    };
+
+    if (img && !img.complete) {
+      void img.decode().then(start).catch(start);
+    } else {
+      start();
     }
-    tl.to(el, { x: "46vw", y: "24vh", scale: 1.02, rotate: 12, duration: 0.62, ease: "power2.inOut" });
-    if (craft) tl.to(craft, { rotate: -10, duration: 0.62, ease: "power2.inOut" }, "<");
-    tl.to(el, { x: "122vw", y: "2vh", scale: 0.34, rotate: 5, opacity: 0, duration: 0.52, ease: "power2.in" });
-    if (trail) tl.to(trail, { opacity: 0, duration: 0.28 }, "<");
-    if (streak) tl.to(streak, { opacity: 0, duration: 0.24 }, "<");
+
     return () => {
-      tl.kill();
+      dead = true;
+      tl?.kill();
+      flight.current?.(0);
     };
   }, [reduced]);
 
-  if (reduced) return null;
-
   return (
-    <div ref={root} className="plane-whoosh" aria-hidden>
-      <div data-trail className="plane-whoosh-trail" />
-      <div data-streak className="plane-whoosh-streak" />
-      <div data-craft className="plane-whoosh-craft">
-        <AirlinerBanking className="w-[min(58vw,22rem)] sm:w-[24rem]" />
+    <div ref={stage} className="plane-whoosh-stage" aria-hidden>
+      <svg className="plane-whoosh-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <path ref={path} id="landing-whoosh-path" d={PATH} fill="none" />
+      </svg>
+      <div ref={mover} className="plane-whoosh-mover" data-whoosh-plane data-whoosh-state="ready">
+        <div data-craft className="plane-whoosh-craft">
+          <div data-trail className="plane-whoosh-trail" />
+          <img src="/plane-banking.webp" alt="" draggable={false} />
+        </div>
       </div>
     </div>
   );
