@@ -95,12 +95,12 @@ function Section({
   return (
     <section id={id} className="flex min-h-[100svh] flex-col justify-center px-5 py-28 sm:px-10 md:px-16 lg:px-20">
       <Reveal>
-        <p className="mb-6 flex items-baseline gap-4 text-[11px] font-medium uppercase tracking-[0.22em] text-primary">
+        <p className="landing-kicker mb-5 flex items-baseline gap-4 text-primary">
           <span className="tabular-nums">{num}</span>
           <span>{kicker}</span>
         </p>
         <h2 className="landing-display max-w-[16ch]">{title}</h2>
-        <div className="mt-10 max-w-xl text-pretty text-lg leading-relaxed text-muted-foreground sm:text-xl">{children}</div>
+        <div className="mt-8 max-w-lg text-pretty text-base leading-snug text-muted-foreground sm:text-lg">{children}</div>
       </Reveal>
     </section>
   );
@@ -165,13 +165,13 @@ function LandingBody() {
       </header>
 
       <section className="flex min-h-[100svh] flex-col justify-end px-5 pb-16 pt-28 sm:px-10 sm:pb-24 md:px-16 lg:px-20">
-        <p className="mb-7 text-[11px] font-medium uppercase tracking-[0.22em] text-primary">A desk for UK brokers</p>
+        <p className="landing-kicker mb-5 text-primary">A desk for UK brokers</p>
         <h1 className="landing-display">
           Teach it
           <br />
           once.
         </h1>
-        <p className="mt-8 font-serif text-2xl italic text-foreground sm:text-3xl">It remembers.</p>
+        <p className="landing-lede mt-6 text-primary">It remembers.</p>
       </section>
 
       <nav
@@ -225,9 +225,9 @@ function LandingBody() {
 
       <section id="try" className="flex min-h-[100svh] flex-col justify-center px-5 py-28 sm:px-10 md:px-16 lg:px-20">
         <Reveal>
-          <p className="mb-6 text-[11px] font-medium uppercase tracking-[0.22em] text-primary">05 · Try it</p>
+          <p className="landing-kicker mb-5 text-primary">05 · Try it</p>
           <h2 className="landing-display max-w-[12ch]">See it remember.</h2>
-          <p className="mt-10 max-w-xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
+          <p className="mt-8 max-w-lg text-base leading-snug text-muted-foreground sm:text-lg">
             Classify a sample invoice, fix the bamboo line, and watch a product this broker has never seen come back
             right. About three minutes.
           </p>

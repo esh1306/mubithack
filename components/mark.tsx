@@ -32,8 +32,12 @@ export function Wordmark({
     <span className={cn("inline-flex items-center gap-[0.5em] text-foreground", className)}>
       <Mark size={size} className={cn("text-primary", markClassName)} />
       <span
-        className="font-medium tracking-[-0.045em]"
-        style={{ fontSize: Math.round(size * 0.72), lineHeight: 1 }}
+        className="font-[800] tracking-[-0.06em]"
+        style={{
+          fontFamily: "var(--font-inter), ui-sans-serif, system-ui, sans-serif",
+          fontSize: Math.round(size * 0.72),
+          lineHeight: 1,
+        }}
       >
         Precedent
       </span>
