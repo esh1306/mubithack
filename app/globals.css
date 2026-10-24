@@ -192,6 +192,24 @@
   overflow: visible !important;
 }
 
+.landing-shine {
+  background: linear-gradient(110deg, var(--foreground) 32%, var(--gold, #e4b86a) 50%, var(--foreground) 68%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: landing-shine 4.5s linear infinite;
+}
+
+@keyframes landing-shine {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -20% 0;
+  }
+}
+
 .landing .wordmark-type {
   font-family: var(--font-display-face), var(--font-display), ui-sans-serif, system-ui, sans-serif !important;
   letter-spacing: 0.08em;
@@ -293,8 +311,13 @@
   .mascot-bob,
   .mascot-blink,
   .mascot-wave,
-  .mascot-shadow {
+  .mascot-shadow,
+  .landing-shine {
     animation: none;
+  }
+  .landing-shine {
+    color: var(--foreground);
+    background: none;
   }
   html.lenis,
   html.lenis body {

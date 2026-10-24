@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { SiteNav } from "@/components/site-nav";
 import { PrecedentMascot } from "@/components/precedent-mascot";
 import { VantaBackdrop } from "@/components/vanta-backdrop";
+import { MubitShowcase } from "@/components/mubit-showcase";
 import { gsap, registerLandingMotion, SplitText } from "@/components/landing-motion";
 
 function Headline() {
@@ -66,6 +67,7 @@ export function LandingView() {
           </div>
         </div>
       </section>
+      <MubitShowcase />
     </div>
   );
 }
