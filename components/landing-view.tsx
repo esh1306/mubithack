@@ -1,11 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ReactLenis, useLenis } from "lenis/react";
 import "lenis/dist/lenis.css";
 import { Wordmark } from "@/components/mark";
 import { DEMO_SAMPLE_ID } from "@/lib/demo";
+import { cn } from "@/lib/utils";
+
+const SECTIONS = [{ id: "problem", num: "01" }] as const;
+const SECTION_IDS = SECTIONS.map((s) => s.id);
 
 const DEMO_HREF = `/harbourline/classify?sample=${DEMO_SAMPLE_ID}&demo=1`;
 const DESK_HREF = "/harbourline/home";
@@ -20,6 +24,79 @@ function usePrefersReducedMotion() {
     return () => m.removeEventListener("change", on);
   }, []);
   return reduce;
+}
+
+function useActiveSection(ids: readonly string[]) {
+  const [active, setActive] = useState(ids[0] ?? "");
+  useEffect(() => {
+    const els = ids.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => !!el);
+    if (els.length === 0) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const on = entries.filter((e) => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (on?.target.id) setActive(on.target.id);
+      },
+      { threshold: [0.25, 0.5, 0.75], rootMargin: "-15% 0px -35% 0px" },
+    );
+    for (const el of els) io.observe(el);
+    return () => io.disconnect();
+  }, [ids]);
+  return active;
+}
+
+function Reveal({ children, className }: { children: React.ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [on, setOn] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setOn(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) setOn(true);
+      },
+      { threshold: 0.16, rootMargin: "0px 0px -10% 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <div ref={ref} className={cn("landing-reveal", on && "is-on", className)}>
+      {children}
+    </div>
+  );
+}
+
+function Section({
+  id,
+  num,
+  kicker,
+  title,
+  children,
+}: {
+  id: string;
+  num: string;
+  kicker: string;
+  title: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section id={id} className="flex min-h-[100svh] flex-col justify-center px-5 py-28 sm:px-10 md:px-16 lg:px-20">
+      <Reveal>
+        <p className="mb-6 flex items-baseline gap-4 text-[11px] font-medium uppercase tracking-[0.22em] text-primary">
+          <span className="tabular-nums">{num}</span>
+          <span>{kicker}</span>
+        </p>
+        <h2 className="landing-display max-w-[16ch]">{title}</h2>
+        <div className="mt-10 max-w-xl text-pretty text-lg leading-relaxed text-muted-foreground sm:text-xl">{children}</div>
+      </Reveal>
+    </section>
+  );
 }
 
 function ScrollProgress() {
@@ -42,9 +119,16 @@ function ScrollProgress() {
 }
 
 function LandingBody() {
+  const active = useActiveSection(SECTION_IDS);
   return (
     <div className="landing bg-background text-foreground">
       <ScrollProgress />
+      <a
+        href="#story"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:bg-background focus:px-3 focus:py-2"
+      >
+        Skip to story
+      </a>
 
       <header className="fixed inset-x-0 top-0 z-40 flex items-center justify-between bg-background/70 px-5 py-5 backdrop-blur-sm sm:px-10 md:px-16 lg:px-20">
         <Link href="/" className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -72,6 +156,33 @@ function LandingBody() {
         </h1>
         <p className="mt-8 font-serif text-2xl italic text-foreground sm:text-3xl">It remembers.</p>
       </section>
+
+      <nav
+        aria-label="On this page"
+        className="pointer-events-none fixed right-5 top-1/2 z-30 hidden -translate-y-1/2 flex-col gap-3 lg:flex"
+      >
+        {SECTIONS.map((s) => (
+          <a
+            key={s.id}
+            href={`#${s.id}`}
+            className={cn(
+              "pointer-events-auto text-[11px] tabular-nums tracking-[0.18em] transition-colors",
+              active === s.id ? "text-primary" : "text-muted-foreground/70 hover:text-foreground",
+            )}
+          >
+            {s.num}
+          </a>
+        ))}
+      </nav>
+
+      <div id="story">
+        <Section id="problem" num="01" kicker="The problem" title={<>17,000 codes.</>}>
+          <p>
+            Every product into the UK needs a 10-digit commodity code. Small brokers pick them by hand. Guess wrong and
+            you face a fine — or duty you already paid and may never get back.
+          </p>
+        </Section>
+      </div>
     </div>
   );
 }
