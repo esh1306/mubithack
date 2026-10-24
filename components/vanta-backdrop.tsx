@@ -42,8 +42,8 @@ export function VantaBackdrop() {
         minWidth: 200,
         scale: 1,
         scaleMobile: 1,
-        color: 0xc43d32,
-        backgroundColor: 0xf5f3ef,
+        color: 0xff4a32,
+        backgroundColor: 0x100e0c,
         points: 10,
         maxDistance: 20,
         spacing: 16,
@@ -68,8 +68,8 @@ export function VantaBackdrop() {
       className="absolute inset-0"
       style={
         fallback
-          ? { background: "radial-gradient(ellipse at 72% 38%, #edd4cd 0%, #f5f3ef 58%)" }
-          : { background: "#f5f3ef" }
+          ? { background: "radial-gradient(ellipse at 72% 38%, #3a1814 0%, #100e0c 58%)" }
+          : { background: "#100e0c" }
       }
     />
   );

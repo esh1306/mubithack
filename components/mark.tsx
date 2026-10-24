@@ -32,7 +32,7 @@ export function Wordmark({
     <span className={cn("inline-flex items-center gap-[0.5em] text-foreground", className)}>
       <Mark size={size} className={cn("text-primary", markClassName)} />
       <span
-        className="font-[800] tracking-[-0.06em]"
+        className="wordmark-type font-[800] tracking-[-0.06em]"
         style={{
           fontFamily: "var(--font-inter), ui-sans-serif, system-ui, sans-serif",
           fontSize: Math.round(size * 0.72),

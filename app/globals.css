@@ -11,7 +11,7 @@
   --font-mono: var(--font-jetbrains);
   --font-heading: var(--font-inter), var(--font-serif);
   --font-serif: var(--font-serif-display);
-  --font-display: var(--font-inter);
+  --font-display: var(--font-display-face, var(--font-inter));
   --shadow-card: var(--card-shadow);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -154,16 +154,36 @@
 .landing {
   overflow-x: clip;
   overflow-y: visible;
+  /* Ink ground, electric stamp, warm gold. Scoped so the desk stays paper. */
+  --background: oklch(0.13 0.012 40);
+  --foreground: oklch(0.96 0.016 85);
+  --card: oklch(0.18 0.014 40);
+  --card-foreground: oklch(0.96 0.016 85);
+  --primary: oklch(0.66 0.24 29);
+  --primary-foreground: oklch(0.14 0.02 40);
+  --secondary: oklch(0.82 0.09 75);
+  --secondary-foreground: oklch(0.16 0.02 40);
+  --muted: oklch(0.22 0.012 40);
+  --muted-foreground: oklch(0.78 0.03 80);
+  --accent: oklch(0.22 0.02 40);
+  --accent-foreground: oklch(0.96 0.016 85);
+  --border: oklch(0.32 0.02 40);
+  --ring: oklch(0.66 0.24 29);
+  --gold: oklch(0.82 0.09 75);
+  color: var(--foreground);
+  background: var(--background);
 }
 
 .landing-display {
-  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  font-size: clamp(2.4rem, 6.6vw, 4.75rem);
-  line-height: 1.18;
-  letter-spacing: -0.06em;
-  font-weight: 900;
-  padding-bottom: 0.22em;
+  font-family: var(--font-display-face), var(--font-display), "Arial Narrow", ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(3.4rem, 12vw, 8rem);
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding-bottom: 0.08em;
   overflow: visible;
+  color: var(--foreground);
 }
 
 /* SplitText wraps glyphs; never let a mask/line-box clip descenders (the g in again.). */
@@ -172,11 +192,17 @@
   overflow: visible !important;
 }
 
+.landing .wordmark-type {
+  font-family: var(--font-display-face), var(--font-display), ui-sans-serif, system-ui, sans-serif !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .landing-kicker {
-  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.6875rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
+  font-family: var(--font-display-face), var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 

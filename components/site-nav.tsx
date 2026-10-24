@@ -29,7 +29,8 @@ export function SiteNav({ current, overlay }: { current?: "home" | "how"; overla
         </Link>
         <Link
           href={DEMO_HREF}
-          className="inline-flex h-9 items-center rounded-md bg-primary px-3.5 font-extrabold tracking-tight text-primary-foreground hover:bg-primary/90"
+          className="inline-flex h-9 items-center rounded-md bg-primary px-3.5 font-extrabold uppercase tracking-[0.08em] text-primary-foreground hover:bg-primary/90"
+          style={{ fontFamily: "var(--font-display-face), var(--font-display), sans-serif" }}
         >
           Try the demo
         </Link>
