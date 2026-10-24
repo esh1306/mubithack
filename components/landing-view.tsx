@@ -8,7 +8,10 @@ import { Wordmark } from "@/components/mark";
 import { DEMO_SAMPLE_ID } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 
-const SECTIONS = [{ id: "problem", num: "01" }] as const;
+const SECTIONS = [
+  { id: "problem", num: "01" },
+  { id: "how", num: "02" },
+] as const;
 const SECTION_IDS = SECTIONS.map((s) => s.id);
 
 const DEMO_HREF = `/harbourline/classify?sample=${DEMO_SAMPLE_ID}&demo=1`;
@@ -180,6 +183,14 @@ function LandingBody() {
           <p>
             Every product into the UK needs a 10-digit commodity code. Small brokers pick them by hand. Guess wrong and
             you face a fine — or duty you already paid and may never get back.
+          </p>
+        </Section>
+
+        <Section id="how" num="02" kicker="How it works" title={<>Correct it once.</>}>
+          <p>
+            Precedent suggests a code and a reason. You fix one line in your own words. That fix is saved as a precedent,
+            and we send paraphrases of it through Mubit on this broker&apos;s task. The next similar product — even one
+            this broker has never seen — comes back with the same code. Each firm&apos;s judgement stays theirs.
           </p>
         </Section>
       </div>
