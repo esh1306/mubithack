@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 const SECTIONS = [
   { id: "problem", num: "01" },
   { id: "how", num: "02" },
+  { id: "receipt", num: "03" },
 ] as const;
 const SECTION_IDS = SECTIONS.map((s) => s.id);
 
@@ -191,6 +192,13 @@ function LandingBody() {
             Precedent suggests a code and a reason. You fix one line in your own words. That fix is saved as a precedent,
             and we send paraphrases of it through Mubit on this broker&apos;s task. The next similar product — even one
             this broker has never seen — comes back with the same code. Each firm&apos;s judgement stays theirs.
+          </p>
+        </Section>
+
+        <Section id="receipt" num="03" kicker="The paper trail" title={<>Every code has a receipt.</>}>
+          <p>
+            When it was decided, which tariff notes were read, which precedent was followed, and the Mubit request IDs.
+            So you can show your work.
           </p>
         </Section>
       </div>
