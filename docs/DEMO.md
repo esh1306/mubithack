@@ -6,7 +6,7 @@ Judges score Mubit use, usefulness, technical execution and the demo equally. Th
 
 1. On the live Mubit deploy (or `bun run demo` locally), open an incognito window.
 2. Sidebar → **Reset demo** (click twice). You land on Home with a clean seeded desk. Never-seen “before” results stay; invoices, fixes and retro findings go.
-3. Confirm Home shows the four tiles (zeros are fine) and **Mubit · Recording** if the key is present, or **No key** if it is not. Do not claim an adapter is live.
+3. Confirm Home shows the four tiles (zeros are fine) and the sidebar **Mubit learning** pill (`N/25`, last request id, Recording or Offline / no key). Do not claim an adapter is live.
 4. Have this reason ready only if the house reason is not pre-filled:
 
    `This supplier's "bamboo" tableware is bamboo fibre bound with melamine resin, so it's kitchenware of plastics (ch. 39), not wood.`
@@ -54,7 +54,7 @@ Guide: **Step 5 · Open retro-scan**. **Scan past entries**. Bamboo in the last 
 
 ## 2:35–3:00 · Close
 
-Integrations if you have ten seconds: live tariff, Excel, Shopify (Off if none connected — never a green “0 connected”), HMRC sandbox.
+Integrations if you have ten seconds: live tariff, Excel, Shopify (setup message if no `SHOPIFY_CLIENT_ID`, else Off if none connected — never a green “0 connected”), HMRC sandbox. CSV product import works without a store (`docs/SHOPIFY.md`).
 
 > “Teach it once. It remembers. Each broker has its own precedents and its own Mubit task. We count examples we sent. Mubit’s console is the source of truth for training. We’re looking for pilot brokers.”
 
