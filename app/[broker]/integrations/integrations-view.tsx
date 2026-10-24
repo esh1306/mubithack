@@ -73,7 +73,7 @@ const Off = ({ children = "Not connected" }: { children?: React.ReactNode }) => 
 export function IntegrationsView({ broker }: { broker: string }) {
   const search = useSearchParams();
 
-  const [tariff, setTariff] = useState<{ codes: number; chapters: number; live: boolean } | null>(null);
+  const [tariff, setTariff] = useState<{ codes: number; chapters: number; live: boolean; mubitKey?: boolean } | null>(null);
   const [lookup, setLookup] = useState("");
   const [lookupResult, setLookupResult] = useState<{ code: string; path: string; dutyRate: string | null }[] | null>(null);
 
@@ -308,9 +308,12 @@ export function IntegrationsView({ broker }: { broker: string }) {
           <p className="text-sm text-muted-foreground">ASM, CargoWise and Descartes import CSV worksheets. Export codes split into DE 6/14 and 6/15.</p>
           <Button variant="outline" asChild><Link href={`/${broker}/export`}>Go to Export</Link></Button>
         </Card>
-        <Card icon={Cpu} title="Mubit" info="mubit" status={<On />}>
-          <p className="text-sm text-muted-foreground">Every model call goes through Mubit, which trains this broker&apos;s own adapter.</p>
-          <Button variant="outline" asChild><Link href={`/${broker}/mubit`}>See calls</Link></Button>
+        <Card icon={Cpu} title="Mubit" info="mubit" status={tariff?.mubitKey ? <On>Key present</On> : <Off>No key</Off>}>
+          <p className="text-sm text-muted-foreground">
+            Every classify call goes through Mubit as this broker&apos;s task. Mubit can train an adapter after about 25 kept examples;
+            this app does not observe whether one is trained or live.
+          </p>
+          <Button variant="outline" asChild><Link href={`/${broker}/mubit`}>See examples sent</Link></Button>
         </Card>
       </div>
     </div>

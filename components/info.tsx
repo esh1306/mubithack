@@ -24,11 +24,11 @@ export const INFO = {
   },
   receipt: {
     title: "Receipts",
-    body: "Every code shows how the agent got there: which precedents it found, which tariff codes it compared, the duty rate, and the Mubit request ID for each model call. That's the answer when HMRC asks why.",
+    body: "Every code shows when it was decided, the precedent (if any), which tariff codes the agent compared, the duty rate, and the Mubit request ID for each model call.",
   },
   mubit: {
     title: "Mubit",
-    body: "Mubit sits between the app and the model. It records each broker's calls as a separate task and trains a small, cheap adapter on them. Each adapter is tested against the big model before it's used.",
+    body: "Mubit sits between the app and the model. Each broker's classify calls share one task (same instructions, tools and output). Mubit can train an adapter after about 25 kept examples; this app counts what it sent and cannot see whether an adapter is trained, tested or live.",
   },
   learning: {
     title: "Learning",
@@ -40,7 +40,7 @@ export const INFO = {
   },
   brokers: {
     title: "Brokers",
-    body: "Each broker has its own precedents, its own Mubit task and its own adapter. Switch here to see the same product from the other firm's point of view.",
+    body: "Each broker has its own precedents and its own Mubit task. Switch here to see the same product from the other firm's point of view.",
   },
   precedents: {
     title: "Precedents",
@@ -48,7 +48,7 @@ export const INFO = {
   },
   retroScan: {
     title: "Retro-scan",
-    body: "Re-checks past entries with today's precedents. Overpaid duty can be reclaimed through CDS within 3 years. Underpaid duty, disclosed voluntarily (form C2001) before HMRC finds it, avoids the penalty. 'AI only' findings have no precedent behind them, so check them first.",
+    body: "Re-checks entries from the last 3 years with today's precedents. Overpaid duty (old rate higher) is a reclaim; underpaid duty (e.g. 0% to 6%) is a disclosure. Figures use the third-country rate in force on the import date when the tariff API has it, otherwise today's rate is labelled. £0 rows are not treated as findings.",
   },
   integrations: {
     title: "Integrations",

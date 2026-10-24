@@ -9,6 +9,7 @@
     "lint": "eslint",
     "script": "tsx --env-file-if-exists=.env.local",
     "seed": "tsx scripts/seed.mts",
+    "smoke": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/smoke.mts",
     "demo": "next build && next start"
   },
   "dependencies": {

@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { uk10 } from "@/lib/codes";
 import { possessive } from "@/lib/utils";
 import {
   classifyWithRetry,
@@ -8,13 +9,17 @@ import {
   neverSeenState,
   pool,
   sseResponse,
+  teachVariants,
 } from "@/lib/run";
-
 
 // POST { suggestionId, code, reason } → SSE stream of rail steps, re-classified lines and never-seen results.
 export async function POST(req: Request, { params }: { params: Promise<{ broker: string }> }) {
   const { broker } = await params;
   const { suggestionId, code, reason } = (await req.json()) as { suggestionId: number; code: string; reason: string };
+  const newCode = uk10(code);
+  if (!newCode) {
+    return Response.json({ error: "Corrected code must be 10 digits" }, { status: 400 });
+  }
 
   const original = await db.suggestion.findUniqueOrThrow({ where: { id: suggestionId }, include: { line: true } });
   const line = original.line;
@@ -23,7 +28,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ broker:
   const others = brokers.filter((b) => b.id !== broker);
 
   return sseResponse(async (send) => {
-    const step = (id: "saved" | "batch" | "never-seen" | "others" | "mubit", state: "running" | "done", detail: string) =>
+    const step = (id: "saved" | "batch" | "never-seen" | "others" | "variants" | "mubit", state: "running" | "done", detail: string) =>
       send("step", { id, state, detail });
 
     // Never-seen items that look like the fixed line. Their "before" must exist before the
@@ -38,24 +43,30 @@ export async function POST(req: Request, { params }: { params: Promise<{ broker:
     if (baseline.length) {
       step("saved", "running", `Recording how ${baseline.length} unseen items look before the fix`);
       await pool(baseline, 8, async (j) => {
-        await classifyWithRetry(j.broker, await neverSeenLine(j.broker, j.text));
+        try {
+          await classifyWithRetry(j.broker, await neverSeenLine(j.broker, j.text));
+        } catch {
+          // Baseline failure is persisted as model:error; the rail still continues.
+        }
       });
     }
 
-    // 1. Save the precedent and correct the line.
+    // 1. Save the precedent and correct the line. The broker row is not sent through Mubit —
+    // teaching happens as classify calls on paraphrases (same task) below.
     const precedent = await db.precedent.create({
-      data: { brokerId: broker, lineText: line.text, oldCode: original.code, newCode: code, reason },
+      data: { brokerId: broker, lineText: line.text, oldCode: original.code, newCode, reason },
     });
     const corrected = await db.suggestion.create({
       data: {
         lineId: line.id,
-        code,
+        code: newCode,
         reason: `Corrected by ${me.name}: ${reason}`,
         confidence: 1,
         flagged: false,
         status: "corrected",
         precedentId: precedent.id,
         model: "broker",
+        mubitRequestId: original.mubitRequestId,
         toolCalls: "[]",
       },
     });
@@ -106,8 +117,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ broker:
     step("never-seen", "done", items.length ? `${mineDone} unseen products re-run with precedent #${precedent.id}` : "No similar unseen products to try");
     step("others", "done", items.length ? `${others.map((o) => o.name).join(", ")} re-run without it` : "Nothing to compare");
 
-    // 5. What Mubit saw for this broker's task.
+    // 5. Teach the same Mubit task with paraphrases of the corrected line (not the gold in the user message).
+    step("variants", "running", "Sending paraphrased examples through Mubit");
+    const taught = await teachVariants(broker, { id: precedent.id, lineText: line.text, newCode });
+    mubitCalls += taught.requestIds.length;
+    step(
+      "variants",
+      "done",
+      taught.skipped === "no-key"
+        ? "No Mubit key — precedent saved; paraphrased examples were not sent"
+        : `Sent ${taught.sent} paraphrases through Mubit; ${taught.matched} came back as ${newCode}`,
+    );
+
     step("mubit", "done", `${mubitCalls} calls recorded by Mubit in ${possessive(me.name)} task`);
-    send("summary", { precedentId: precedent.id, items: items.map((i) => i.text) });
+    send("summary", {
+      precedentId: precedent.id,
+      items: items.map((i) => i.text),
+      variants: taught,
+    });
   });
 }

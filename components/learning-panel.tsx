@@ -19,6 +19,7 @@ export const RAIL_TEMPLATE: RailStep[] = [
   { id: "batch", state: "waiting", detail: "Re-check similar lines in this invoice" },
   { id: "never-seen", state: "waiting", detail: "Try products it has never seen" },
   { id: "others", state: "waiting", detail: "Check other brokers are unaffected" },
+  { id: "variants", state: "waiting", detail: "Send paraphrased examples through Mubit" },
   { id: "mubit", state: "waiting", detail: "Record the calls in Mubit" },
 ];
 

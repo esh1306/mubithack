@@ -11,5 +11,5 @@ export async function GET() {
     });
     live = res.ok;
   } catch {}
-  return Response.json({ codes, chapters, live });
+  return Response.json({ codes, chapters, live, mubitKey: Boolean(process.env.MUBIT_API_KEY?.trim()) });
 }

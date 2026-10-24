@@ -21,6 +21,7 @@ export type Suggestion = {
   mubitRequestId: string | null; // JSON array of mreq_ ids
   model: string;
   toolCalls: string; // JSON array of { tool, input, output }
+  createdAt?: string;
 };
 
 type ToolCall = { tool: string; input: Record<string, unknown>; output: unknown };
@@ -46,13 +47,17 @@ function summarise(c: ToolCall) {
   return "";
 }
 
+type Precedent = { id: number; lineText: string; oldCode: string; newCode: string; reason: string };
+
 export function ReceiptSheet({
   row,
+  broker,
   onClose,
   onFix,
   onApprove,
 }: {
   row: { text: string; suggestion?: Suggestion } | null;
+  broker?: string;
   onClose: () => void;
   onFix: (suggestion: Suggestion, code: string, reason: string) => void;
   onApprove: (suggestion: Suggestion) => void;
@@ -61,10 +66,20 @@ export function ReceiptSheet({
   const code = s?.code;
   const [fixing, setFixing] = useState(false);
   const [tariff, setTariff] = useState<{ code: string; path: string; dutyRate: string | null } | null>(null);
+  const [precedent, setPrecedent] = useState<Precedent | null>(null);
 
   useEffect(() => {
     if (code) fetch(`/api/tariff/${code}`).then((r) => (r.ok ? r.json() : null)).then(setTariff);
   }, [code]);
+  useEffect(() => {
+    if (!broker || !s?.precedentId) {
+      setPrecedent(null);
+      return;
+    }
+    fetch(`/api/${broker}/precedents`)
+      .then((r) => r.json())
+      .then((list: Precedent[]) => setPrecedent(list.find((p) => p.id === s.precedentId) ?? null));
+  }, [broker, s?.precedentId]);
   // Only show tariff details that belong to the code on screen.
   const info = tariff?.code === code ? tariff : null;
 
@@ -106,10 +121,25 @@ export function ReceiptSheet({
                     <dd className="font-medium">{Math.round(s.confidence * 100)}%</dd>
                   </div>
                   <div>
-                    <dt className="text-xs text-muted-foreground">Model</dt>
-                    <dd className="font-medium">{s.model}</dd>
+                    <dt className="text-xs text-muted-foreground">Decided</dt>
+                    <dd className="font-medium">
+                      {s.createdAt
+                        ? new Date(s.createdAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })
+                        : "—"}
+                    </dd>
                   </div>
                 </dl>
+                <p className="text-xs text-muted-foreground">Model · {s.model}</p>
+                {precedent && (
+                  <div className="rounded-md border border-border/70 bg-muted/40 p-3 text-sm">
+                    <p className="text-xs text-muted-foreground">Precedent #{precedent.id}</p>
+                    <p className="mt-1 font-medium">{precedent.lineText}</p>
+                    <p className="mt-1 font-serif italic leading-snug text-foreground/80">“{precedent.reason}”</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {precedent.oldCode} → {precedent.newCode}
+                    </p>
+                  </div>
+                )}
                 {!fixing && s.status === "pending" && (
                   <div className="flex gap-2 pt-2">
                     <Button size="sm" onClick={() => onApprove(s)}>
@@ -170,7 +200,11 @@ export function ReceiptSheet({
                 <h3 className="flex items-center gap-1.5 font-serif text-xl">
                   Sent through Mubit <Info id="mubit" />
                 </h3>
-                <p className="text-xs text-muted-foreground">{mreqs.length} model calls, each recorded by Mubit for this broker&apos;s task.</p>
+                <p className="text-xs text-muted-foreground">
+                  {s.status === "corrected"
+                    ? `${mreqs.length} request IDs from the original classify this correction replaced. The correction itself was not sent as a new answer (that would train Mubit on the mistake).`
+                    : `${mreqs.length} model calls, each recorded by Mubit for this broker's task.`}
+                </p>
                 <ul className="space-y-1 font-mono text-xs text-muted-foreground">
                   {mreqs.map((m) => <li key={m}>{m}</li>)}
                 </ul>

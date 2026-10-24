@@ -71,7 +71,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   const [composing, setComposing] = useState(false);
   const [paste, setPaste] = useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("review");
+  const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState(0);
   const [receipt, setReceipt] = useState<Row | null>(null);
   const [inlineFix, setInlineFix] = useState<Row | null>(null);
@@ -116,13 +116,11 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   useEffect(() => {
     // State is set after the fetches resolve, not synchronously; the lint rule can't see that.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadBatch(batchParam).then((rs) => {
+    loadBatch(batchParam).then(() => {
       try {
         const saved = localStorage.getItem(railKey(broker));
         setRail(saved ? JSON.parse(saved) : null);
       } catch {}
-      // Land on what needs review if there is any, otherwise everything.
-      setFilter(rs.some((r) => statusOf(r) === "review") ? "review" : "all");
     });
     loadBatches();
     fetch("/api/never-seen").then((r) => r.json()).then(setItems);
@@ -660,6 +658,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
 
       <ReceiptSheet
         row={receipt}
+        broker={broker}
         onClose={() => setReceipt(null)}
         onFix={fix}
         onApprove={(sg) => {

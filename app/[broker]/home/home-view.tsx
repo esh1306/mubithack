@@ -93,11 +93,37 @@ export function HomeView({ broker, brokerName }: { broker: string; brokerName: s
       </header>
 
       {empty && (
-        <Empty icon={Inbox} title="No invoices yet">
-          Drop in a supplier invoice on the{" "}
-          <Link href={`/${broker}/classify`} className="text-primary underline-offset-4 hover:underline">Inbox</Link>, or start with a sample. Every
-          line gets a 10-digit code, a reason and a receipt.
-        </Empty>
+        <div className="grid items-start gap-6 lg:grid-cols-5">
+          <div className="lg:col-span-3">
+            <Empty icon={Inbox} title="No invoices yet">
+              Drop in a supplier invoice on the{" "}
+              <Link href={`/${broker}/classify`} className="text-primary underline-offset-4 hover:underline">Inbox</Link>, or start with a sample. Every
+              line gets a 10-digit code, a reason and a receipt.
+            </Empty>
+          </div>
+          {d && (
+            <Panel className="lg:col-span-2" title="Connected" description="Where codes come from and where they go.">
+              <ul className="divide-y divide-border/70 border-t border-border/70">
+                {[
+                  ["HMRC Customs Declarations", d.connected.hmrc ? <Status key="h" tone="good">Signed in</Status> : <Status key="h" tone="idle">Not signed in</Status>],
+                  ["Client stores · Shopify", <Status key="s" tone={d.connected.stores ? "good" : "idle"}>{d.connected.stores} of {d.connected.clients} clients</Status>],
+                  ["UK Trade Tariff", <Status key="t" tone="good">{d.connected.tariffCodes.toLocaleString()} codes</Status>],
+                  ["Mubit", d.connected.mubit ? <Status key="m" tone="good">Recording</Status> : <Status key="m" tone="bad">No key</Status>],
+                ].map(([label, status]) => (
+                  <li key={label as string} className="flex items-center justify-between gap-3 px-6 py-3.5">
+                    <span>{label}</span>
+                    {status}
+                  </li>
+                ))}
+              </ul>
+              <div className="border-t border-border/70 px-6 py-3.5">
+                <Link href={`/${broker}/integrations`} className={linkMore}>
+                  Manage integrations <ArrowRight className="size-3.5" />
+                </Link>
+              </div>
+            </Panel>
+          )}
+        </div>
       )}
 
       {d && !empty && (

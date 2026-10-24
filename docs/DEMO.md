@@ -29,7 +29,7 @@
   - The **chopsticks and chopping board stay** wood. It didn't over-learn.
   - **Northgate's column doesn't change.** Each broker has its own model.
 
-> "One fix, products it had never seen come back right, and it's private to this broker. In Mubit, that's this broker's own task, which trains a small, cheap adapter."
+> "One fix, products it had never seen come back right, and it's private to this broker. The same fix is sent through Mubit as paraphrased examples on this broker's task, so they count toward adapter training."
 
 ## 4. Retro-scan (40s)
 
@@ -57,10 +57,11 @@
 - **A line fails:** click **Retry** (each line already retries up to 3 times).
 - **Mubit is slow:** keep talking through the receipt, because the lines keep streaming in.
 - **The flip doesn't happen:** the rule still applies the precedent when the agent repeats the corrected code. Re-run with **Learning** open.
-- **Asked about adapters:** "Mubit groups each broker's calls into its own task and trains an adapter once it has enough reviewed examples. We hit their daily review limit tonight; they're raising it."
+- **Asked about adapters:** "Mubit groups each broker's calls into its own task and can train an adapter after about 25 kept examples. Tonight you are seeing the precedent the agent searches, plus the examples we sent. We have not served an adapter in the app."
 
 ## Be accurate on stage
 
-- The model is Claude Haiku 4.5 through Mubit's proxy. The adapter is trained by Mubit; we haven't served it in the app yet.
-- Codes are suggestions: the broker approves every one. Duty figures use third-country rates from the live tariff.
+- The model is Claude Haiku 4.5 through Mubit's proxy. This app does not observe whether an adapter is trained, tested or live, and it does not serve one.
+- Codes are suggestions: the broker approves every one. Duty figures use the third-country rate in force on the import date when available, otherwise today's rate and we say so.
+- Bamboo at 0% re-coded to 6% is **disclose** (underpaid), not reclaim.
 - The HMRC submission goes to the **sandbox**, not live CDS.

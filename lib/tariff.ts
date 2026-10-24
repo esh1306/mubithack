@@ -1,36 +1,31 @@
 import { db } from "@/lib/db";
-import { importHeading, liveDuty, liveSearch } from "@/lib/tariff-live";
+import { heading4, uk10 } from "@/lib/codes";
+import { buildIndex, diversifyByHs6, rankLeaves, type LeafIndex } from "@/lib/retrieve";
+import { rewriteQuery } from "@/lib/rewrite";
+import { dutyAsOf, importHeading, liveDuty, liveSearch } from "@/lib/tariff-live";
 
-const STOP = new Set(["and", "or", "of", "the", "for", "with", "not", "other", "a", "an", "in", "to"]);
+export { dutyAsOf };
 
-// Lower-case words with simple plural stripping, so "plates" matches "plate".
-function words(text: string) {
-  return text
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((w) => w.length > 2 && !STOP.has(w))
-    .map((w) => (/(ss|x|ch|sh)es$/.test(w) ? w.slice(0, -2) : w.length > 3 && w.endsWith("s") && !w.endsWith("ss") ? w.slice(0, -1) : w));
+let cached: { count: number; index: LeafIndex } | null = null;
+
+async function leafIndex(): Promise<LeafIndex> {
+  const count = await db.tariff.count();
+  if (!cached || cached.count !== count) {
+    cached = { count, index: buildIndex(await db.tariff.findMany()) };
+  }
+  return cached.index;
 }
 
-type Row = { code: string; path: string; description: string; dutyRate: string | null };
-
-function scoreRows(rows: Row[], q: string[]) {
-  return rows
-    .map((r) => {
-      const w = words(r.path);
-      const leaf = new Set(words(r.description));
-      const hit = (x: string) => w.some((y) => y === x || y.startsWith(x));
-      // Every query word found counts; one found in the leaf's own text counts a little more.
-      const score = q.filter(hit).length * 2 + q.filter((x) => leaf.has(x)).length;
-      return { r, score };
-    })
-    .filter((x) => x.score > 0)
-    .sort((a, b) => b.score - a.score || a.r.code.localeCompare(b.r.code));
+async function ensureHeadings(codes: string[]) {
+  const headings = [...new Set(codes.map((c) => heading4(c)).filter((h) => h.length === 4))];
+  for (const h of headings.slice(0, 6)) await importHeading(h);
 }
 
-// Search by words (scored against the full "heading > ... > leaf" path) or by a 2/4/6-digit number.
-// Falls back to the live UK Trade Tariff when the local copy has nothing, and keeps what it finds.
-export async function searchTariff({ query, number, limit = 10 }: { query?: string; number?: string; limit?: number }) {
+// Search by words (BM25 + HS6 diversity, optional tariff-language rewrite) or by a 2/4/6-digit number.
+// Without a Mubit key or embeddings this is keyword-only, with query expansion so "bamboo" still
+// surfaces plastics/melamine tableware as well as wood. Falls back to the live UK Trade Tariff
+// when the local copy is thin, and keeps what it finds.
+export async function searchTariff({ query, number, limit = 24 }: { query?: string; number?: string; limit?: number }) {
   if (number) {
     let rows = await db.tariff.findMany({ where: { code: { startsWith: number } }, take: 40, orderBy: { code: "asc" } });
     if (rows.length === 0 && number.length >= 4) {
@@ -39,33 +34,42 @@ export async function searchTariff({ query, number, limit = 10 }: { query?: stri
     }
     return rows.map(({ code, path, dutyRate }) => ({ code, path, dutyRate }));
   }
-  const q = words(query ?? "");
-  if (q.length === 0) return [];
+  const q = (query ?? "").trim();
+  if (!q) return [];
 
-  let scored = scoreRows(await db.tariff.findMany(), q);
-  let liveIds: string[] = [];
-  if (scored.length < 3) {
-    liveIds = await liveSearch(query!);
-    scored = scoreRows(await db.tariff.findMany(), q);
+  const hint = await rewriteQuery(q);
+  if (hint?.hs6?.length) await ensureHeadings(hint.hs6);
+
+  let index = await leafIndex();
+  let ranked = rankLeaves(index, q, hint);
+  const groups = new Set(diversifyByHs6(ranked, 10, 3).map((c) => c.hs6));
+  const guessed = (hint?.hs6 ?? []).map((h) => h.slice(0, 6));
+  const missingGuess = guessed.some((g) => g.length >= 6 && ![...groups].some((h) => h.startsWith(g.slice(0, 4))));
+
+  if (groups.size < 3 || missingGuess) {
+    await liveSearch(hint?.goods || q);
+    if (guessed.length) await ensureHeadings(guessed);
+    cached = null;
+    index = await leafIndex();
+    ranked = rankLeaves(index, q, hint);
   }
-  // Codes the live search matched directly come first.
-  const live = liveIds.length
-    ? await db.tariff.findMany({ where: { code: { in: liveIds } } })
-    : [];
-  const merged = [...live, ...scored.map((s) => s.r)].filter((r, i, all) => all.findIndex((x) => x.code === r.code) === i);
-  return merged.slice(0, limit).map((r) => ({ code: r.code, path: r.path, dutyRate: r.dutyRate }));
+
+  return diversifyByHs6(ranked, 10, 3)
+    .slice(0, limit)
+    .map(({ code, path, dutyRate }) => ({ code, path, dutyRate }));
 }
 
 export async function getCommodity(code: string) {
-  let row = await db.tariff.findUnique({ where: { code } });
-  if (!row) {
-    await importHeading(code.slice(0, 4));
-    row = await db.tariff.findUnique({ where: { code } });
+  const id = uk10(code) ?? code.replace(/\D/g, "");
+  let row = await db.tariff.findUnique({ where: { code: id } });
+  if (!row && id.length >= 4) {
+    await importHeading(id.slice(0, 4));
+    row = await db.tariff.findUnique({ where: { code: id } });
   }
   if (!row) return { error: `${code} is not a declarable code in the tariff` };
   if (!row.dutyRate) {
-    const dutyRate = await liveDuty(code);
-    if (dutyRate) row = await db.tariff.update({ where: { code }, data: { dutyRate } });
+    const dutyRate = await liveDuty(id);
+    if (dutyRate) row = await db.tariff.update({ where: { code: id }, data: { dutyRate } });
   }
   const chapter = await db.chapter.findUnique({ where: { id: row.chapter } });
   return {

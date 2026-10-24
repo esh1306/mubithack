@@ -1,10 +1,17 @@
 import { db } from "@/lib/db";
-import { classifyWithRetry, pool, RETRO_BATCH, sseResponse } from "@/lib/run";
+import { compareDuty, formatDutyTrail, isMoneyFinding, withinThreeYears, type DutyMaths } from "@/lib/duty";
+import { hasMubitKey } from "@/lib/mubit";
+import { isSimilar } from "@/lib/retrieve";
+import { classifyWithRetry, pool, retroLine, sseResponse } from "@/lib/run";
+import { dutyAsOf } from "@/lib/tariff";
 
-// "6.00%" → 0.06. Specific duties (e.g. "£0.20 / items") can't be compared by value, so null.
-function adValorem(rate: string | null | undefined) {
-  const m = rate?.match(/^([\d.]+)\s*%$/);
-  return m ? Number(m[1]) / 100 : null;
+function parseMaths(raw: string | null): DutyMaths | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as DutyMaths;
+  } catch {
+    return null;
+  }
 }
 
 async function entriesWithFindings(broker: string) {
@@ -13,7 +20,40 @@ async function entriesWithFindings(broker: string) {
     include: { findings: { orderBy: { id: "desc" }, take: 1 } },
     orderBy: { entryDate: "asc" },
   });
-  return entries.map(({ findings, ...e }) => ({ ...e, finding: findings[0] ?? null }));
+  return entries.map(({ findings, ...e }) => {
+    const f = findings[0] ?? null;
+    return {
+      ...e,
+      inWindow: withinThreeYears(e.entryDate),
+      finding: f
+        ? {
+            suggestedCode: f.suggestedCode,
+            direction: f.direction,
+            dutyDelta: f.dutyDelta,
+            reason: f.reason,
+            maths: parseMaths(f.maths),
+            trail: parseMaths(f.maths) ? formatDutyTrail(parseMaths(f.maths)!) : null,
+          }
+        : null,
+    };
+  });
+}
+
+async function suggestCode(broker: string, text: string, precedents: { id: number; lineText: string; newCode: string; reason: string }[]) {
+  const local = precedents.find((p) => isSimilar(p.lineText, text) || isSimilar(p.reason, text));
+  if (!hasMubitKey()) {
+    return local
+      ? { code: local.newCode, reason: local.reason, precedentId: local.id }
+      : { code: null as string | null, reason: "No Mubit key — only precedents can re-code a line.", precedentId: null as number | null };
+  }
+  const line = await retroLine(broker, text);
+  try {
+    const { suggestion } = await classifyWithRetry(broker, line);
+    return { code: suggestion.code, reason: suggestion.reason, precedentId: suggestion.precedentId };
+  } catch (e) {
+    if (local) return { code: local.newCode, reason: `${local.reason} (classify failed; used precedent #${local.id})`, precedentId: local.id };
+    throw e;
+  }
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ broker: string }> }) {
@@ -22,43 +62,56 @@ export async function GET(_req: Request, { params }: { params: Promise<{ broker:
 }
 
 // POST → SSE: re-classifies each distinct past item once (with today's precedents), then
-// compares duty paid with the duty the suggested code would have charged.
+// compares duty paid with the duty the suggested code would have charged on the import date.
 export async function POST(_req: Request, { params }: { params: Promise<{ broker: string }> }) {
   const { broker } = await params;
-  const entries = await db.pastEntry.findMany({ where: { brokerId: broker } });
+  const all = await db.pastEntry.findMany({ where: { brokerId: broker } });
+  const entries = all.filter((e) => withinThreeYears(e.entryDate));
+  const skipped = all.length - entries.length;
   const texts = [...new Set(entries.map((e) => e.text))];
+  const precedents = await db.precedent.findMany({ where: { brokerId: broker }, orderBy: { id: "desc" } });
 
   return sseResponse(async (send) => {
     await db.retroFinding.deleteMany({ where: { pastEntry: { brokerId: broker } } });
-    send("progress", { done: 0, total: texts.length });
+    send("progress", { done: 0, total: texts.length, skipped });
 
     let done = 0;
     await pool(texts, 6, async (text) => {
       try {
-        const line = await db.line.create({ data: { brokerId: broker, batchId: RETRO_BATCH, text } });
-        const { suggestion } = await classifyWithRetry(broker, line);
-        const tariff = await db.tariff.findUnique({ where: { code: suggestion.code } });
-        const rate = adValorem(tariff?.dutyRate);
-
+        const suggestion = await suggestCode(broker, text, precedents);
         for (const e of entries.filter((x) => x.text === text)) {
-          const same = suggestion.code === e.declaredCode;
-          const shouldPay = rate === null ? null : Math.round(e.customsValue * rate * 100) / 100;
-          const delta = same || shouldPay === null ? 0 : Math.round((shouldPay - e.dutyPaid) * 100) / 100;
-          const direction = same ? "same" : shouldPay === null ? "check" : delta > 0.5 ? "under" : delta < -0.5 ? "over" : "same";
+          const suggestedCode = suggestion.code ?? e.declaredCode;
+          const [declared, suggested] = await Promise.all([dutyAsOf(e.declaredCode, e.entryDate), dutyAsOf(suggestedCode, e.entryDate)]);
+          const maths = compareDuty({
+            entryDate: e.entryDate,
+            customsValue: e.customsValue,
+            dutyPaid: e.dutyPaid,
+            declaredCode: e.declaredCode,
+            declaredRate: declared.rate,
+            suggestedCode,
+            suggestedRate: suggested.rate,
+            rateAsOf: e.entryDate,
+            rateSource: suggested.source,
+          });
+          const money = isMoneyFinding(maths);
           await db.retroFinding.create({
             data: {
               pastEntryId: e.id,
-              suggestedCode: suggestion.code,
-              direction,
-              dutyDelta: delta,
-              reason: suggestion.reason + (suggestion.precedentId ? ` (precedent #${suggestion.precedentId})` : ""),
+              suggestedCode,
+              direction: money ? maths.direction : maths.direction === "check" ? "check" : "same",
+              dutyDelta: money ? maths.delta : 0,
+              reason:
+                (suggestion.reason || "Same code") +
+                (suggestion.precedentId ? ` (precedent #${suggestion.precedentId})` : "") +
+                (suggestion.code ? "" : " (declared code kept)"),
+              maths: JSON.stringify(maths),
             },
           });
         }
       } catch (e) {
         send("job-error", { text, message: (e as Error).message });
       }
-      send("progress", { done: ++done, total: texts.length });
+      send("progress", { done: ++done, total: texts.length, skipped });
       send("entries", await entriesWithFindings(broker));
     });
   });
