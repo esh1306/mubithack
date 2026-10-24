@@ -35,7 +35,11 @@ const TOOL_LABEL: Record<string, string> = {
 function summarise(c: ToolCall) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const out = c.output as any;
-  if (c.tool === "search_precedents") return Array.isArray(out) && out.length ? `${out.length} found: #${out.map((p: { id: number }) => p.id).join(", #")}` : "None found";
+  if (c.tool === "search_precedents") {
+    // Older receipts stored a bare array; newer ones { precedents, note }.
+    const found: { id: number }[] = Array.isArray(out) ? out : out?.precedents ?? [];
+    return found.length ? `${found.length} found: #${found.map((p) => p.id).join(", #")}` : "None found";
+  }
   if (c.tool === "search_tariff") return Array.isArray(out) ? `${out.length} candidate codes` : "";
   if (c.tool === "get_commodity") return out?.error ?? out?.path?.split(" > ").slice(-2).join(" › ");
   if (c.tool === "ask_client") return "Recorded";

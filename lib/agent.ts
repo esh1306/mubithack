@@ -49,7 +49,15 @@ export async function classifyLine(brokerId: string, lineText: string) {
           },
           take: 10,
         });
-        return rows.map(({ id, lineText, oldCode, newCode, reason }) => ({ id, lineText, wrongCode: oldCode, correctCode: newCode, reason }));
+        // How to use them goes in the result, not the system prompt: changing the prompt would start a new Mubit task.
+        if (rows.length === 0) return { precedents: [], note: "No precedents match. Classify from the tariff." };
+        return {
+          precedents: rows.map(({ id, lineText, oldCode, newCode, reason }) => ({ id, lineText, wrongCode: oldCode, correctCode: newCode, reason })),
+          note:
+            "These are this broker's binding decisions. If a precedent's reason covers this product (same kind of goods, same supplier or client fact), " +
+            "treat the fact it states as known: use its correctCode heading and do not ask the client about that fact. " +
+            "If the product differs in what the reason depends on (for example real wood rather than a resin composite), ignore it.",
+        };
       },
     }),
     search_tariff: tool({
@@ -90,6 +98,27 @@ export async function classifyLine(brokerId: string, lineText: string) {
   const log: ToolCallLog[] = res.steps.flatMap((s) =>
     s.toolResults.map((r) => ({ tool: r.toolName, input: r.input, output: r.output })),
   );
+
+  // A broker's fix is a promise that the same mistake isn't made again. If the agent found a precedent
+  // for this line and still landed on the exact code that precedent corrected, apply the correction.
+  type Found = { id: number; wrongCode: string; correctCode: string; reason: string };
+  const found: Found[] = log
+    .filter((c) => c.tool === "search_precedents")
+    .flatMap((c) => ((c.output as { precedents?: Found[] })?.precedents ?? []));
+  const repeat = found.find((p) => p.wrongCode === res.output.code && p.correctCode !== res.output.code);
+  if (repeat) {
+    return {
+      code: repeat.correctCode,
+      reason: `Applied precedent #${repeat.id}: ${repeat.reason} (the agent's first answer, ${res.output.code}, is the code this precedent corrected.)`,
+      confidence: Math.max(res.output.confidence, 0.9),
+      precedentId: repeat.id,
+      question: null,
+      flagged: false,
+      model: MODEL_ID,
+      mubitRequestIds: res.steps.map((s) => mubitRequestId(s.response.headers)).filter(Boolean) as string[],
+      toolCalls: log,
+    };
+  }
 
   return {
     ...res.output,
