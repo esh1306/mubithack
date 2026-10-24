@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { possessive } from "@/lib/utils";
 import {
   classifyWithRetry,
   isSimilar,
@@ -106,7 +107,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ broker:
     step("others", "done", items.length ? `${others.map((o) => o.name).join(", ")} re-run without it` : "Nothing to compare");
 
     // 5. What Mubit saw for this broker's task.
-    step("mubit", "done", `${mubitCalls} calls recorded by Mubit in ${me.name}'s task`);
+    step("mubit", "done", `${mubitCalls} calls recorded by Mubit in ${possessive(me.name)} task`);
     send("summary", { precedentId: precedent.id, items: items.map((i) => i.text) });
   });
 }

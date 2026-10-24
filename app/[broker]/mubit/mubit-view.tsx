@@ -5,6 +5,7 @@ import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Code } from "@/components/code";
+import { possessive } from "@/lib/utils";
 import { PageHeader, Stat } from "@/components/page";
 
 type Data = {
@@ -33,7 +34,7 @@ export function MubitView({ broker }: { broker: string }) {
       <PageHeader
         title="Mubit"
         info="mubit"
-        description={<>{d.broker}&apos;s own task in Mubit: every call this broker sends, grouped so a small adapter can be trained on it.</>}
+        description={<>{possessive(d.broker)} own task in Mubit: every call this broker sends, grouped so a small adapter can be trained on it.</>}
         actions={
           <Button variant="outline" asChild>
             <a href="https://app.mubit.ai/console/" target="_blank" rel="noreferrer">
@@ -51,7 +52,7 @@ export function MubitView({ broker }: { broker: string }) {
       </div>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold">Why this is one task</h2>
+        <h2 className="font-serif text-[22px]">Why this is one task</h2>
         <p className="text-sm text-muted-foreground">
           Mubit groups calls with the same model, instructions, tools and output format. Only the broker&apos;s name changes in the
           instructions, so each broker trains its own adapter. Changing the prompt, tools or model would start a new task.
@@ -65,7 +66,7 @@ export function MubitView({ broker }: { broker: string }) {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold">Where the calls came from</h2>
+        <h2 className="font-serif text-[22px]">Where the calls came from</h2>
         <div className="grid gap-3 sm:grid-cols-3">
           {Object.entries(d.bySource).map(([k, v]) => (
             <Stat key={k} label={k} value={v.calls} context={`${v.lines} lines`} />
@@ -74,8 +75,8 @@ export function MubitView({ broker }: { broker: string }) {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold">Latest calls</h2>
-        <ul className="divide-y overflow-hidden rounded-lg border bg-card">
+        <h2 className="font-serif text-[22px]">Latest calls</h2>
+        <ul className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70 bg-card shadow-card">
           {d.recent.map((r, i) => (
             <li key={i} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 text-sm">
               <div className="min-w-0">

@@ -66,13 +66,20 @@ export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker
   const [resetting, setResetting] = useState(false);
 
   return (
-    <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col gap-5 border-r bg-sidebar px-2.5 py-3">
+    <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col gap-6 border-r border-sidebar-border bg-sidebar px-3.5 py-6">
+      <Link href={`/${current.id}/home`} className="px-2 font-serif text-[28px] leading-none tracking-tight">
+        Precedent
+      </Link>
+
       <DropdownMenu>
-        <DropdownMenuTrigger className="flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left outline-none hover:bg-sidebar-accent">
-          <span className="flex size-6 shrink-0 items-center justify-center rounded bg-primary text-[11px] font-semibold text-primary-foreground">
+        <DropdownMenuTrigger className="flex min-w-0 items-center gap-3 rounded-xl border border-sidebar-border bg-card px-3 py-2.5 text-left shadow-card outline-none hover:bg-card/80">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary font-serif text-lg text-primary-foreground">
             {current.name[0]}
           </span>
-          <span className="flex-1 truncate text-[13px] font-medium">{current.name}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs text-muted-foreground">Broker</span>
+            <span className="block text-[15px] font-medium leading-snug">{current.name}</span>
+          </span>
           <ChevronsUpDown className="size-3.5 text-muted-foreground" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-60">
@@ -93,27 +100,27 @@ export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker
       <button
         type="button"
         onClick={openCommandMenu}
-        className="flex items-center gap-2 rounded-md border bg-background/40 px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
       >
         <Search className="size-3.5" />
         <span className="flex-1 text-left">Search or jump to…</span>
         <Kbd>⌘K</Kbd>
       </button>
 
-      <nav className="flex flex-col gap-4">
+      <nav className="flex flex-col gap-5">
         {NAV.map((g) => (
           <div key={g.group} className="space-y-0.5">
-            <p className="px-2 pb-1 text-[11px] font-medium text-muted-foreground/70">{g.group}</p>
+            <p className="px-3 pb-1.5 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">{g.group}</p>
             {g.items.map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}
                 href={`/${current.id}/${href}`}
                 className={cn(
-                  "flex items-center gap-2 rounded-md px-2 py-1 text-[13px] text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground",
-                  section === href && "bg-sidebar-accent font-medium text-foreground",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-[15px] text-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-foreground",
+                  section === href && "bg-card font-medium text-foreground shadow-card",
                 )}
               >
-                <Icon className="size-4" />
+                <Icon className={cn("size-[18px]", section === href ? "text-primary" : "text-muted-foreground")} />
                 {label}
               </Link>
             ))}
@@ -137,16 +144,14 @@ export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker
             window.location.reload();
           }}
           className={cn(
-            "flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+            "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
             confirmReset && "bg-bad/15 text-bad hover:bg-bad/20 hover:text-bad",
           )}
         >
           <RotateCcw className="size-3.5" />
           {resetting ? "Resetting…" : confirmReset ? "Click again to reset demo" : "Reset demo"}
         </button>
-        <p className="px-1.5 text-[11px] text-muted-foreground/70">
-          <span className="font-semibold text-muted-foreground">Precedent</span> · teach it once
-        </p>
+        <p className="px-3 font-serif text-[15px] italic text-muted-foreground">Teach it once. It remembers.</p>
       </div>
 
       <CommandMenu broker={current.id} brokers={brokers} />

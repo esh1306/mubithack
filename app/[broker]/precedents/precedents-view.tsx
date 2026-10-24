@@ -52,21 +52,21 @@ export function PrecedentsView({ broker }: { broker: string }) {
         </div>
       )}
 
-      <ul className="space-y-3">
+      <ul className="space-y-4">
         {list?.map((p) => (
-          <li key={p.id} className="rounded-lg border bg-card p-4">
+          <li key={p.id} className="rounded-xl border border-border/70 bg-card p-6 shadow-card">
             <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0 space-y-2">
+              <div className="min-w-0 space-y-3">
                 <p className="text-xs text-muted-foreground">
                   #{p.id} · {new Date(p.createdAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
                 </p>
-                <p className="font-medium">{p.lineText}</p>
+                <p className="text-[17px] font-medium">{p.lineText}</p>
                 <div className="flex items-center gap-2 text-sm">
                   <Code code={p.oldCode} className="line-through opacity-50" />
                   <ArrowRight className="size-3.5 text-primary" />
                   <Code code={p.newCode} className="text-primary" />
                 </div>
-                <p className="text-sm text-muted-foreground">“{p.reason}”</p>
+                <p className="font-serif text-[20px] italic leading-snug text-foreground/80">“{p.reason}”</p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-2">
                 <span className="text-xs text-muted-foreground">

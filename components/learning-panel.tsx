@@ -4,7 +4,7 @@ import { Check, Loader2, X, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Code } from "@/components/code";
 import { Info } from "@/components/info";
-import { cn } from "@/lib/utils";
+import { cn, possessive } from "@/lib/utils";
 
 export type RailStep = { id: string; state: "waiting" | "running" | "done"; detail: string };
 
@@ -48,18 +48,18 @@ export function LearningPanel({
   const others = brokers.filter((b) => b.id !== broker);
 
   return (
-    <aside className="fixed inset-y-0 right-0 z-30 flex w-[34rem] max-w-full flex-col border-l bg-background shadow-xl">
-      <header className="flex items-center justify-between border-b px-5 py-4">
+    <aside className="fixed inset-y-0 right-0 z-30 flex w-[34rem] max-w-full flex-col border-l border-border/70 bg-card shadow-2xl">
+      <header className="flex items-start justify-between border-b border-border/70 px-6 py-5">
         <div>
-          <h2 className="flex items-center gap-1 text-sm font-semibold">Learning <Info id="learning" /></h2>
-          <p className="text-xs text-muted-foreground">One fix, applied to products {me?.name} has never seen.</p>
+          <h2 className="flex items-center gap-1.5 font-serif text-[28px] leading-none">Learning <Info id="learning" /></h2>
+          <p className="mt-1.5 text-sm text-muted-foreground">One fix, applied to products {me?.name} has never seen.</p>
         </div>
         <Button size="icon" variant="ghost" onClick={onClose}>
           <X />
         </Button>
       </header>
 
-      <div className="flex-1 space-y-8 overflow-y-auto px-5 py-5">
+      <div className="flex-1 space-y-8 overflow-y-auto px-6 py-6">
         <ol className="space-y-3">
           {(rail ?? RAIL_TEMPLATE).map((s, i) => (
             <li key={s.id} className="flex items-start gap-3">
@@ -73,21 +73,21 @@ export function LearningPanel({
               >
                 {s.state === "waiting" ? i + 1 : <StepIcon state={s.state} />}
               </span>
-              <p className={cn("pt-0.5 text-sm", s.state === "waiting" && "text-muted-foreground")}>{s.detail}</p>
+              <p className={cn("pt-0.5 text-[15px]", s.state === "waiting" && "text-muted-foreground")}>{s.detail}</p>
             </li>
           ))}
         </ol>
 
         <section className="space-y-3">
           <div className="flex items-baseline justify-between">
-            <h3 className="flex items-center gap-1 text-sm font-semibold">Never-seen products <Info id="neverSeen" side="left" /></h3>
+            <h3 className="flex items-center gap-1.5 font-serif text-xl">Never-seen products <Info id="neverSeen" side="left" /></h3>
             {preparing && (
               <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Loader2 className="size-3 animate-spin" /> Preparing baseline…
               </span>
             )}
           </div>
-          <div className="overflow-hidden rounded-lg border">
+          <div className="overflow-hidden rounded-xl border border-border/70">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-xs text-muted-foreground">
                 <tr>
@@ -141,7 +141,7 @@ export function LearningPanel({
             </table>
           </div>
           <p className="text-xs text-muted-foreground">
-            Struck-through codes are what the AI said before the fix. Other brokers never see {me?.name}&apos;s precedents.
+            Struck-through codes are what the AI said before the fix. Other brokers never see {me ? possessive(me.name) : "this broker\u2019s"} precedents.
           </p>
         </section>
       </div>

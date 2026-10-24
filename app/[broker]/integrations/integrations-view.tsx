@@ -31,13 +31,13 @@ function Card({ icon: Icon, title, info, status, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-4 rounded-lg border bg-card p-5">
+    <section className="space-y-4 rounded-xl border border-border/70 bg-card p-6 shadow-card">
       <header className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <span className="flex size-8 items-center justify-center rounded-md bg-muted">
-            <Icon className="size-4" />
+          <span className="flex size-10 items-center justify-center rounded-full bg-muted">
+            <Icon className="size-[18px]" />
           </span>
-          <h2 className="flex items-center gap-1 font-medium">
+          <h2 className="flex items-center gap-1.5 font-serif text-[22px] leading-tight">
             {title} {info && <Info id={info} />}
           </h2>
         </div>
@@ -133,7 +133,7 @@ export function IntegrationsView({ broker }: { broker: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-5">
       <PageHeader
         title="Integrations"
         info="integrations"

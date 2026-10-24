@@ -178,14 +178,14 @@ export function ClientsView({ broker }: { broker: string }) {
 
       <ul className="space-y-3">
         {clients?.map((c) => (
-          <li key={c.id} className="space-y-3 rounded-lg border bg-card p-4">
+          <li key={c.id} className="space-y-3 rounded-xl border border-border/70 bg-card p-6 shadow-card">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <span className="flex size-8 items-center justify-center rounded-md bg-muted">
                   <Building2 className="size-4" />
                 </span>
                 <div>
-                  <p className="font-medium">{c.name}</p>
+                  <p className="font-serif text-[22px] leading-tight">{c.name}</p>
                   <p className="text-xs text-muted-foreground">
                     EORI <span className="font-mono">{c.eori ?? "not set"}</span> · {c.invoices} invoices · {c.lines} lines
                   </p>

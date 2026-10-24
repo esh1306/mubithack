@@ -81,17 +81,17 @@ export function ReceiptSheet({
         }
       }}
     >
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+      <SheetContent className="w-full overflow-y-auto bg-card sm:max-w-xl">
         {s && (
           <>
             <SheetHeader>
               <SheetDescription className="flex items-center gap-1">
                 Receipt <Info id="receipt" />
               </SheetDescription>
-              <SheetTitle className="text-base leading-snug">{row!.text}</SheetTitle>
+              <SheetTitle className="font-serif text-[28px] font-normal leading-tight">{row!.text}</SheetTitle>
             </SheetHeader>
 
-            <div className="space-y-6 px-4 pb-8">
+            <div className="space-y-7 px-6 pb-10">
               <div className="space-y-2">
                 <Code code={s.code} className="text-2xl" />
                 <p className="text-sm text-muted-foreground">{info?.path ?? "…"}</p>
@@ -144,7 +144,7 @@ export function ReceiptSheet({
               <Separator />
 
               <section className="space-y-3">
-                <h3 className="text-sm font-medium">How the agent got there</h3>
+                <h3 className="font-serif text-xl">How the agent got there</h3>
                 {calls.length === 0 && <p className="text-xs text-muted-foreground">Set by the broker, not the agent.</p>}
                 <ol className="space-y-3">
                   {calls.map((c, i) => (
@@ -167,7 +167,7 @@ export function ReceiptSheet({
               <Separator />
 
               <section className="space-y-2">
-                <h3 className="flex items-center gap-1 text-sm font-medium">
+                <h3 className="flex items-center gap-1.5 font-serif text-xl">
                   Sent through Mubit <Info id="mubit" />
                 </h3>
                 <p className="text-xs text-muted-foreground">{mreqs.length} model calls, each recorded by Mubit for this broker&apos;s task.</p>

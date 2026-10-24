@@ -100,19 +100,19 @@ export function RetroScanView({ broker }: { broker: string }) {
       )}
 
       {scanned && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-lg border bg-card p-5">
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div className="rounded-xl border border-border/70 bg-card p-6 shadow-card">
             <p className="text-sm text-muted-foreground">Overpaid · reclaim</p>
-            <p className="mt-1 text-3xl font-semibold tabular-nums">{gbp(sum(over))}</p>
-            <p className="text-xs text-muted-foreground">{over.length} entries · CDS repayment claim, within 3 years</p>
+            <p className="mt-2 font-serif text-[44px] leading-none tabular-nums">{gbp(sum(over))}</p>
+            <p className="mt-2 text-sm text-muted-foreground">{over.length} entries · CDS repayment claim, within 3 years</p>
             <Button size="sm" variant="outline" className="mt-4" disabled={!over.length} onClick={() => setPack("over")}>
               <FileText /> Claim pack
             </Button>
           </div>
-          <div className="rounded-lg border bg-card p-5">
+          <div className="rounded-xl border border-border/70 bg-card p-6 shadow-card">
             <p className="text-sm text-muted-foreground">Underpaid · disclose</p>
-            <p className="mt-1 text-3xl font-semibold tabular-nums">{gbp(sum(under))}</p>
-            <p className="text-xs text-muted-foreground">{under.length} entries · voluntary disclosure avoids the penalty</p>
+            <p className="mt-2 font-serif text-[44px] leading-none tabular-nums">{gbp(sum(under))}</p>
+            <p className="mt-2 text-sm text-muted-foreground">{under.length} entries · voluntary disclosure avoids the penalty</p>
             <Button size="sm" variant="outline" className="mt-4" disabled={!under.length} onClick={() => setPack("under")}>
               <FileText /> Disclosure pack
             </Button>
@@ -120,7 +120,7 @@ export function RetroScanView({ broker }: { broker: string }) {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -145,7 +145,7 @@ export function RetroScanView({ broker }: { broker: string }) {
                     {!f ? (
                       <span className="text-xs text-muted-foreground">—</span>
                     ) : changed ? (
-                      <div className="space-y-1">
+                      <div className="flex flex-col items-start gap-1">
                         <Code code={f.suggestedCode} className="text-xs text-primary" />
                         <SourceBadge reason={f.reason} />
                       </div>

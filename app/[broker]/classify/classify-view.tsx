@@ -339,17 +339,17 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   });
 
   return (
-    <div className={cn("-mx-8 -my-7 flex h-screen", panelOpen && "lg:pr-[34rem]")}>
+    <div className={cn("-mx-12 -my-10 flex min-h-screen", panelOpen && "lg:pr-[34rem]")}>
       {/* Invoices */}
-      <aside className="flex w-64 shrink-0 flex-col border-r">
-        <div className="flex items-center justify-between px-3 py-3">
-          <p className="text-[13px] font-medium">Invoices</p>
-          <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setComposing(true)} disabled={busy}>
+      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-border/70">
+        <div className="flex items-end justify-between px-5 pb-4 pt-10">
+          <h2 className="font-serif text-[28px] leading-none">Invoices</h2>
+          <Button size="sm" onClick={() => setComposing(true)} disabled={busy}>
             <Plus /> New
           </Button>
         </div>
-        <ul className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-3">
-          {batches.length === 0 && <li className="px-2 py-6 text-center text-xs text-muted-foreground">No invoices yet</li>}
+        <ul className="flex-1 space-y-1 overflow-y-auto px-3 pb-6">
+          {batches.length === 0 && <li className="px-3 py-8 text-center text-sm text-muted-foreground">No invoices yet</li>}
           {batches.map((b) => (
             <li key={b.batchId}>
               <button
@@ -360,12 +360,12 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
                   router.replace(`/${broker}/classify?batch=${b.batchId}`);
                 }}
                 className={cn(
-                  "w-full rounded-md px-2 py-1.5 text-left hover:bg-accent/60",
-                  b.batchId === batchId && !composing && "bg-accent",
+                  "w-full rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-accent/60",
+                  b.batchId === batchId && !composing && "bg-card shadow-card hover:bg-card",
                 )}
               >
-                <p className="truncate text-[13px] font-medium">{b.client ?? "No client"}</p>
-                <p className="text-[11px] text-muted-foreground">
+                <p className={cn("truncate text-[15px]", b.client ? "font-medium" : "italic text-muted-foreground")}>{b.client ?? "Unassigned invoice"}</p>
+                <p className="text-sm text-muted-foreground">
                   {b.lines} lines · {when(b.createdAt)}
                 </p>
               </button>
@@ -375,14 +375,15 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
       </aside>
 
       {/* Main */}
-      <section className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-3">
-          <div className="min-w-0">
-            <h1 className="flex items-center gap-1.5 text-[15px] font-semibold">
-              {showCompose ? "New invoice" : batchClient ?? "Invoice"} <Info id="classify" />
+      <section className="flex min-w-0 flex-1 flex-col gap-6 px-8 pb-12 pt-10">
+        <header className="flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0 space-y-2">
+            <p className="text-sm text-muted-foreground">Inbox</p>
+            <h1 className="flex items-center gap-2 font-serif text-[40px] leading-[1.05]">
+              {showCompose ? "New invoice" : batchClient ?? "Unassigned invoice"} <Info id="classify" className="mt-2" />
             </h1>
             {!showCompose && batchId && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 <span className="font-mono">#{batchId.slice(0, 8)}</span> · {rows.length} lines · {counts.done} signed off
                 {counts.running > 0 && <> · {counts.running} classifying</>}
                 {pushMsg && <span className="ml-2 text-primary">{pushMsg}</span>}
@@ -417,7 +418,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
         </header>
 
         {showCompose ? (
-          <div className="mx-auto w-full max-w-3xl space-y-6 px-6 py-8">
+          <div className="w-full max-w-3xl space-y-8">
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="text-muted-foreground">For client</span>
               <Select value={clientId ? String(clientId) : "none"} onValueChange={(v) => setClientId(v === "none" ? null : Number(v))}>
@@ -433,7 +434,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
             </div>
 
             <label
-              className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-card/50 px-6 py-12 text-center transition-colors hover:border-primary/50 hover:bg-card"
+              className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-card px-6 py-14 text-center shadow-card transition-colors hover:border-primary/50"
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();
@@ -441,17 +442,17 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
                 if (f) upload(f);
               }}
             >
-              <span className="flex size-10 items-center justify-center rounded-lg border bg-background">
-                <FileUp className="size-4" />
+              <span className="flex size-12 items-center justify-center rounded-full bg-muted">
+                <FileUp className="size-5" />
               </span>
-              <span className="text-sm font-medium">Drop the supplier&apos;s invoice</span>
-              <span className="text-xs text-muted-foreground">Excel or CSV. Description, quantity, value and origin columns are found automatically.</span>
+              <span className="font-serif text-2xl">Drop the supplier&apos;s invoice</span>
+              <span className="text-sm text-muted-foreground">Excel or CSV. Description, quantity, value and origin columns are found automatically.</span>
               {uploadError && <span className="text-xs text-bad">{uploadError}</span>}
               <input type="file" accept=".xlsx,.csv" hidden onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
             </label>
 
             <div className="space-y-2">
-              <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
                 <ClipboardPaste className="size-3.5" /> Or paste product lines
               </p>
               <Textarea rows={3} placeholder={"One product per line, e.g.\nBamboo kids' dinner set, plate bowl cup"} value={paste} onChange={(e) => setPaste(e.target.value)} />
@@ -466,20 +467,20 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
             </div>
 
             <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Or try a sample invoice</p>
-              <div className="grid gap-2 sm:grid-cols-2">
+              <p className="text-sm font-medium text-muted-foreground">Or try a sample invoice</p>
+              <div className="grid gap-3 sm:grid-cols-2">
                 {samples.map((s) => (
                   <button
                     key={s.id}
                     type="button"
                     disabled={busy}
                     onClick={() => loadSample(s.id)}
-                    className="flex items-start gap-3 rounded-lg border bg-card px-3 py-2.5 text-left transition-colors hover:border-primary/40"
+                    className="flex items-start gap-3 rounded-xl border border-border/70 bg-card px-4 py-3.5 text-left shadow-card transition-colors hover:border-primary/40"
                   >
                     <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                     <span className="min-w-0">
-                      <span className="block text-[13px] font-medium">{s.name}</span>
-                      <span className="block truncate text-xs text-muted-foreground">{s.about}</span>
+                      <span className="block font-medium">{s.name}</span>
+                      <span className="block text-sm text-muted-foreground">{s.about}</span>
                     </span>
                   </button>
                 ))}
@@ -487,8 +488,8 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
             </div>
           </div>
         ) : (
-          <>
-            <div className="flex items-center justify-between gap-3 border-b px-6">
+          <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-card">
+            <div className="flex items-center justify-between gap-3 border-b border-border/70 px-6">
               <div className="flex gap-4">
                 {(
                   [
@@ -505,7 +506,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
                       setSelected(0);
                     }}
                     className={cn(
-                      "-mb-px border-b-2 border-transparent py-2.5 text-[13px] text-muted-foreground hover:text-foreground",
+                      "-mb-px border-b-2 border-transparent py-3.5 text-[15px] text-muted-foreground hover:text-foreground",
                       filter === key && "border-primary text-foreground",
                     )}
                   >
@@ -513,12 +514,12 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
                   </button>
                 ))}
               </div>
-              <p className="hidden items-center gap-1.5 text-[11px] text-muted-foreground md:flex">
+              <p className="hidden items-center gap-1.5 text-xs text-muted-foreground lg:flex">
                 <Kbd>J</Kbd><Kbd>K</Kbd> move <Kbd>A</Kbd> approve <Kbd>F</Kbd> fix <Kbd>↵</Kbd> receipt
               </p>
             </div>
 
-            <div className="grid grid-cols-[minmax(0,1.4fr)_10rem_minmax(0,2fr)_5rem_7.5rem] gap-x-4 border-b px-6 py-2 text-[11px] font-medium text-muted-foreground">
+            <div className="grid grid-cols-[minmax(0,1.5fr)_9.5rem_minmax(0,2fr)_3.5rem_6.5rem] gap-x-5 border-b border-border/70 bg-muted/50 px-6 py-2.5 text-xs font-medium uppercase tracking-[0.06em] text-muted-foreground">
               <span>Product</span>
               <span className="flex items-center gap-1">Code <Info id="code" /></span>
               <span>Why</span>
@@ -527,7 +528,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
             </div>
 
             {visible.length === 0 && (
-              <p className="px-6 py-16 text-center text-sm text-muted-foreground">
+              <p className="px-6 py-16 text-center text-muted-foreground">
                 {filter === "review" ? "Nothing needs review. The rest are confident or signed off." : "No lines here."}
               </p>
             )}
@@ -542,14 +543,14 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
                     onMouseEnter={() => setSelected(i)}
                     onClick={() => sug && setReceipt(r)}
                     className={cn(
-                      "grid cursor-pointer grid-cols-[minmax(0,1.4fr)_10rem_minmax(0,2fr)_5rem_7.5rem] items-start gap-x-4 border-b border-border/60 px-6 py-2.5",
-                      i === selected && "bg-accent/50",
+                      "grid cursor-pointer grid-cols-[minmax(0,1.5fr)_9.5rem_minmax(0,2fr)_3.5rem_6.5rem] items-start gap-x-5 border-b border-border/60 px-6 py-4 last:border-b-0",
+                      i === selected && "bg-accent/40",
                     )}
                   >
                     <div className="min-w-0">
-                      <p className="truncate font-medium">{r.text}</p>
+                      <p className="font-medium leading-snug">{r.text}</p>
                       {r.source === "shopify" && (
-                        <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                        <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                           <ShoppingBag className="size-3" /> Shopify
                           {r.existingCode ? (
                             <>
@@ -599,7 +600,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
                             <Code code={sug.code} className={s === "fixed" ? "text-primary" : undefined} />
                             {s !== "fixed" && <PencilLine className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100" />}
                           </button>
-                          <div className="min-w-0 text-[13px] text-muted-foreground">
+                          <div className="min-w-0 text-sm leading-relaxed text-muted-foreground">
                             <p className="line-clamp-2">{sug.reason}</p>
                             {sug.question && sug.status === "pending" && (
                               <div className="mt-1 space-y-0.5">
@@ -653,7 +654,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
                 );
               })}
             </ul>
-          </>
+          </div>
         )}
       </section>
 

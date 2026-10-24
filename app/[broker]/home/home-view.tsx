@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Sparkles, Flag, MessageCircleQuestion, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Code } from "@/components/code";
-import { PageHeader, Panel, Stat, Empty, Status } from "@/components/page";
+import { Panel, Stat, Empty, Status } from "@/components/page";
 
 type Home = {
   totals: { classified: number; signedOff: number; review: number; precedents: number; followed: number; invoices: number };
@@ -23,99 +23,134 @@ const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "nume
 function Progress({ done, total }: { done: number; total: number }) {
   const pct = total ? Math.round((done / total) * 100) : 0;
   return (
-    <div className="h-1 w-24 overflow-hidden rounded-full bg-muted" role="img" aria-label={`${done} of ${total} signed off`}>
+    <div className="h-1.5 w-28 overflow-hidden rounded-full bg-muted" role="img" aria-label={`${done} of ${total} signed off`}>
       <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
     </div>
   );
 }
 
+// Greeting by the viewer's clock, set after mount so server and client render the same HTML first.
+function useGreeting() {
+  const [g, setG] = useState({ hello: "Welcome back.", date: "" });
+  useEffect(() => {
+    const now = new Date();
+    const h = now.getHours();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reads the browser clock once
+    setG({
+      hello: h < 12 ? "Good morning." : h < 18 ? "Good afternoon." : "Good evening.",
+      date: now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }),
+    });
+  }, []);
+  return g;
+}
+
 export function HomeView({ broker, brokerName }: { broker: string; brokerName: string }) {
   const [d, setD] = useState<Home | null>(null);
+  const greeting = useGreeting();
 
   useEffect(() => {
     fetch(`/api/${broker}/home`).then((r) => r.json()).then(setD);
   }, [broker]);
 
   const empty = d && d.totals.invoices === 0;
+  const linkMore = "inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground";
 
   return (
-    <div className="mx-auto max-w-6xl">
-      <PageHeader
-        eyebrow={brokerName}
-        title="Overview"
-        description="What needs you, what the AI learned from your team, and the money it found."
-        actions={
-          <Button asChild>
-            <Link href={`/${broker}/classify?sample=01-ningbo-homeware`}>
-              <Sparkles /> Classify a sample invoice
-            </Link>
-          </Button>
-        }
-      />
+    <div className="mx-auto max-w-6xl space-y-10">
+      <header className="flex flex-wrap items-end justify-between gap-6">
+        <div className="max-w-3xl space-y-3">
+          <p className="text-sm text-muted-foreground">
+            {brokerName}
+            {greeting.date && <> · {greeting.date}</>}
+          </p>
+          <h1 className="font-serif text-[56px] leading-[1] tracking-[-0.015em]">{greeting.hello}</h1>
+          {d && !empty && (
+            <p className="font-serif text-[26px] leading-snug text-foreground/80">
+              {d.totals.review > 0 ? (
+                <>
+                  <span className="text-foreground">{d.totals.review} lines</span> need your eye across {d.totals.invoices} invoices.{" "}
+                </>
+              ) : (
+                <>Every line is signed off or confident. </>
+              )}
+              {d.totals.followed > 0 && (
+                <>
+                  Your team&apos;s fixes answered <span className="text-foreground">{d.totals.followed}</span> on their own.
+                </>
+              )}
+            </p>
+          )}
+        </div>
+        <Button size="lg" asChild>
+          <Link href={`/${broker}/classify?sample=01-ningbo-homeware`}>
+            <Sparkles /> Classify a sample invoice
+          </Link>
+        </Button>
+      </header>
 
       {empty && (
         <Empty icon={Inbox} title="No invoices yet">
           Drop in a supplier invoice on the{" "}
-          <Link href={`/${broker}/classify`} className="text-primary hover:underline">Inbox</Link>, or start with a sample. Every line gets a
-          10-digit code, a reason and a receipt.
+          <Link href={`/${broker}/classify`} className="text-primary underline-offset-4 hover:underline">Inbox</Link>, or start with a sample. Every
+          line gets a 10-digit code, a reason and a receipt.
         </Empty>
       )}
 
       {d && !empty && (
-        <div className="space-y-6">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             <Stat
               label="Needs your review"
               value={d.totals.review}
               context={`across ${d.totals.invoices} invoice${d.totals.invoices === 1 ? "" : "s"}`}
               status={d.totals.review > 0 ? <Status tone="warn">Waiting</Status> : <Status tone="good">Clear</Status>}
             />
+            <Stat label="Lines classified" value={d.totals.classified} context={`${d.totals.signedOff} signed off by your team`} />
             <Stat
-              label="Lines classified"
-              value={d.totals.classified}
-              context={`${d.totals.signedOff} signed off by your team`}
-            />
-            <Stat
-              label="Answers from your precedents"
+              label="Answered by your precedents"
               value={d.totals.followed}
               context={`learned from ${d.totals.precedents} fix${d.totals.precedents === 1 ? "" : "es"}`}
             />
             <Stat
               label="Duty to reclaim"
               value={d.money.scanned ? gbp(d.money.reclaim) : "—"}
-              context={d.money.scanned ? `${gbp(d.money.owe)} to disclose` : "run a retro-scan to find it"}
+              context={d.money.scanned ? `${gbp(d.money.owe)} to disclose voluntarily` : "run a retro-scan to find it"}
             />
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-5">
+          <div className="grid items-start gap-6 lg:grid-cols-5">
             <Panel
               className="lg:col-span-3"
               title="Needs you"
+              description="Lines the AI wasn't sure about, or wants to ask the importer about."
               actions={
-                <Link href={`/${broker}/classify`} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-                  Open inbox <ArrowRight className="size-3" />
+                <Link href={`/${broker}/classify`} className={linkMore}>
+                  Open inbox <ArrowRight className="size-3.5" />
                 </Link>
               }
             >
               {d.needsYou.length === 0 ? (
-                <p className="px-4 py-8 text-center text-sm text-muted-foreground">Nothing waiting. Every line is signed off or confident.</p>
+                <p className="px-6 pb-8 pt-2 text-muted-foreground">Nothing waiting. Every line is signed off or confident.</p>
               ) : (
-                <ul className="divide-y">
+                <ul className="divide-y divide-border/70 border-t border-border/70">
                   {d.needsYou.map((n) => (
                     <li key={n.lineId}>
-                      <Link href={`/${broker}/classify?batch=${n.batchId}`} className="flex items-start gap-3 px-4 py-2.5 hover:bg-accent/50">
-                        <Flag className="mt-0.5 size-3.5 shrink-0 text-warn" />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium">{n.text}</p>
-                          {n.question && (
-                            <p className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-                              <MessageCircleQuestion className="size-3 shrink-0" /> {n.question}
+                      <Link href={`/${broker}/classify?batch=${n.batchId}`} className="flex items-start gap-4 px-6 py-4 transition-colors hover:bg-accent/40">
+                        <Flag className="mt-1 size-4 shrink-0 text-warn" aria-label="Needs review" />
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <p className="font-medium">{n.text}</p>
+                          {n.question ? (
+                            <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
+                              <MessageCircleQuestion className="mt-0.5 size-3.5 shrink-0" />
+                              <span className="line-clamp-1">{n.question}</span>
                             </p>
+                          ) : (
+                            n.client && <p className="text-sm text-muted-foreground">{n.client}</p>
                           )}
                         </div>
-                        <div className="shrink-0 text-right">
-                          <Code code={n.code} className="text-xs" />
-                          <p className="text-[11px] tabular-nums text-muted-foreground">{Math.round(n.confidence * 100)}% sure</p>
+                        <div className="shrink-0 space-y-1 text-right">
+                          <Code code={n.code} className="text-sm" />
+                          <p className="text-xs tabular-nums text-muted-foreground">{Math.round(n.confidence * 100)}% sure</p>
                         </div>
                       </Link>
                     </li>
@@ -124,51 +159,44 @@ export function HomeView({ broker, brokerName }: { broker: string; brokerName: s
               )}
             </Panel>
 
-            <Panel className="lg:col-span-2" title="Connected">
-              <ul className="divide-y text-sm">
-                <li className="flex items-center justify-between px-4 py-2.5">
-                  <span>HMRC Customs Declarations</span>
-                  {d.connected.hmrc ? <Status tone="good">Signed in</Status> : <Status tone="idle">Not signed in</Status>}
-                </li>
-                <li className="flex items-center justify-between px-4 py-2.5">
-                  <span>Client stores (Shopify)</span>
-                  <Status tone={d.connected.stores ? "good" : "idle"}>
-                    {d.connected.stores} of {d.connected.clients} clients
-                  </Status>
-                </li>
-                <li className="flex items-center justify-between px-4 py-2.5">
-                  <span>UK Trade Tariff</span>
-                  <Status tone="good">{d.connected.tariffCodes.toLocaleString()} codes</Status>
-                </li>
-                <li className="flex items-center justify-between px-4 py-2.5">
-                  <span>Mubit</span>
-                  {d.connected.mubit ? <Status tone="good">Recording</Status> : <Status tone="bad">No key</Status>}
-                </li>
+            <Panel className="lg:col-span-2" title="Connected" description="Where codes come from and where they go.">
+              <ul className="divide-y divide-border/70 border-t border-border/70">
+                {[
+                  ["HMRC Customs Declarations", d.connected.hmrc ? <Status key="h" tone="good">Signed in</Status> : <Status key="h" tone="idle">Not signed in</Status>],
+                  ["Client stores · Shopify", <Status key="s" tone={d.connected.stores ? "good" : "idle"}>{d.connected.stores} of {d.connected.clients} clients</Status>],
+                  ["UK Trade Tariff", <Status key="t" tone="good">{d.connected.tariffCodes.toLocaleString()} codes</Status>],
+                  ["Mubit", d.connected.mubit ? <Status key="m" tone="good">Recording</Status> : <Status key="m" tone="bad">No key</Status>],
+                ].map(([label, status]) => (
+                  <li key={label as string} className="flex items-center justify-between gap-3 px-6 py-3.5">
+                    <span>{label}</span>
+                    {status}
+                  </li>
+                ))}
               </ul>
-              <div className="border-t px-4 py-2.5">
-                <Link href={`/${broker}/integrations`} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-                  Manage integrations <ArrowRight className="size-3" />
+              <div className="border-t border-border/70 px-6 py-3.5">
+                <Link href={`/${broker}/integrations`} className={linkMore}>
+                  Manage integrations <ArrowRight className="size-3.5" />
                 </Link>
               </div>
             </Panel>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid items-start gap-6 lg:grid-cols-2">
             <Panel title="Recent invoices">
-              <ul className="divide-y">
+              <ul className="divide-y divide-border/70 border-t border-border/70">
                 {d.invoices.map((inv) => (
                   <li key={inv.batchId}>
-                    <Link href={`/${broker}/classify?batch=${inv.batchId}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50">
+                    <Link href={`/${broker}/classify?batch=${inv.batchId}`} className="flex items-center gap-4 px-6 py-3.5 transition-colors hover:bg-accent/40">
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium">{inv.client ?? "No client"}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {when(inv.createdAt)} · {inv.lines} lines <span className="font-mono">#{inv.batchId.slice(0, 6)}</span>
+                        <p className="text-sm text-muted-foreground">
+                          {when(inv.createdAt)} · {inv.lines} lines
                         </p>
                       </div>
                       {inv.review > 0 && <Status tone="warn">{inv.review} to review</Status>}
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5">
                         <Progress done={inv.signedOff} total={inv.lines} />
-                        <span className="w-10 text-right text-xs tabular-nums text-muted-foreground">
+                        <span className="w-12 text-right text-sm tabular-nums text-muted-foreground">
                           {inv.signedOff}/{inv.lines}
                         </span>
                       </div>
@@ -181,36 +209,34 @@ export function HomeView({ broker, brokerName }: { broker: string; brokerName: s
             <Panel
               title="What it learned from your team"
               actions={
-                <Link href={`/${broker}/precedents`} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-                  All precedents <ArrowRight className="size-3" />
+                <Link href={`/${broker}/precedents`} className={linkMore}>
+                  All precedents <ArrowRight className="size-3.5" />
                 </Link>
               }
             >
               {d.learned.length === 0 ? (
-                <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-                  No fixes yet. Correct a code in the inbox and it becomes a precedent the AI follows.
-                </p>
+                <p className="px-6 pb-8 pt-2 text-muted-foreground">No fixes yet. Correct a code in the inbox and it becomes a precedent the AI follows.</p>
               ) : (
-                <ul className="divide-y">
+                <ul className="divide-y divide-border/70 border-t border-border/70">
                   {d.learned.map((p) => (
-                    <li key={p.id} className="space-y-1 px-4 py-2.5">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="truncate font-medium">{p.lineText}</p>
-                        <span className="shrink-0 text-xs text-muted-foreground">followed {p.followed}×</span>
+                    <li key={p.id} className="space-y-2 px-6 py-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="font-medium">{p.lineText}</p>
+                        <span className="shrink-0 text-sm text-muted-foreground">followed {p.followed}×</span>
                       </div>
-                      <div className="flex items-center gap-2 text-xs">
+                      <div className="flex items-center gap-2 text-sm">
                         <Code code={p.oldCode} className="line-through opacity-50" />
-                        <ArrowRight className="size-3 text-primary" />
+                        <ArrowRight className="size-3.5 text-primary" />
                         <Code code={p.newCode} />
                       </div>
-                      <p className="line-clamp-1 text-xs text-muted-foreground">“{p.reason}”</p>
+                      <p className="line-clamp-2 font-serif text-[17px] italic leading-snug text-foreground/75">“{p.reason}”</p>
                     </li>
                   ))}
                 </ul>
               )}
             </Panel>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
