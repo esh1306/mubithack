@@ -154,22 +154,28 @@
 .landing {
   overflow-x: clip;
   overflow-y: visible;
-  /* Ink ground, electric stamp, warm gold. Scoped so the desk stays paper. */
-  --background: oklch(0.13 0.012 40);
-  --foreground: oklch(0.96 0.016 85);
-  --card: oklch(0.18 0.014 40);
-  --card-foreground: oklch(0.96 0.016 85);
-  --primary: oklch(0.66 0.24 29);
-  --primary-foreground: oklch(0.14 0.02 40);
-  --secondary: oklch(0.82 0.09 75);
-  --secondary-foreground: oklch(0.16 0.02 40);
-  --muted: oklch(0.22 0.012 40);
-  --muted-foreground: oklch(0.78 0.03 80);
-  --accent: oklch(0.22 0.02 40);
-  --accent-foreground: oklch(0.96 0.016 85);
-  --border: oklch(0.32 0.02 40);
-  --ring: oklch(0.66 0.24 29);
-  --gold: oklch(0.82 0.09 75);
+  --ocean: #0b1f33;
+  --paper: #f3ead3;
+  --ink: #1a1a1a;
+  --route: #e63b2e;
+  --brass: #c9a227;
+  --teal: #2f6f73;
+  --parcel: #8b5a2b;
+  --background: #0b1f33;
+  --foreground: #f3ead3;
+  --card: #12283d;
+  --card-foreground: #f3ead3;
+  --primary: #e63b2e;
+  --primary-foreground: #f3ead3;
+  --secondary: #c9a227;
+  --secondary-foreground: #0b1f33;
+  --muted: #163044;
+  --muted-foreground: color-mix(in oklab, #f3ead3 68%, #0b1f33);
+  --accent: #163044;
+  --accent-foreground: #f3ead3;
+  --border: color-mix(in oklab, #f3ead3 16%, #0b1f33);
+  --ring: #e63b2e;
+  --gold: #c9a227;
   color: var(--foreground);
   background: var(--background);
 }
@@ -314,9 +320,151 @@
   height: 2px;
   margin: -1px 0 0 -3px;
   border-radius: 1px;
-  background: #ff4a32;
+  background: #e63b2e;
   pointer-events: none;
   animation: click-spark 0.4s ease-out forwards;
+}
+
+.landing-stamp-type {
+  font-family: var(--font-stamp), "Courier New", ui-monospace, monospace;
+}
+
+.landing-stamp-label {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.15rem 0.4rem;
+  font-family: var(--font-stamp), "Courier New", ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: #1a1a1a;
+  background: #f3ead3;
+  box-shadow: 2px 2px 0 #c9a227, 3px 3px 0 rgba(26, 26, 26, 0.25);
+}
+
+.globe-html-pin {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  pointer-events: none;
+  color: #f3ead3;
+}
+.globe-html-pin i {
+  width: 9px;
+  height: 9px;
+  margin-top: 4px;
+  border-radius: 99px;
+  background: #c9a227;
+  box-shadow: 0 0 0 4px rgba(201, 162, 39, 0.25);
+}
+.globe-html-pin span {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-stamp), "Courier New", ui-monospace, monospace;
+  line-height: 1.15;
+}
+.globe-html-pin b {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+.globe-html-pin small {
+  font-size: 10px;
+  color: rgba(243, 234, 211, 0.65);
+}
+
+.paper-stage {
+  position: relative;
+}
+.paper-sheet {
+  position: relative;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #f3ead3;
+  box-shadow:
+    0 1px 0 rgba(243, 234, 211, 0.2),
+    0 24px 48px -28px rgba(0, 0, 0, 0.55);
+}
+.paper-sheet svg {
+  display: block;
+  background:
+    radial-gradient(ellipse at 18% 12%, rgba(201, 162, 39, 0.14), transparent 42%),
+    radial-gradient(ellipse at 86% 88%, rgba(47, 111, 115, 0.1), transparent 46%),
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(26, 26, 26, 0.015) 2px, rgba(26, 26, 26, 0.015) 3px),
+    #f3ead3;
+}
+.map-fold {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  perspective: 1600px;
+}
+.map-fold-panel {
+  background:
+    linear-gradient(90deg, rgba(26, 26, 26, 0.16), transparent 22%, transparent 78%, rgba(26, 26, 26, 0.1)),
+    #e8dcc0;
+  transform-origin: left center;
+  box-shadow: 10px 0 28px rgba(11, 31, 51, 0.28);
+  border-right: 1px solid rgba(26, 26, 26, 0.12);
+}
+.paper-pin {
+  position: absolute;
+  width: min(220px, 34vw);
+  transition:
+    opacity 0.35s ease,
+    transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.paper-pin-needle {
+  position: absolute;
+  left: 18px;
+  bottom: -10px;
+  width: 10px;
+  height: 10px;
+  border-radius: 99px;
+  background: #c9a227;
+  box-shadow: 0 8px 0 -2px rgba(26, 26, 26, 0.2);
+}
+.paper-card {
+  padding: 0.85rem 0.95rem;
+  background: #f3ead3;
+  color: #1a1a1a;
+  border: 1px solid rgba(26, 26, 26, 0.12);
+  box-shadow: 0 10px 24px -16px rgba(11, 31, 51, 0.45);
+}
+.paper-card-float {
+  background: color-mix(in oklab, #f3ead3 92%, white);
+}
+.stat-card {
+  padding: 1rem 1.05rem;
+  border: 1px solid rgba(243, 234, 211, 0.14);
+  background: #12283d;
+}
+.cargo-drift {
+  animation: cargo-drift 7s ease-in-out infinite;
+}
+.parcel-swing {
+  transform-box: fill-box;
+  transform-origin: top center;
+  animation: parcel-swing 1.6s ease-in-out infinite;
+}
+
+@keyframes cargo-drift {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(-6deg);
+  }
+  50% {
+    transform: translate(-12px, -10px) rotate(4deg);
+  }
+}
+@keyframes parcel-swing {
+  0%,
+  100% {
+    transform: rotate(-8deg);
+  }
+  50% {
+    transform: rotate(10deg);
+  }
 }
 
 @keyframes click-spark {
@@ -400,6 +548,10 @@
   .landing-shine {
     color: var(--foreground);
     background: none;
+  }
+  .cargo-drift,
+  .parcel-swing {
+    animation: none;
   }
   html.lenis,
   html.lenis body {

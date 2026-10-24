@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
-import { Big_Shoulders, Instrument_Sans, Instrument_Serif, Inter, JetBrains_Mono } from "next/font/google";
+import { Big_Shoulders, Instrument_Sans, Instrument_Serif, Inter, JetBrains_Mono, Special_Elite } from "next/font/google";
 import "./globals.css";
 
 const display = Big_Shoulders({
   variable: "--font-display-face",
   subsets: ["latin"],
   weight: ["800", "900"],
+});
+
+const stamp = Special_Elite({
+  variable: "--font-stamp",
+  subsets: ["latin"],
+  weight: "400",
 });
 
 const inter = Inter({
@@ -40,7 +46,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${display.variable} ${inter.variable} ${instrumentSans.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${display.variable} ${stamp.variable} ${inter.variable} ${instrumentSans.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       {/* Browser extensions (e.g. Bitdefender's bis_* attributes) edit the page before hydration;
           that only causes console warnings, so use a clean browser profile for demos. */}
