@@ -26,7 +26,9 @@ for (const sample of index) {
   }
   await pool(lines, 6, async (line) => {
     try {
-      mubitCalls += (await classifyWithRetry(broker, line)).mubitCalls;
+      // Await first: "total += await x" reads total before the await and loses concurrent updates.
+      const r = await classifyWithRetry(broker, line);
+      mubitCalls += r.mubitCalls;
     } catch {
       failed++;
     }
