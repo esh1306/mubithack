@@ -1,11 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
-import { ChevronsUpDown, ScanLine, BookMarked, History, Download, Check, RotateCcw, Cpu, Plug, Building2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Info } from "@/components/info";
+import {
+  ChevronsUpDown,
+  Home,
+  Inbox,
+  Building2,
+  BookMarked,
+  Cpu,
+  History,
+  Plug,
+  Download,
+  Check,
+  RotateCcw,
+  Search,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,42 +25,64 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Kbd } from "@/components/ui/kbd";
+import { Info } from "@/components/info";
+import { CommandMenu, openCommandMenu } from "@/components/command-menu";
 import { cn } from "@/lib/utils";
 
 type Broker = { id: string; name: string };
 
-const NAV = [
-  { href: "classify", label: "Classify", icon: ScanLine },
-  { href: "clients", label: "Clients", icon: Building2 },
-  { href: "precedents", label: "Precedents", icon: BookMarked },
-  { href: "retro-scan", label: "Retro-scan", icon: History },
-  { href: "export", label: "Export", icon: Download },
-  { href: "integrations", label: "Integrations", icon: Plug },
-  { href: "mubit", label: "Mubit", icon: Cpu },
+export const NAV = [
+  {
+    group: "Workspace",
+    items: [
+      { href: "home", label: "Home", icon: Home },
+      { href: "classify", label: "Inbox", icon: Inbox },
+      { href: "clients", label: "Clients", icon: Building2 },
+    ],
+  },
+  {
+    group: "Learning",
+    items: [
+      { href: "precedents", label: "Precedents", icon: BookMarked },
+      { href: "mubit", label: "Mubit", icon: Cpu },
+    ],
+  },
+  { group: "Recover", items: [{ href: "retro-scan", label: "Retro-scan", icon: History }] },
+  {
+    group: "Connect",
+    items: [
+      { href: "integrations", label: "Integrations", icon: Plug },
+      { href: "export", label: "Export", icon: Download },
+    ],
+  },
 ];
 
 export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker[] }) {
   const pathname = usePathname();
   const router = useRouter();
-  const section = pathname.split("/")[2] ?? "classify";
+  const section = pathname.split("/")[2] ?? "home";
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
 
   return (
-    <aside className="w-60 shrink-0 border-r bg-muted/30 px-3 py-4 flex flex-col gap-6">
+    <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col gap-5 border-r bg-sidebar px-2.5 py-3">
       <DropdownMenu>
-        <DropdownMenuTrigger className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-muted outline-none">
-          <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-semibold">
+        <DropdownMenuTrigger className="flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left outline-none hover:bg-sidebar-accent">
+          <span className="flex size-6 shrink-0 items-center justify-center rounded bg-primary text-[11px] font-semibold text-primary-foreground">
             {current.name[0]}
           </span>
-          <span className="flex-1 truncate text-sm font-medium">{current.name}</span>
-          <ChevronsUpDown className="size-4 text-muted-foreground" />
+          <span className="flex-1 truncate text-[13px] font-medium">{current.name}</span>
+          <ChevronsUpDown className="size-3.5 text-muted-foreground" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
-          <DropdownMenuLabel className="text-xs text-muted-foreground">Brokers · each has its own precedents and Mubit task</DropdownMenuLabel>
+        <DropdownMenuContent align="start" className="w-60">
+          <DropdownMenuLabel className="flex items-center gap-1 text-xs text-muted-foreground">
+            Brokers <Info id="brokers" side="right" />
+          </DropdownMenuLabel>
           <DropdownMenuSeparator />
           {brokers.map((b) => (
             <DropdownMenuItem key={b.id} onSelect={() => router.push(`/${b.id}/${section}`)}>
+              <span className="flex size-5 items-center justify-center rounded bg-muted text-[10px] font-semibold">{b.name[0]}</span>
               <span className="flex-1">{b.name}</span>
               {b.id === current.id && <Check className="size-4" />}
             </DropdownMenuItem>
@@ -57,30 +90,40 @@ export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <nav className="flex flex-col gap-0.5">
-        <p className="flex items-center gap-1 px-2 pb-1 text-xs text-muted-foreground">
-          Workspace <Info id="brokers" side="right" />
-        </p>
-        {NAV.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={`/${current.id}/${href}`}
-            className={cn(
-              "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground",
-              section === href && "bg-muted text-foreground font-medium",
-            )}
-          >
-            <Icon className="size-4" />
-            {label}
-          </Link>
+      <button
+        type="button"
+        onClick={openCommandMenu}
+        className="flex items-center gap-2 rounded-md border bg-background/40 px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+      >
+        <Search className="size-3.5" />
+        <span className="flex-1 text-left">Search or jump to…</span>
+        <Kbd>⌘K</Kbd>
+      </button>
+
+      <nav className="flex flex-col gap-4">
+        {NAV.map((g) => (
+          <div key={g.group} className="space-y-0.5">
+            <p className="px-2 pb-1 text-[11px] font-medium text-muted-foreground/70">{g.group}</p>
+            {g.items.map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={`/${current.id}/${href}`}
+                className={cn(
+                  "flex items-center gap-2 rounded-md px-2 py-1 text-[13px] text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground",
+                  section === href && "bg-sidebar-accent font-medium text-foreground",
+                )}
+              >
+                <Icon className="size-4" />
+                {label}
+              </Link>
+            ))}
+          </div>
         ))}
       </nav>
 
-      <div className="mt-auto space-y-3 px-2">
-        <Button
-          size="sm"
-          variant={confirmReset ? "destructive" : "ghost"}
-          className="w-full justify-start text-muted-foreground"
+      <div className="mt-auto space-y-2 px-1">
+        <button
+          type="button"
           disabled={resetting}
           onBlur={() => setConfirmReset(false)}
           onClick={async () => {
@@ -90,18 +133,23 @@ export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker
             try {
               brokers.forEach((b) => localStorage.removeItem(`precedent:rail:${b.id}`));
             } catch {}
-            setResetting(false);
-            setConfirmReset(false);
             // Full reload so every page drops its in-memory state.
             window.location.reload();
           }}
+          className={cn(
+            "flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+            confirmReset && "bg-bad/15 text-bad hover:bg-bad/20 hover:text-bad",
+          )}
         >
-          <RotateCcw /> {resetting ? "Resetting…" : confirmReset ? "Click again to reset" : "Reset demo"}
-        </Button>
-        <p className="text-xs text-muted-foreground">
-          <span className="font-semibold text-foreground">Precedent</span> · learns from your fixes
+          <RotateCcw className="size-3.5" />
+          {resetting ? "Resetting…" : confirmReset ? "Click again to reset demo" : "Reset demo"}
+        </button>
+        <p className="px-1.5 text-[11px] text-muted-foreground/70">
+          <span className="font-semibold text-muted-foreground">Precedent</span> · teach it once
         </p>
       </div>
+
+      <CommandMenu broker={current.id} brokers={brokers} />
     </aside>
   );
 }

@@ -21,7 +21,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${instrumentSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`dark ${instrumentSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       {/* Browser extensions (e.g. Bitdefender's bis_* attributes) edit the page before hydration;
           that only causes console warnings, so use a clean browser profile for demos. */}
