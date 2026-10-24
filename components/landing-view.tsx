@@ -14,29 +14,67 @@ const BENTO = [
   {
     k: "01",
     title: "Shopify",
-    body: "Connect a client's store. Listings come in. Approved 10-digit codes write back.",
+    flow: "Connect → listings in → codes back",
+    body: "A client's store. Approved 10-digit codes write back to each product.",
   },
   {
     k: "02",
     title: "HMRC sandbox",
-    body: "Sign in once. File a classified invoice as an H1. Sandbox only — not live CDS.",
+    flow: "Sign in → H1 XML → sandbox",
+    body: "File a classified invoice. Sandbox only — not live CDS.",
   },
   {
     k: "03",
     title: "A receipt",
-    body: "When it was decided, which notes, which precedent, Mubit request IDs.",
+    flow: "When · notes · precedent · IDs",
+    body: "Every code can show its working. The broker signs it.",
   },
   {
     k: "04",
     title: "3-year scan",
+    flow: "Reclaim or disclose",
     body: "Overpaid is a reclaim. Underpaid is a disclose. No £0 rows.",
   },
   {
     k: "05",
     title: "Mubit",
-    body: "This broker's task. We count examples toward 25. We cannot see if an adapter is live.",
+    flow: "Examples toward 25",
+    body: "This broker's task. We cannot see if an adapter is live.",
   },
 ] as const;
+
+function BentoCard({ item, i }: { item: (typeof BENTO)[number]; i: number }) {
+  const ref = useRef<HTMLLIElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    registerLandingMotion();
+    gsap.fromTo(
+      el,
+      { y: 18, opacity: 0 },
+      { y: 0, opacity: 1, duration: 0.45, delay: 0.12 + i * 0.06, ease: "power3.out" },
+    );
+    const enter = () => gsap.to(el, { y: -3, duration: 0.22, ease: "power2.out" });
+    const leave = () => gsap.to(el, { y: 0, duration: 0.28, ease: "power2.out" });
+    el.addEventListener("pointerenter", enter);
+    el.addEventListener("pointerleave", leave);
+    return () => {
+      el.removeEventListener("pointerenter", enter);
+      el.removeEventListener("pointerleave", leave);
+    };
+  }, [i]);
+
+  return (
+    <li ref={ref} className="rounded-md border border-border bg-card px-3 py-3 shadow-card sm:px-3.5 sm:py-3.5">
+      <p className="landing-kicker text-primary">{item.k}</p>
+      <h2 className="mt-1.5 text-[1.05rem] font-extrabold leading-[0.95] tracking-[-0.04em] sm:text-[1.2rem]">{item.title}</h2>
+      <p className="mt-1 text-[11px] font-extrabold tracking-[-0.02em] text-foreground/80">{item.flow}</p>
+      <p className="mt-1.5 text-[13px] leading-snug text-muted-foreground">{item.body}</p>
+    </li>
+  );
+}
 
 function Headline() {
   const ref = useRef<HTMLHeadingElement>(null);
@@ -96,17 +134,8 @@ export function LandingView() {
             <LandingStage />
           </div>
           <ul className="grid grid-cols-2 content-start gap-2 sm:gap-3 lg:col-span-5 lg:grid-cols-2">
-            {BENTO.map((b) => (
-              <li
-                key={b.k}
-                className="rounded-md border border-border bg-card px-3 py-3 shadow-card sm:px-3.5 sm:py-3.5"
-              >
-                <p className="landing-kicker text-primary">{b.k}</p>
-                <h2 className="mt-1.5 text-[1.05rem] font-extrabold leading-[0.95] tracking-[-0.04em] sm:text-[1.2rem]">
-                  {b.title}
-                </h2>
-                <p className="mt-1.5 text-[13px] leading-snug text-muted-foreground">{b.body}</p>
-              </li>
+            {BENTO.map((b, i) => (
+              <BentoCard key={b.k} item={b} i={i} />
             ))}
           </ul>
         </div>
