@@ -23,7 +23,7 @@ Solo, overnight (~12h), running on a laptop. Built to demo, not to scale.
 | Package manager | bun. Scripts run on Node via `bun run script scripts/<name>.mts`, because better-sqlite3 doesn't load in Bun. |
 | Fonts / colours | Instrument Sans + JetBrains Mono, shadcn Stone base, blue accent |
 | In scope | Classify + fix + flip, learning rail, retro-scan, CSV export |
-| Parked | Variant generation, Mubit training status |
+| Parked | Serving a Mubit adapter (not addressable as a model ID) |
 
 ## How Mubit fits (from docs.mubit.ai)
 - We change only the client: `baseURL` becomes Mubit's and `apiKey` becomes `MUBIT_API_KEY`. The Anthropic key is added in the Mubit console under Provider keys.

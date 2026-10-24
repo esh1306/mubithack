@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, ArrowRightLeft } from "lucide-react";
+import { FileText, ArrowRightLeft, Sparkles } from "lucide-react";
+import { DEMO_SAMPLE_ID } from "@/lib/demo";
 import {
   CommandDialog,
   CommandEmpty,
@@ -58,6 +59,12 @@ export function CommandMenu({ broker, brokers }: { broker: string; brokers: { id
       <CommandInput placeholder="Type a page, a sample invoice or a broker…" />
       <CommandList>
         <CommandEmpty>Nothing matches.</CommandEmpty>
+        <CommandGroup heading="Demo">
+          <CommandItem value="play 3-minute demo ningbo bamboo" onSelect={() => go(`/${broker}/classify?sample=${DEMO_SAMPLE_ID}&demo=1`)}>
+            <Sparkles /> Play the 3-minute demo
+          </CommandItem>
+        </CommandGroup>
+        <CommandSeparator />
         <CommandGroup heading="Go to">
           {NAV.flatMap((g) => g.items).map(({ href, label, icon: Icon }) => (
             <CommandItem key={href} value={`go ${label}`} onSelect={() => go(`/${broker}/${href}`)}>

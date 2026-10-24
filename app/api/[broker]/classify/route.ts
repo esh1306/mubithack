@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { classifyErrorMessage } from "@/lib/mubit";
 import { classifyWithRetry, pool, sseResponse } from "@/lib/run";
 
 type InLine = {
@@ -53,7 +54,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ broker:
         const { suggestion } = await classifyWithRetry(broker, line);
         send("result", { lineId: line.id, suggestion });
       } catch (e) {
-        send("error", { lineId: line.id, message: (e as Error).message });
+        send("error", { lineId: line.id, message: classifyErrorMessage(e) });
       }
     });
   });

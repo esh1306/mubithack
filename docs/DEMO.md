@@ -1,66 +1,76 @@
-# Precedent: demo script (about 4 minutes)
+# Precedent: 3-minute live demo
+
+Judges score Mubit use, usefulness, technical execution and the demo equally. This script matches the UI on the guided path (`Play the 3-minute demo`).
 
 ## Before you go on
 
-1. `bun run demo` (production build, with no dev live-reload, which can loop when a browser extension scans localhost), then open http://localhost:3000 in an **incognito** window.
-2. Sidebar → **Reset demo** (click twice). This clears invoices, fixes and findings, but keeps the never-seen "before" results.
-3. Open **Classify → Learning** once and wait for "Preparing baseline…" to finish. The before/after panel is then instant.
-4. Check the Mubit console → **Tasks**. Note the status of *Commodity-code classifier 2* (Harbourline). Mention it only if it has moved on from Reviewing.
-5. Have these two reasons ready to paste:
-   - Bamboo → **3924 10 00 19**: `This supplier's "bamboo" tableware is bamboo fibre bound with melamine resin, so it's kitchenware of plastics (ch. 39), not wood.`
-   - Shirts → **6105 10 00 00**: `This client only ships knitted (jersey/pique) cotton shirts, so they go under 6105 knitted, not 6205 woven.`
+1. On the live Mubit deploy (or `bun run demo` locally), open an incognito window.
+2. Sidebar → **Reset demo** (click twice). You land on Home with a clean seeded desk. Never-seen “before” results stay; invoices, fixes and retro findings go.
+3. Confirm Home shows the four tiles (zeros are fine) and **Mubit · Recording** if the key is present, or **No key** if it is not. Do not claim an adapter is live.
+4. Have this reason ready only if the house reason is not pre-filled:
 
-## 1. The problem (20s)
+   `This supplier's "bamboo" tableware is bamboo fibre bound with melamine resin, so it's kitchenware of plastics (ch. 39), not wood.`
 
-> "Every product entering the UK needs a 10-digit code. Brokers pick them by hand, they get it wrong, and the bill arrives months later. £418m in surprise demands last year. Generic AI gets 47% right. We built an AI that learns from the broker's own fixes."
+## 0:00–0:20 · The problem (Home)
 
-## 2. Classify (40s)
+Click **Play the 3-minute demo**.
 
-- **Load sample invoice** (Ningbo homeware). The rows stream in.
-- Open a receipt: the agent searched precedents, searched the tariff, read the chapter notes, and every step went through Mubit (request IDs shown).
-- Approve the easy ones: **Approve N unflagged**.
+> “Every product into the UK needs a 10-digit code. Brokers pick them by hand, they get it wrong, and the bill arrives months later. Generic AI gets about half of them right. Precedent learns from the broker’s own fix — and we send that lesson through Mubit.”
 
-## 3. The fix (60s)
+## 0:20–0:50 · Classify (Inbox)
 
-- The **bamboo kids' dinner set** came back as real bamboo, `4419 19 00 00`.
-- Click the code ✎, pick **3924 10 00 19** from "the agent also considered" or search `3924`, paste the reason, and click **Save fix and teach**.
-- The learning panel slides in:
-  - The **cups and baby bowl** flip to 3924 ("learned from #N").
-  - The **chopsticks and chopping board stay** wood. It didn't over-learn.
-  - **Northgate's column doesn't change.** Each broker has its own model.
+The guide says **Step 1 · Classify**. A progress bar ticks as the eight Ningbo lines land. The **bamboo kids’ dinner set** is pinned and highlighted — it is not hidden behind Needs review.
 
-> "One fix, products it had never seen come back right, and it's private to this broker. In Mubit, that's this broker's own task, which trains a small, cheap adapter."
+Open that receipt if you want a beat: precedents, tariff, chapter notes, Mubit request IDs.
 
-## 4. Retro-scan (40s)
+> “It coded the dinner set as wood — 4419, zero duty. That is the expensive mistake.”
 
-- **Retro-scan → Scan past entries** takes about 25s.
-- Show the totals: overpaid (reclaim) and underpaid (disclose). Bamboo entries are tagged **Precedent #N**, others **AI only · check**.
-- Open the **Disclosure pack**.
+## 0:50–1:30 · The fix
 
-> "The same fix finds the money already lost. Voluntary disclosure avoids the penalty."
+Guide: **Step 2 · Fix the bamboo line**. Click the code (or F). The house code **3924 10 00 19** is already picked, with the house reason. **Save fix and teach.**
 
-## 5. Plugs into what brokers use (40s)
+> “One correction, in their own words.”
 
-- **Integrations:**
-  - **Live UK Trade Tariff**: look up `8471`. It's fetched live and saved.
-  - **Excel invoice**: drop `data/samples/pearl-river-commercial-invoice.xlsx` on Classify.
-  - **Shopify**, if a dev store is connected: import products, then **Push to Shopify** writes the codes back.
-  - **HMRC sandbox**, if signed in: **Submit to HMRC sandbox** files it as an H1 import declaration and shows HMRC's response.
-- **Export → Download CSV**, ready for ASM or CargoWise. **Audit log** is the answer when HMRC asks why.
+## 1:30–2:15 · It remembers (Learning)
 
-## 6. Close (20s)
+The panel slides in. Same screen, unmissable:
 
-> "Teach it once. It remembers. Each broker gets its own cheap model, compiled from their own judgement through Mubit. We're looking for pilot brokers willing to let us scan their past shipments."
+- **Before your fix: 4419… at 0%**
+- **After: 3924 10 00 19 at 6% — because of Precedent #N**
+
+Never-seen **bamboo cups / lunch box / baby bowl** flip to 3924 (`learned from #N`). Chopsticks and the chopping board stay wood. Northgate’s column does not move.
+
+The **Teaching Mubit** rail lists ~20 paraphrases with request IDs and **N of 25 examples toward train**. If this machine has no key, it says so — do not invent IDs.
+
+> “The next similar line this broker has never seen comes back right from the stored precedent — before any adapter trains. The paraphrases are real classify calls on Harbourline’s Mubit task.”
+
+## 2:15–2:35 · Receipt, then retro-scan
+
+Guide: **Step 4**. Click the fixed bamboo line. Time, the precedent in their words, Mubit IDs.
+
+Guide: **Step 5 · Open retro-scan**. **Scan past entries**. Bamboo in the last 3 years is **disclose** (0% → 6%), not reclaim. £0 rows are not findings. Open the **Disclosure pack**.
+
+> “The same fix finds duty already underpaid. Voluntary disclosure avoids the penalty.”
+
+## 2:35–3:00 · Close
+
+Integrations if you have ten seconds: live tariff, Excel, Shopify (Off if none connected — never a green “0 connected”), HMRC sandbox.
+
+> “Teach it once. It remembers. Each broker has its own precedents and its own Mubit task. We count examples we sent. Mubit’s console is the source of truth for training. We’re looking for pilot brokers.”
 
 ## If something goes wrong
 
-- **A line fails:** click **Retry** (each line already retries up to 3 times).
-- **Mubit is slow:** keep talking through the receipt, because the lines keep streaming in.
-- **The flip doesn't happen:** the rule still applies the precedent when the agent repeats the corrected code. Re-run with **Learning** open.
-- **Asked about adapters:** "Mubit groups each broker's calls into its own task and trains an adapter once it has enough reviewed examples. We hit their daily review limit tonight; they're raising it."
+- **A line fails:** Retry. The screen keeps moving; the progress bar does not freeze.
+- **Mubit is slow:** Talk through the receipt and the before/after. Lines and paraphrases stream in.
+- **The flip is slow:** The stored precedent is applied as a follow-up suggestion (`model: precedent`) so the never-seen line still comes back right. The original model answer is what Mubit recorded.
+- **No Mubit key:** Classify will error honestly. Reset, then talk retrieval + retro maths from a previous working run, or use the live deploy.
+- **Asked about adapters:** “Mubit can train after about 25 kept examples. Tonight you are seeing the precedent in the prompt and the examples we sent. This app does not serve an adapter.”
 
 ## Be accurate on stage
 
-- The model is Claude Haiku 4.5 through Mubit's proxy. The adapter is trained by Mubit; we haven't served it in the app yet.
-- Codes are suggestions: the broker approves every one. Duty figures use third-country rates from the live tariff.
-- The HMRC submission goes to the **sandbox**, not live CDS.
+- Model is Claude Haiku 4.5 through Mubit’s proxy.
+- This app does not observe keep / train / test / live, and does not serve an adapter.
+- Codes are suggestions. The broker approves every one.
+- Duty uses the third-country rate on the import date when HMRC has it; otherwise today’s rate and we say so.
+- Bamboo 0% → 6% is **disclose**, not reclaim.
+- HMRC submit is the **sandbox**.

@@ -172,6 +172,7 @@ export function ClientsView({ broker }: { broker: string }) {
         </Button>
       </section>
 
+      {clients === null && <p className="text-sm text-muted-foreground">Loading clients…</p>}
       {clients?.length === 0 && (
         <p className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">No clients yet. Add the importers you work for above.</p>
       )}

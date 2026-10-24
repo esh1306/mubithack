@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { classifyAndSave, neverSeenItems, neverSeenLine, neverSeenState, pool } from "@/lib/run";
+import { classifyWithRetry, neverSeenItems, neverSeenLine, neverSeenState, pool } from "@/lib/run";
 
 async function brokerIds() {
   return (await db.broker.findMany({ orderBy: { name: "asc" } })).map((b) => b.id);
@@ -20,7 +20,11 @@ export async function POST() {
       if ((await db.suggestion.count({ where: { lineId: line.id } })) === 0) jobs.push({ broker, text });
     }
   await pool(jobs, 8, async ({ broker, text }) => {
-    await classifyAndSave(broker, await neverSeenLine(broker, text));
+    try {
+      await classifyWithRetry(broker, await neverSeenLine(broker, text));
+    } catch {
+      // Error is persisted on the line; other items still run.
+    }
   });
   return Response.json(await neverSeenState(ids));
 }

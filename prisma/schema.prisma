@@ -53,14 +53,17 @@ model Suggestion {
 }
 
 model Precedent {
-  id        Int      @id @default(autoincrement())
-  brokerId  String
-  broker    Broker   @relation(fields: [brokerId], references: [id])
-  lineText  String
-  oldCode   String
-  newCode   String
-  reason    String
-  createdAt DateTime @default(now())
+  id                Int      @id @default(autoincrement())
+  brokerId          String
+  broker            Broker   @relation(fields: [brokerId], references: [id])
+  lineText          String
+  oldCode           String
+  newCode           String
+  reason            String
+  variantCount      Int      @default(0)
+  variantsMatched   Int      @default(0)
+  variantRequestIds String?  // JSON array of Mubit request ids from teaching variants
+  createdAt         DateTime @default(now())
 }
 
 model Tariff {
@@ -95,9 +98,10 @@ model RetroFinding {
   pastEntryId   Int
   pastEntry     PastEntry @relation(fields: [pastEntryId], references: [id])
   suggestedCode String
-  direction     String    // over | under | same
+  direction     String    // over | under | same | check | skip
   dutyDelta     Float
   reason        String
+  maths         String?   // JSON DutyMaths: dates, rates, value, should-pay, assumption
   createdAt     DateTime  @default(now())
 }
 

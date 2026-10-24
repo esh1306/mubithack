@@ -23,16 +23,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ broker: 
 
   // ?audit=1 adds the receipt: precedent and its reason, model, agent steps and Mubit request IDs.
   const header = audit
-    ? ["item", "description", "commodity_code", "status", "confidence", "reason", "precedent_id", "precedent_reason", "model", "agent_steps", "mubit_request_ids", "decided_at"]
+    ? ["item", "description", "commodity_code", "status", "confidence", "reason", "precedent_id", "precedent_text", "precedent_reason", "model", "agent_steps", "mubit_request_ids", "decided_at"]
     : ["item", "description", "commodity_code", "de_6_14", "de_6_15", "quantity", "value_gbp", "origin", "status", "reason"];
   const rows = lines.map((l, i) => {
     const s = l.suggestions[0];
-    const code = s?.code ?? "";
-    if (!audit) return [i + 1, l.text, code, code.slice(0, 8), code.slice(8, 10), l.qty, l.value, l.origin, s?.status ?? "missing", s?.reason];
+    const raw = s?.code ?? "";
+    const code = raw.replace(/\D/g, "");
+    const ten = code.length === 10 ? code : "";
+    if (!audit) return [i + 1, l.text, ten || raw, ten.slice(0, 8), ten.slice(8, 10), l.qty, l.value, l.origin, s?.status ?? "missing", s?.reason];
     const p = precedents.find((x) => x.id === s?.precedentId);
     const steps = s ? (JSON.parse(s.toolCalls) as { tool: string }[]).map((c) => c.tool).join(" > ") : "";
     const mreqs = s?.mubitRequestId ? (JSON.parse(s.mubitRequestId) as string[]).join(" ") : "";
-    return [i + 1, l.text, code, s?.status ?? "missing", s?.confidence, s?.reason, p?.id, p?.reason, s?.model, steps, mreqs, s?.createdAt.toISOString()];
+    return [i + 1, l.text, ten || raw, s?.status ?? "missing", s?.confidence, s?.reason, p?.id, p?.lineText, p?.reason, s?.model, steps, mreqs, s?.createdAt.toISOString()];
   });
   const csv = [header, ...rows].map((r) => r.map(cell).join(",")).join("\n") + "\n";
 

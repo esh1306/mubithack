@@ -16,6 +16,7 @@ import {
   Check,
   RotateCcw,
   Search,
+  Menu,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -25,10 +26,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Info } from "@/components/info";
-import { Prue } from "@/components/prue";
+import { Wordmark } from "@/components/mark";
 import { CommandMenu, openCommandMenu } from "@/components/command-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { clearDemoClientState } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 
 type Broker = { id: string; name: string };
@@ -59,50 +70,57 @@ export const NAV = [
   },
 ];
 
-export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker[] }) {
-  const pathname = usePathname();
+function BrokerSwitch({ current, brokers, section }: { current: Broker; brokers: Broker[]; section: string }) {
   const router = useRouter();
-  const section = pathname.split("/")[2] ?? "home";
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className="flex min-w-0 items-center gap-3 rounded-md border border-sidebar-border bg-card px-3 py-2.5 text-left shadow-card outline-none hover:bg-card/80">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary font-serif text-lg text-primary-foreground">
+          {current.name[0]}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-xs text-muted-foreground">Broker</span>
+          <span className="block text-[15px] font-medium leading-snug">{current.name}</span>
+        </span>
+        <ChevronsUpDown className="size-3.5 text-muted-foreground" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-60">
+        <DropdownMenuLabel className="flex items-center gap-1 text-xs text-muted-foreground">
+          Brokers <Info id="brokers" side="right" />
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {brokers.map((b) => (
+          <DropdownMenuItem key={b.id} onSelect={() => router.push(`/${b.id}/${section}`)}>
+            <span className="flex size-5 items-center justify-center rounded-md bg-muted text-[10px] font-semibold">{b.name[0]}</span>
+            <span className="flex-1">{b.name}</span>
+            {b.id === current.id && <Check className="size-4" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function NavBody({
+  current,
+  brokers,
+  section,
+  onNavigate,
+}: {
+  current: Broker;
+  brokers: Broker[];
+  section: string;
+  onNavigate?: () => void;
+}) {
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
 
   return (
-    <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col gap-6 border-r border-sidebar-border bg-sidebar px-3.5 py-6">
-      <Link href={`/${current.id}/home`} className="flex items-end gap-2 px-2">
-        <Prue size={30} mood="happy" />
-        <span className="font-serif text-[28px] leading-none tracking-tight">Precedent</span>
-      </Link>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger className="flex min-w-0 items-center gap-3 rounded-xl border border-sidebar-border bg-card px-3 py-2.5 text-left shadow-card outline-none hover:bg-card/80">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary font-serif text-lg text-primary-foreground">
-            {current.name[0]}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-xs text-muted-foreground">Broker</span>
-            <span className="block text-[15px] font-medium leading-snug">{current.name}</span>
-          </span>
-          <ChevronsUpDown className="size-3.5 text-muted-foreground" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-60">
-          <DropdownMenuLabel className="flex items-center gap-1 text-xs text-muted-foreground">
-            Brokers <Info id="brokers" side="right" />
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {brokers.map((b) => (
-            <DropdownMenuItem key={b.id} onSelect={() => router.push(`/${b.id}/${section}`)}>
-              <span className="flex size-5 items-center justify-center rounded bg-muted text-[10px] font-semibold">{b.name[0]}</span>
-              <span className="flex-1">{b.name}</span>
-              {b.id === current.id && <Check className="size-4" />}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
+    <>
       <button
         type="button"
         onClick={openCommandMenu}
-        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
       >
         <Search className="size-3.5" />
         <span className="flex-1 text-left">Search or jump to…</span>
@@ -117,8 +135,9 @@ export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker
               <Link
                 key={href}
                 href={`/${current.id}/${href}`}
+                onClick={onNavigate}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-[15px] text-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-foreground",
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-[15px] text-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-foreground",
                   section === href && "bg-card font-medium text-foreground shadow-card",
                 )}
               >
@@ -139,14 +158,11 @@ export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker
             if (!confirmReset) return setConfirmReset(true);
             setResetting(true);
             await fetch("/api/demo/reset", { method: "POST" });
-            try {
-              brokers.forEach((b) => localStorage.removeItem(`precedent:rail:${b.id}`));
-            } catch {}
-            // Full reload so every page drops its in-memory state.
-            window.location.reload();
+            clearDemoClientState(brokers.map((b) => b.id));
+            window.location.assign(`/${current.id}/home`);
           }}
           className={cn(
-            "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+            "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
             confirmReset && "bg-bad/15 text-bad hover:bg-bad/20 hover:text-bad",
           )}
         >
@@ -155,8 +171,49 @@ export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker
         </button>
         <p className="px-3 font-serif text-[15px] italic text-muted-foreground">Teach it once. It remembers.</p>
       </div>
+    </>
+  );
+}
+
+export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker[] }) {
+  const pathname = usePathname();
+  const section = pathname.split("/")[2] ?? "home";
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  return (
+    <>
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col gap-6 border-r border-sidebar-border bg-sidebar px-3.5 py-6 md:flex">
+        <Link href={`/${current.id}/home`} className="px-2">
+          <Wordmark size={24} />
+        </Link>
+        <BrokerSwitch current={current} brokers={brokers} section={section} />
+        <NavBody current={current} brokers={brokers} section={section} />
+      </aside>
+
+      <div className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-sidebar-border bg-background/90 px-4 backdrop-blur-md md:hidden">
+        <Link href={`/${current.id}/home`}>
+          <Wordmark size={22} />
+        </Link>
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="Open menu">
+              <Menu />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-72 gap-5 bg-sidebar p-4">
+            <SheetHeader className="p-0">
+              <SheetTitle className="text-left">
+                <Wordmark size={22} />
+              </SheetTitle>
+              <SheetDescription className="sr-only">Broker navigation</SheetDescription>
+            </SheetHeader>
+            <BrokerSwitch current={current} brokers={brokers} section={section} />
+            <NavBody current={current} brokers={brokers} section={section} onNavigate={() => setMobileOpen(false)} />
+          </SheetContent>
+        </Sheet>
+      </div>
 
       <CommandMenu broker={current.id} brokers={brokers} />
-    </aside>
+    </>
   );
 }

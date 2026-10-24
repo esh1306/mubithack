@@ -2,7 +2,7 @@
 
 **Teach the AI once. It never makes that mistake again.**
 
-Customs-code suggestions for UK brokers. An agent picks a 10-digit UK Trade Tariff code for each invoice line and shows its reasoning and a receipt. When a broker corrects a code and gives a reason, the fix becomes a precedent: similar products the AI has never seen come back right, and other brokers are unaffected. Every model call goes through [Mubit](https://docs.mubit.ai), which groups each broker's calls into its own task and trains a small adapter on them.
+Customs-code suggestions for UK brokers. An agent picks a 10-digit UK Trade Tariff code for each invoice line and shows its reasoning and a receipt. When a broker corrects a code and gives a reason, the fix becomes a precedent and ~20 paraphrases are sent through [Mubit](https://docs.mubit.ai) on that broker's task. Similar products the AI has never seen come back right, and other brokers are unaffected. Mubit can train an adapter after enough kept examples (default 25); this app counts what it sent and does not serve an adapter.
 
 Built for the Mubit × Night Shift hackathon, London.
 
@@ -47,7 +47,8 @@ Scripts run on Node through `bun run script scripts/<name>.mts`, because better-
 - `ping-mubit.mts`: one test call through Mubit
 - `pull-tariff.mts`: re-pull the tariff seed from the UK Trade Tariff API
 - `test-tricky.mts`: run the 24 tricky items in `docs/tricky-items.md` through the agent
-- `warm-up.mts [broker]`: send all 60 sample lines through a broker's Mubit task, so its adapter has varied examples to train on
+- `warm-up.mts [broker]`: send all 60 sample lines through a broker's Mubit task
+- `smoke.mts`: no-key checks for search (bamboo → 3924100019), duty maths, variants and the Mubit missing-key wording
 
 Sample invoices live in `data/samples/`: 6 suppliers, 10 lines each, all selectable from **Load sample invoice ▾** in the app.
 

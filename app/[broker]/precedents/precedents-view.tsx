@@ -15,6 +15,8 @@ type Precedent = {
   reason: string;
   createdAt: string;
   uses: number;
+  variantCount?: number;
+  variantsMatched?: number;
 };
 
 export function PrecedentsView({ broker }: { broker: string }) {
@@ -42,13 +44,14 @@ export function PrecedentsView({ broker }: { broker: string }) {
         description="Every fix your team makes, with the reason. The AI checks these first, for this broker only."
       />
 
+      {list === null && <p className="text-sm text-muted-foreground">Loading this broker&apos;s fixes…</p>}
       {list?.length === 0 && (
         <div className="rounded-lg border border-dashed px-6 py-12 text-center text-sm text-muted-foreground">
-          No precedents yet. Fix a code on the{" "}
+          No precedents yet. Fix a code in the{" "}
           <Link href={`/${broker}/classify`} className="text-primary underline-offset-4 hover:underline">
-            Classify
+            Inbox
           </Link>{" "}
-          page and it shows up here.
+          and it shows up here.
         </div>
       )}
 
@@ -71,6 +74,13 @@ export function PrecedentsView({ broker }: { broker: string }) {
               <div className="flex shrink-0 flex-col items-end gap-2">
                 <span className="text-xs text-muted-foreground">
                   Followed {p.uses} {p.uses === 1 ? "time" : "times"}
+                  {(p.variantCount ?? 0) > 0 && (
+                    <>
+                      <br />
+                      {p.variantCount} paraphrases prepared
+                      {(p.variantsMatched ?? 0) > 0 ? ` · ${p.variantsMatched} matched` : ""}
+                    </>
+                  )}
                 </span>
                 <Button size="icon" variant="ghost" title="Delete precedent" onClick={() => remove(p.id)}>
                   <Trash2 />

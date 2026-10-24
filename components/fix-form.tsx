@@ -54,11 +54,15 @@ function HitList({ hits, picked, onPick }: { hits: Hit[]; picked: Hit | null; on
 export function FixForm({
   currentCode,
   toolCalls,
+  preferredCode,
+  defaultReason,
   onSubmit,
   onCancel,
 }: {
   currentCode: string;
   toolCalls?: string;
+  preferredCode?: string;
+  defaultReason?: string;
   onSubmit: (code: string, reason: string) => void;
   onCancel?: () => void;
 }) {
@@ -66,8 +70,24 @@ export function FixForm({
   const [hits, setHits] = useState<Hit[]>([]);
   const [sameHeading, setSameHeading] = useState<Hit[]>([]);
   const [picked, setPicked] = useState<Hit | null>(null);
-  const [reason, setReason] = useState("");
+  const [preferred, setPreferred] = useState<Hit | null>(null);
+  const [reason, setReason] = useState(defaultReason ?? "");
   const candidates = useMemo(() => agentCandidates(toolCalls, currentCode), [toolCalls, currentCode]);
+
+  useEffect(() => {
+    if (defaultReason) setReason(defaultReason);
+  }, [defaultReason]);
+
+  useEffect(() => {
+    if (!preferredCode) return;
+    fetch(`/api/tariff/${preferredCode}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((h: Hit | null) => {
+        const hit = h ?? { code: preferredCode, path: "House code for this supplier's bamboo tableware", dutyRate: null };
+        setPreferred(hit);
+        setPicked(hit);
+      });
+  }, [preferredCode]);
 
   useEffect(() => {
     fetch(`/api/tariff/search?q=${currentCode.slice(0, 4)}`)
@@ -104,6 +124,12 @@ export function FixForm({
         </div>
 
         <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
+          {preferred && (
+            <div className="space-y-1.5">
+              <p className="text-xs text-primary">House code for this line</p>
+              <HitList hits={[preferred]} picked={picked} onPick={setPicked} />
+            </div>
+          )}
           {searching ? (
             hits.length ? <HitList hits={hits} picked={picked} onPick={setPicked} /> : <p className="py-3 text-center text-xs text-muted-foreground">No codes match.</p>
           ) : (

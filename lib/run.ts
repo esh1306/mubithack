@@ -2,16 +2,80 @@ import { readFileSync } from "node:fs";
 import { db } from "@/lib/db";
 import { classifyLine } from "@/lib/agent";
 import { parseCsv } from "@/lib/csv";
+import { classifyErrorMessage, hasMubitKey, TRAIN_AFTER } from "@/lib/mubit";
+import { isSimilar } from "@/lib/retrieve";
+import { generateVariants } from "@/lib/variants";
 
 export const NEVER_SEEN_BATCH = "never-seen";
 export const RETRO_BATCH = "retro-scan";
+export const VARIANT_BATCH = "variants";
 // Batches that are not invoices the broker uploaded.
-export const SYSTEM_BATCHES = [NEVER_SEEN_BATCH, RETRO_BATCH];
+export const SYSTEM_BATCHES = [NEVER_SEEN_BATCH, RETRO_BATCH, VARIANT_BATCH];
+
+export { isSimilar };
+
+async function persistError(lineId: number, e: unknown) {
+  return db.suggestion.create({
+    data: {
+      lineId,
+      code: "",
+      reason: classifyErrorMessage(e),
+      confidence: 0,
+      flagged: true,
+      model: "error",
+      toolCalls: "[]",
+    },
+  });
+}
+
+export async function mubitExampleCount(brokerId: string) {
+  return db.suggestion.count({
+    where: { line: { brokerId }, model: { notIn: ["broker", "error", "precedent", "seed"] } },
+  });
+}
+
+function digits(code: string) {
+  return (code ?? "").replace(/\D/g, "");
+}
+
+// A house fix that covers this product. Chopsticks / chopping boards are marked should_change=no
+// so a tableware precedent is not forced onto them.
+export async function bindingPrecedent(brokerId: string, text: string) {
+  const stay = neverSeenItems().find((i) => i.text === text && !i.shouldChange);
+  if (stay) return null;
+  const all = await db.precedent.findMany({ where: { brokerId }, orderBy: { id: "desc" } });
+  return all.find((p) => isSimilar(p.lineText, text) || isSimilar(p.reason, text)) ?? null;
+}
+
+async function followPrecedent<T extends { id: number; code: string }>(
+  brokerId: string,
+  line: { id: number; text: string },
+  suggestion: T,
+) {
+  const hit = await bindingPrecedent(brokerId, line.text);
+  if (!hit || digits(suggestion.code) === digits(hit.newCode)) return suggestion;
+  return db.suggestion.create({
+    data: {
+      lineId: line.id,
+      code: hit.newCode,
+      reason: `Applied precedent #${hit.id}: ${hit.reason}`,
+      confidence: 1,
+      flagged: false,
+      precedentId: hit.id,
+      model: "precedent",
+      toolCalls: "[]",
+    },
+  });
+}
 
 // Classify one saved line and store the suggestion.
-export async function classifyAndSave(brokerId: string, line: { id: number; text: string }) {
-  const r = await classifyLine(brokerId, line.text);
-  const suggestion = await db.suggestion.create({
+export async function classifyAndSave(
+  brokerId: string,
+  line: { id: number; text: string },
+  opts?: { maxSteps?: number; applyPrecedent?: boolean },
+) {
+  const r = await classifyLine(brokerId, line.text, opts);
+  const recorded = await db.suggestion.create({
     data: {
       lineId: line.id,
       code: r.code,
@@ -25,22 +89,111 @@ export async function classifyAndSave(brokerId: string, line: { id: number; text
       toolCalls: JSON.stringify(r.toolCalls),
     },
   });
-  return { suggestion, mubitCalls: r.mubitRequestIds.length };
+  const suggestion = opts?.applyPrecedent === false ? recorded : await followPrecedent(brokerId, line, recorded);
+  return { suggestion, mubitCalls: r.mubitRequestIds.length, mubitRequestIds: r.mubitRequestIds };
 }
 
 const ATTEMPTS = 3;
 
 // Retries cover model hiccups ("No output generated", rate limits) that pass on a second try.
-export async function classifyWithRetry(brokerId: string, line: { id: number; text: string }) {
-  for (let attempt = 1; ; attempt++) {
+export async function classifyWithRetry(
+  brokerId: string,
+  line: { id: number; text: string },
+  opts?: { maxSteps?: number; applyPrecedent?: boolean },
+) {
+  let last: unknown;
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     try {
-      return await classifyAndSave(brokerId, line);
+      return await classifyAndSave(brokerId, line, opts);
     } catch (e) {
-      console.error(`classify failed (line ${line.id}, attempt ${attempt}/${ATTEMPTS}):`, (e as Error).message);
-      if (attempt >= ATTEMPTS) throw e;
-      await new Promise((r) => setTimeout(r, 1500 * attempt));
+      last = e;
+      console.error(`classify failed (line ${line.id}, attempt ${attempt}/${ATTEMPTS}):`, classifyErrorMessage(e));
+      if (attempt < ATTEMPTS) await new Promise((r) => setTimeout(r, 1500 * attempt));
     }
   }
+  const suggestion = await persistError(line.id, last);
+  const err = new Error(classifyErrorMessage(last));
+  throw Object.assign(err, { suggestion });
+}
+
+// After a broker fix: paraphrase the line ~20 ways and send each through the same classify task
+// so Mubit records (paraphrase → corrected heading) as kept examples. Skips the gateway without a key.
+export type VariantProgress = {
+  done: number;
+  total: number;
+  text: string;
+  requestIds: string[];
+  code: string | null;
+  matched: boolean;
+  skipped: string | null;
+  examples: number;
+  trainAfter: number;
+};
+
+export async function teachVariants(
+  brokerId: string,
+  precedent: { id: number; lineText: string; newCode: string },
+  onEach?: (p: VariantProgress) => void,
+): Promise<{ sent: number; matched: number; requestIds: string[]; via: "llm" | "template"; skipped: string | null }> {
+  const { texts, via } = await generateVariants(precedent.lineText);
+  if (!hasMubitKey()) {
+    await db.precedent.update({
+      where: { id: precedent.id },
+      data: { variantCount: texts.length, variantsMatched: 0, variantRequestIds: "[]" },
+    });
+    const examples = await mubitExampleCount(brokerId);
+    texts.forEach((text, i) =>
+      onEach?.({
+        done: i + 1,
+        total: texts.length,
+        text,
+        requestIds: [],
+        code: null,
+        matched: false,
+        skipped: "no-key",
+        examples,
+        trainAfter: TRAIN_AFTER,
+      }),
+    );
+    return { sent: 0, matched: 0, requestIds: [], via, skipped: "no-key" };
+  }
+
+  const requestIds: string[] = [];
+  let matched = 0;
+  let done = 0;
+  await pool(texts, 4, async (text) => {
+    const existing = await db.line.findFirst({ where: { brokerId, batchId: VARIANT_BATCH, text } });
+    const line = existing ?? (await db.line.create({ data: { brokerId, batchId: VARIANT_BATCH, text } }));
+    let code: string | null = null;
+    let ids: string[] = [];
+    try {
+      const r = await classifyWithRetry(brokerId, line, { maxSteps: 4, applyPrecedent: false });
+      ids = r.mubitRequestIds;
+      requestIds.push(...ids);
+      code = r.suggestion.code;
+      if (digits(r.suggestion.code) === digits(precedent.newCode)) matched++;
+    } catch (e) {
+      console.error("variant classify failed:", classifyErrorMessage(e));
+    }
+    const examples = await mubitExampleCount(brokerId);
+    onEach?.({
+      done: ++done,
+      total: texts.length,
+      text,
+      requestIds: ids,
+      code,
+      matched: code != null && digits(code) === digits(precedent.newCode),
+      skipped: null,
+      examples,
+      trainAfter: TRAIN_AFTER,
+    });
+  });
+
+  await db.precedent.update({
+    where: { id: precedent.id },
+    data: { variantCount: texts.length, variantsMatched: matched, variantRequestIds: JSON.stringify(requestIds) },
+  });
+  return { sent: texts.length, matched, requestIds, via, skipped: null };
 }
 
 // Server-sent events over a ReadableStream. If the browser goes away, work carries on; sends stop.
@@ -61,7 +214,7 @@ export function sseResponse(work: (send: (event: string, data: unknown) => void)
         await work(send);
       } catch (e) {
         console.error("stream failed:", e);
-        send("fatal", { message: (e as Error).message });
+        send("fatal", { message: classifyErrorMessage(e) });
       }
       send("done", {});
       if (open) controller.close();
@@ -82,18 +235,6 @@ export async function pool<T>(items: T[], limit: number, fn: (item: T) => Promis
   );
 }
 
-const STOP = new Set(["with", "and", "for", "the", "set", "size", "pack", "large", "small", "kids", "men's", "women's"]);
-
-function keyWords(text: string) {
-  return new Set(text.toLowerCase().split(/[^a-z']+/).filter((w) => w.length > 3 && !STOP.has(w)));
-}
-
-// Lines worth re-checking after a fix: they share a key word with the fixed line.
-export function isSimilar(a: string, b: string) {
-  const wa = keyWords(a);
-  return [...keyWords(b)].some((w) => wa.has(w));
-}
-
 export function neverSeenItems() {
   return parseCsv(readFileSync("data/never-seen.csv", "utf8")).map((r) => ({
     text: r.description,
@@ -107,6 +248,11 @@ export async function neverSeenLine(brokerId: string, text: string) {
   return existing ?? db.line.create({ data: { brokerId, batchId: NEVER_SEEN_BATCH, text, neverSeen: true } });
 }
 
+export async function retroLine(brokerId: string, text: string) {
+  const existing = await db.line.findFirst({ where: { brokerId, batchId: RETRO_BATCH, text } });
+  return existing ?? db.line.create({ data: { brokerId, batchId: RETRO_BATCH, text } });
+}
+
 // For each never-seen item: the first result (baseline, before any fix) and the latest.
 export async function neverSeenState(brokerIds: string[]) {
   const lines = await db.line.findMany({
@@ -118,7 +264,8 @@ export async function neverSeenState(brokerIds: string[]) {
     brokers: Object.fromEntries(
       brokerIds.map((b) => {
         const s = lines.find((l) => l.brokerId === b && l.text === item.text)?.suggestions ?? [];
-        return [b, { before: s[0] ?? null, now: s.at(-1) ?? null }];
+        const usable = s.filter((x) => x.model !== "error" && x.code);
+        return [b, { before: usable[0] ?? null, now: usable.at(-1) ?? null }];
       }),
     ),
   }));

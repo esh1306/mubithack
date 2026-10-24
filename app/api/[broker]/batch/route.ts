@@ -49,6 +49,20 @@ export async function GET(req: Request, { params }: { params: Promise<{ broker: 
     client: lines[0]?.client ?? null,
     rows: lines.map((l) => {
       const suggestion = l.suggestions[0];
+      if (suggestion?.model === "error") {
+        return {
+          id: l.id,
+          text: l.text,
+          qty: l.qty,
+          value: l.value,
+          origin: l.origin,
+          source: l.source,
+          existingCode: l.existingCode,
+          status: "error" as const,
+          suggestion: undefined,
+          error: suggestion.reason,
+        };
+      }
       const status = suggestion ? "done" : now - l.createdAt.getTime() < STILL_RUNNING_MS ? "running" : "error";
       return {
         id: l.id,

@@ -58,11 +58,12 @@ export function ExportView({ broker }: { broker: string }) {
         )}
       />
 
+      {batches === null && <p className="text-sm text-muted-foreground">Loading invoices…</p>}
       {batches?.length === 0 && (
         <div className="rounded-lg border border-dashed px-6 py-12 text-center text-sm text-muted-foreground">
           Nothing to export yet.{" "}
           <Link href={`/${broker}/classify`} className="text-primary underline-offset-4 hover:underline">
-            Classify an invoice
+            Classify an invoice in the Inbox
           </Link>{" "}
           first.
         </div>

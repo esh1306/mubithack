@@ -1,7 +1,9 @@
 import { generateText, Output, tool, isStepCount } from "ai";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { mubit, MODEL_ID, mubitRequestId } from "@/lib/mubit";
+import { uk10 } from "@/lib/codes";
+import { classifyErrorMessage, hasMubitKey, mubit, MODEL_ID, mubitRequestId } from "@/lib/mubit";
+import { isSimilar } from "@/lib/retrieve";
 import { searchTariff, getCommodity } from "@/lib/tariff";
 
 // Mubit groups calls into one task by system prompt + model + tools + output format.
@@ -32,9 +34,12 @@ const MAX_STEPS = 10;
 
 export type ToolCallLog = { tool: string; input: unknown; output: unknown };
 
-export async function classifyLine(brokerId: string, lineText: string) {
+export async function classifyLine(brokerId: string, lineText: string, opts?: { maxSteps?: number }) {
+  if (!hasMubitKey()) throw new Error(classifyErrorMessage(new Error("Mubit API key is missing")));
+
   const broker = await db.broker.findUniqueOrThrow({ where: { id: brokerId } });
   let question: string | null = null;
+  const maxSteps = opts?.maxSteps ?? MAX_STEPS;
 
   const tools = {
     search_precedents: tool({
@@ -42,17 +47,21 @@ export async function classifyLine(brokerId: string, lineText: string) {
       inputSchema: z.object({ query: z.string() }),
       execute: async ({ query }) => {
         const terms = query.split(/\s+/).filter((t) => t.length > 2);
-        const rows = await db.precedent.findMany({
-          where: {
-            brokerId,
-            OR: terms.flatMap((t) => [{ lineText: { contains: t } }, { reason: { contains: t } }]),
-          },
-          take: 10,
-        });
+        const all = await db.precedent.findMany({ where: { brokerId }, orderBy: { id: "desc" }, take: 40 });
+        const rows =
+          terms.length === 0
+            ? all.slice(0, 8)
+            : all.filter((p) => terms.some((t) => p.lineText.toLowerCase().includes(t) || p.reason.toLowerCase().includes(t)));
+        // Always include precedents that overlap this product line, even if the model's query was thin.
+        const fromLine = all.filter((p) => isSimilar(p.lineText, lineText) || isSimilar(p.reason, lineText));
+        const fromQuery = all.filter((p) => isSimilar(p.lineText, query) || isSimilar(p.reason, query));
+        const found = [...fromLine, ...fromQuery, ...rows].filter((p, i, xs) => xs.findIndex((x) => x.id === p.id) === i);
         // How to use them goes in the result, not the system prompt: changing the prompt would start a new Mubit task.
-        if (rows.length === 0) return { precedents: [], note: "No precedents match. Classify from the tariff." };
+        if (found.length === 0) return { precedents: [], note: "No precedents match. Classify from the tariff." };
         return {
-          precedents: rows.map(({ id, lineText, oldCode, newCode, reason }) => ({ id, lineText, wrongCode: oldCode, correctCode: newCode, reason })),
+          precedents: found
+            .slice(0, 10)
+            .map(({ id, lineText, oldCode, newCode, reason }) => ({ id, lineText, wrongCode: oldCode, correctCode: newCode, reason })),
           note:
             "These are this broker's binding decisions. If a precedent's reason covers this product (same kind of goods, same supplier or client fact), " +
             "treat the fact it states as known: use its correctCode heading and do not ask the client about that fact. " +
@@ -86,11 +95,11 @@ export async function classifyLine(brokerId: string, lineText: string) {
     prompt: `Product line: ${lineText}`,
     tools,
     output: Output.object({ schema: resultSchema }),
-    stopWhen: isStepCount(MAX_STEPS),
+    stopWhen: isStepCount(maxSteps),
     // On the last step, ask for the answer in the messages (not via toolChoice or activeTools,
     // which Mubit counts as part of the task) so the agent never runs out of steps silently.
     prepareStep: ({ stepNumber, messages }) =>
-      stepNumber === MAX_STEPS - 1
+      stepNumber === maxSteps - 1
         ? { messages: [...messages, { role: "user", content: "That was your last tool call. Give your final answer now." }] }
         : undefined,
   });
@@ -99,31 +108,18 @@ export async function classifyLine(brokerId: string, lineText: string) {
     s.toolResults.map((r) => ({ tool: r.toolName, input: r.input, output: r.output })),
   );
 
-  // A broker's fix is a promise that the same mistake isn't made again. If the agent found a precedent
-  // for this line and still landed on the exact code that precedent corrected, apply the correction.
-  type Found = { id: number; wrongCode: string; correctCode: string; reason: string };
-  const found: Found[] = log
-    .filter((c) => c.tool === "search_precedents")
-    .flatMap((c) => ((c.output as { precedents?: Found[] })?.precedents ?? []));
-  const repeat = found.find((p) => p.wrongCode === res.output.code && p.correctCode !== res.output.code);
-  if (repeat) {
-    return {
-      code: repeat.correctCode,
-      reason: `Applied precedent #${repeat.id}: ${repeat.reason} (the agent's first answer, ${res.output.code}, is the code this precedent corrected.)`,
-      confidence: Math.max(res.output.confidence, 0.9),
-      precedentId: repeat.id,
-      question: null,
-      flagged: false,
-      model: MODEL_ID,
-      mubitRequestIds: res.steps.map((s) => mubitRequestId(s.response.headers)).filter(Boolean) as string[],
-      toolCalls: log,
-    };
-  }
+  if (!res.output?.code) throw new Error("No output generated");
 
+  // Persist what Mubit recorded. Do not overwrite a wrong reply with a precedent after the fact —
+  // that left the adapter training on the mistake while the screen showed the fix.
+  const code = uk10(res.output.code) ?? res.output.code.replace(/\D/g, "");
   return {
-    ...res.output,
+    code,
+    reason: res.output.reason,
+    confidence: res.output.confidence,
+    precedentId: res.output.precedentId,
     question,
-    flagged: res.output.confidence < 0.8 || question !== null,
+    flagged: res.output.confidence < 0.8 || question !== null || !uk10(code),
     model: MODEL_ID,
     mubitRequestIds: res.steps.map((s) => mubitRequestId(s.response.headers)).filter(Boolean) as string[],
     toolCalls: log,

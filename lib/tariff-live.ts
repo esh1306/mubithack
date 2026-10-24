@@ -62,17 +62,55 @@ export async function importHeading(heading: string) {
   return rows.length;
 }
 
-// Third-country (ERGA OMNES) duty for one code, e.g. "6.00%".
-export async function liveDuty(code: string): Promise<string | null> {
-  const d = await get(`/commodities/${code}`);
+function ergaOmnesDuty(d: { included?: Inc[] } | null, asOf?: string): string | null {
   if (!d) return null;
   const inc: Inc[] = d.included ?? [];
   const exprs = new Map(inc.filter((i) => i.type === "duty_expression").map((i) => [i.id, i.attributes]));
+  const onDate = (i: Inc) => {
+    if (!asOf) return true;
+    const start = String(i.attributes.effective_start_date ?? i.attributes.validity_start_date ?? "").slice(0, 10);
+    const end = String(i.attributes.effective_end_date ?? i.attributes.validity_end_date ?? "").slice(0, 10);
+    if (start && asOf < start) return false;
+    if (end && asOf > end) return false;
+    return true;
+  };
   const measure = inc.find(
-    (i) => i.type === "measure" && i.relationships?.measure_type?.data?.id === "103" && i.relationships?.geographical_area?.data?.id === "1011",
+    (i) =>
+      i.type === "measure" &&
+      i.relationships?.measure_type?.data?.id === "103" &&
+      i.relationships?.geographical_area?.data?.id === "1011" &&
+      onDate(i),
   );
   const expr = measure && exprs.get(measure.relationships.duty_expression?.data?.id);
   return expr?.verbose_duty ?? null;
+}
+
+// Third-country (ERGA OMNES) duty for one code, e.g. "6.00%".
+// Pass `asOf` (YYYY-MM-DD) to ask for the rate in force on that import date.
+export async function liveDuty(code: string, asOf?: string): Promise<string | null> {
+  const path = asOf ? `/commodities/${code}?as_of=${asOf}` : `/commodities/${code}`;
+  return ergaOmnesDuty(await get(path), asOf);
+}
+
+export type DutyLookup = { rate: string | null; source: "import-date" | "current"; asOf: string };
+
+const dutyMemo = new Map<string, DutyLookup>();
+
+// Prefer the rate on the import date; fall back to today's rate and say so.
+export async function dutyAsOf(code: string, asOf: string): Promise<DutyLookup> {
+  const key = `${code}:${asOf}`;
+  const hit = dutyMemo.get(key);
+  if (hit) return hit;
+  const dated = await liveDuty(code, asOf);
+  if (dated) {
+    const row = { rate: dated, source: "import-date" as const, asOf };
+    dutyMemo.set(key, row);
+    return row;
+  }
+  const now = (await liveDuty(code)) ?? (await db.tariff.findUnique({ where: { code } }))?.dutyRate ?? null;
+  const row = { rate: now, source: "current" as const, asOf };
+  dutyMemo.set(key, row);
+  return row;
 }
 
 // Live keyword search: imports the headings it points at, and returns the codes it matched.

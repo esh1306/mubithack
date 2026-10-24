@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Info, INFO } from "@/components/info";
-import { Prue } from "@/components/prue";
+import { Mark } from "@/components/mark";
 
 // Shared page parts, so every screen has the same rhythm: a serif headline, then soft cards on paper.
 
@@ -97,7 +97,7 @@ export function Empty({ icon: Icon, title, children }: { icon?: React.ComponentT
           <Icon className="size-5 text-muted-foreground" />
         </span>
       ) : (
-        <Prue size={72} />
+        <Mark size={40} className="text-primary" />
       )}
       <p className="font-serif text-2xl">{title}</p>
       {children && <div className="max-w-md text-[15px] text-muted-foreground">{children}</div>}
