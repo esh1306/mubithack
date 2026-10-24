@@ -14,6 +14,16 @@ Built for the Mubit × Night Shift hackathon, London.
 - **Retro-scan:** re-check 3 years of past entries with today's precedents. It shows duty to reclaim or to disclose, and drafts a claim or disclosure pack.
 - **Export:** a CSV with the code split into DE 6/14 and DE 6/15, ready for declaration software.
 
+## Integrations
+
+All on the **Integrations** page:
+
+- **UK Trade Tariff (live):** HMRC's public API. Headings missing from the local seed are fetched live (codes, chapter notes, duty) and kept.
+- **Shopify (Admin GraphQL API 2026-10):** connect with a custom-app token (`read_products`, `read_inventory`, `write_inventory`), import products as invoice lines along with their existing HS code, and push approved codes back (6-digit HS code plus the 10-digit GB code).
+- **Excel / CSV invoices:** upload a supplier's `.xlsx` commercial invoice. Header and column detection is automatic, and totals rows are skipped.
+- **HMRC Customs Declarations API (sandbox):** OAuth 2.0 sign-in (`write:customs-declaration`), then submit a classified invoice as a WCO DEC-DMS H1 import declaration. Register an app on the HMRC Developer Hub, subscribe it to Customs Declarations, add the redirect URI shown in the app, and sign in with a test user that has `customs-services`.
+- **Declaration software:** a CSV export with DE 6/14 and DE 6/15, plus an audit log.
+
 ## Stack
 
 Next.js 16 (App Router) · TypeScript · Tailwind + shadcn/ui · Prisma 7 + SQLite · Vercel AI SDK with `claude-haiku-4-5` through Mubit's Anthropic proxy.
