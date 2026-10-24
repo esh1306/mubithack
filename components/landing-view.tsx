@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { Wordmark } from "@/components/mark";
 import { LandingStage } from "@/components/landing-stage";
+import { gsap, registerLandingMotion, SplitText } from "@/components/landing-motion";
 import { DEMO_SAMPLE_ID } from "@/lib/demo";
 
 const DEMO_HREF = `/harbourline/classify?sample=${DEMO_SAMPLE_ID}&demo=1`;
@@ -36,6 +38,36 @@ const BENTO = [
   },
 ] as const;
 
+function Headline() {
+  const ref = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    registerLandingMotion();
+    const split = SplitText.create(el, { type: "chars,words,lines", mask: "lines" });
+    const tw = gsap.from(split.chars, {
+      yPercent: 115,
+      duration: 0.72,
+      stagger: 0.016,
+      ease: "power3.out",
+    });
+    return () => {
+      tw.kill();
+      split.revert();
+    };
+  }, []);
+
+  return (
+    <h1 ref={ref} className="landing-display max-w-[16ch]">
+      Code it once.
+      <br />
+      Never again.
+    </h1>
+  );
+}
+
 export function LandingView() {
   return (
     <div className="landing flex min-h-[100svh] flex-col bg-background text-foreground lg:h-[100svh] lg:overflow-hidden">
@@ -57,11 +89,7 @@ export function LandingView() {
       </header>
 
       <main className="flex min-h-0 flex-1 flex-col px-5 pb-5 sm:px-8 lg:px-10 lg:pb-6">
-        <h1 className="landing-display max-w-[16ch]">
-          Code it once.
-          <br />
-          Never again.
-        </h1>
+        <Headline />
 
         <div className="mt-5 grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
           <div className="min-h-0 lg:col-span-7">
