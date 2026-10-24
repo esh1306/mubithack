@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Download } from "lucide-react";
+import { Download, FileCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -46,11 +46,18 @@ export function ExportView({ broker }: { broker: string }) {
           </p>
         </div>
         {batchId && (
-          <Button asChild>
-            <a href={`/api/${broker}/export?batch=${batchId}`}>
-              <Download /> Download CSV
-            </a>
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" asChild title="Every code with its reason, precedent, agent steps and Mubit request IDs">
+              <a href={`/api/${broker}/export?batch=${batchId}&audit=1`}>
+                <FileCheck /> Audit log
+              </a>
+            </Button>
+            <Button asChild>
+              <a href={`/api/${broker}/export?batch=${batchId}`}>
+                <Download /> Download CSV
+              </a>
+            </Button>
+          </div>
         )}
       </header>
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { ChevronsUpDown, ScanLine, BookMarked, History, Download, Check, RotateCcw } from "lucide-react";
+import { ChevronsUpDown, ScanLine, BookMarked, History, Download, Check, RotateCcw, Cpu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Info } from "@/components/info";
 import {
@@ -23,6 +23,7 @@ const NAV = [
   { href: "precedents", label: "Precedents", icon: BookMarked },
   { href: "retro-scan", label: "Retro-scan", icon: History },
   { href: "export", label: "Export", icon: Download },
+  { href: "mubit", label: "Mubit", icon: Cpu },
 ];
 
 export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker[] }) {

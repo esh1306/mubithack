@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Code } from "@/components/code";
 import { Info } from "@/components/info";
+import { ClientEmailButton } from "@/components/client-email";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -195,6 +196,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   const flaggedCount = done.filter((r) => r.suggestion!.flagged && r.suggestion!.status === "pending").length;
   const failed = rows.filter((r) => r.status === "error");
   const allPending = done.filter((r) => r.suggestion!.status === "pending");
+  const brokerName = brokers.find((b) => b.id === broker)?.name ?? broker;
   const inputOpen = showInput || (loaded && rows.length === 0);
 
   return (
@@ -375,9 +377,12 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
                           <TableCell className="whitespace-normal text-sm text-muted-foreground">
                             <span className="line-clamp-2">{r.suggestion.reason}</span>
                             {r.suggestion.question && r.suggestion.status === "pending" && (
-                              <span className="mt-1 flex items-start gap-1.5 text-xs text-primary">
-                                <MessageCircleQuestion className="mt-0.5 size-3.5 shrink-0" />
-                                <span className="line-clamp-1">{r.suggestion.question}</span>
+                              <span className="mt-1 block space-y-0.5">
+                                <span className="flex items-start gap-1.5 text-xs text-primary">
+                                  <MessageCircleQuestion className="mt-0.5 size-3.5 shrink-0" />
+                                  <span className="line-clamp-1">{r.suggestion.question}</span>
+                                </span>
+                                <ClientEmailButton brokerName={brokerName} product={r.text} question={r.suggestion.question} />
                               </span>
                             )}
                             {r.suggestion.precedentId && r.suggestion.status !== "corrected" && (
