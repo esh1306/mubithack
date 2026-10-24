@@ -22,7 +22,6 @@ import {
 import { FixForm } from "@/components/fix-form";
 import { ReceiptSheet, type Suggestion } from "@/components/receipt-sheet";
 import { LearningPanel, RAIL_TEMPLATE, type NeverSeenItem, type RailStep } from "@/components/learning-panel";
-import { parseCsv } from "@/lib/csv";
 import { readSse } from "@/lib/sse";
 
 type InLine = { description: string; qty?: number; value?: number; origin?: string };
@@ -39,6 +38,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   const [busy, setBusy] = useState(false);
   const [showInput, setShowInput] = useState(false);
   const [paste, setPaste] = useState("");
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<Row | null>(null);
   const [inlineFix, setInlineFix] = useState<Row | null>(null);
 
@@ -146,16 +146,16 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
     if (lines.length > 0) run({ lines });
   }
 
+  // .xlsx or .csv: the server finds the header row and the description, qty, value and origin columns.
   async function upload(file: File) {
-    const parsed = parseCsv(await file.text());
-    classify(
-      parsed.map((r) => ({
-        description: r.description ?? Object.values(r)[0],
-        qty: r.qty ? Number(r.qty) : undefined,
-        value: r.value_gbp ? Number(r.value_gbp) : undefined,
-        origin: r.origin,
-      })),
-    );
+    setUploadError(null);
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("/api/parse-invoice", { method: "POST", body: form });
+    const data = await res.json();
+    if (!res.ok) return setUploadError(data.error);
+    if (data.lines.length === 0) return setUploadError(`No product lines found in ${file.name}.`);
+    classify(data.lines);
   }
 
   async function approve(ids: number[]) {
@@ -247,7 +247,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
         {inputOpen && (
           <Tabs defaultValue="upload">
             <TabsList>
-              <TabsTrigger value="upload">Upload CSV</TabsTrigger>
+              <TabsTrigger value="upload">Upload invoice</TabsTrigger>
               <TabsTrigger value="paste">Paste lines</TabsTrigger>
             </TabsList>
             <TabsContent value="upload">
@@ -261,9 +261,10 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
                 }}
               >
                 <FileUp className="size-5" />
-                <span>Drop a CSV here, or click to choose one</span>
-                <span className="text-xs">Columns: description, qty, value_gbp, origin</span>
-                <input type="file" accept=".csv" hidden onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+                <span>Drop an invoice here (Excel or CSV), or click to choose one</span>
+                <span className="text-xs">We find the description, quantity, value and origin columns, whatever they&apos;re called</span>
+                {uploadError && <span className="text-xs text-destructive">{uploadError}</span>}
+                <input type="file" accept=".xlsx,.csv" hidden onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
               </label>
             </TabsContent>
             <TabsContent value="paste" className="space-y-3">
