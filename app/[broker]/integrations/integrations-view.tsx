@@ -78,6 +78,7 @@ export function IntegrationsView({ broker }: { broker: string }) {
   const [lookupResult, setLookupResult] = useState<{ code: string; path: string; dutyRate: string | null }[] | null>(null);
 
   const [storeCount, setStoreCount] = useState(0);
+  const [shopifySetup, setShopifySetup] = useState<string | null>(null);
 
   const [hmrc, setHmrc] = useState<Hmrc | null>(null);
   const [hmrcBusy, setHmrcBusy] = useState<string | null>(null);
@@ -87,14 +88,16 @@ export function IntegrationsView({ broker }: { broker: string }) {
   const [batchId, setBatchId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [t, s, h, b] = await Promise.all([
+    const [t, s, h, b, shop] = await Promise.all([
       fetch("/api/tariff/status").then((r) => r.json()),
       fetch(`/api/${broker}/clients`).then((r) => r.json()),
       fetch(`/api/${broker}/hmrc`).then((r) => r.json()),
       fetch(`/api/${broker}/batch?list=1`).then((r) => r.json()),
+      fetch(`/api/${broker}/shopify`).then((r) => r.json()),
     ]);
     setTariff(t);
     setStoreCount((s as { store: unknown }[]).filter((c) => c.store).length);
+    setShopifySetup(shop.setup ?? null);
     setHmrc(h);
     setBatches(b);
     setBatchId((cur) => cur ?? b[0]?.batchId ?? null);
@@ -178,12 +181,20 @@ export function IntegrationsView({ broker }: { broker: string }) {
         status={storeCount > 0 ? <On>{`${storeCount} connected`}</On> : <Off>Not connected</Off>}
       >
         <p className="text-sm text-muted-foreground">
-          Each client connects its own store. Its catalogue is imported and classified once, and approved codes are written back to every product
-          (6-digit HS code and the 10-digit GB code), so the client&apos;s parcels carry the right code.
+          Each client connects its own store. Approved codes write back as the 6-digit HS code and the 10-digit GB code on the inventory item.
+          No live store? Import a Shopify product CSV on the client card.
         </p>
-        <Button variant="outline" asChild>
-          <Link href={`/${broker}/clients`}>Manage client stores</Link>
-        </Button>
+        {shopifySetup && <p className="text-sm text-destructive">{shopifySetup}</p>}
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild>
+            <Link href={`/${broker}/clients`}>Manage client stores</Link>
+          </Button>
+          <Button variant="ghost" asChild>
+            <a href="/api/sample/shopify-csv">
+              <Download /> Sample Shopify CSV
+            </a>
+          </Button>
+        </div>
       </Card>
 
       <Card icon={FileSpreadsheet} title="Excel and CSV invoices" status={<On>Ready</On>}>

@@ -83,15 +83,23 @@ function StoreConnect({ broker, client, oauthReady, onChange }: { broker: string
           Disconnect
         </Button>
         {error && <p className="w-full text-sm text-destructive">{error}</p>}
+        <CsvImport broker={broker} clientId={client.id} busy={busy} setBusy={setBusy} setError={setError} />
       </div>
     );
   }
 
   return (
     <div className="space-y-2">
+      {!oauthReady && (
+        <p className="rounded-md border border-foreground/20 bg-muted/40 px-3 py-2 text-sm">
+          Shopify app credentials are not on this server (<span className="font-mono">SHOPIFY_CLIENT_ID</span> /{" "}
+          <span className="font-mono">SHOPIFY_CLIENT_SECRET</span> in <span className="font-mono">.env.local</span>).
+          Paste a custom-app token, or import a product CSV. Setup: <span className="font-mono">docs/SHOPIFY.md</span>.
+        </p>
+      )}
       <div className="flex flex-wrap gap-2">
         <Input className="max-w-64" placeholder="client-store.myshopify.com" value={shop} onChange={(e) => setShop(e.target.value)} />
-        {oauthReady ? (
+        {oauthReady && (
           <Button
             size="sm"
             variant="outline"
@@ -103,16 +111,81 @@ function StoreConnect({ broker, client, oauthReady, onChange }: { broker: string
           >
             {busy === "oauth" && <Loader2 className="animate-spin" />} Connect with Shopify
           </Button>
-        ) : (
-          <>
-            <Input className="max-w-64" type="password" placeholder="Admin API token (shpat_…)" value={token} onChange={(e) => setToken(e.target.value)} />
-            <Button size="sm" variant="outline" disabled={!shop || !token || !!busy} onClick={async () => { if (await run("connect", { shop, token })) onChange(); }}>
-              {busy === "connect" && <Loader2 className="animate-spin" />} Connect store
-            </Button>
-          </>
         )}
+        <Input className="max-w-64" type="password" placeholder="Admin API token (shpat_…)" value={token} onChange={(e) => setToken(e.target.value)} />
+        <Button size="sm" variant="outline" disabled={!shop || !token || !!busy} onClick={async () => { if (await run("connect", { shop, token })) onChange(); }}>
+          {busy === "connect" && <Loader2 className="animate-spin" />} Connect store
+        </Button>
       </div>
+      <CsvImport broker={broker} clientId={client.id} busy={busy} setBusy={setBusy} setError={setError} />
       {error && <p className="text-sm text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+function CsvImport({
+  broker,
+  clientId,
+  busy,
+  setBusy,
+  setError,
+}: {
+  broker: string;
+  clientId: number;
+  busy: string | null;
+  setBusy: (v: string | null) => void;
+  setError: (v: string | null) => void;
+}) {
+  const router = useRouter();
+
+  async function onFile(file: File) {
+    setBusy("csv");
+    setError(null);
+    try {
+      const csv = await file.text();
+      const data = await call(`/api/${broker}/clients/${clientId}/shopify`, { action: "import-csv", csv });
+      if (data.lines.length === 0) return setError("No product rows in that CSV.");
+      const ctrl = new AbortController();
+      const res = await fetch(`/api/${broker}/classify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lines: data.lines, clientId }),
+        signal: ctrl.signal,
+      });
+      await readSse(res, (event) => {
+        if (event === "batch") {
+          ctrl.abort();
+          router.push(`/${broker}/classify`);
+        }
+      }).catch(() => {});
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <Button size="sm" variant="ghost" disabled={!!busy} asChild>
+        <label className="cursor-pointer">
+          {busy === "csv" ? <Loader2 className="animate-spin" /> : null}
+          Import Shopify product CSV
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) void onFile(f);
+            }}
+          />
+        </label>
+      </Button>
+      <a href="/api/sample/shopify-csv" className="text-foreground/60 underline-offset-4 hover:underline">
+        Sample CSV
+      </a>
     </div>
   );
 }
@@ -128,9 +201,9 @@ export function ClientsView({ broker }: { broker: string }) {
   );
 
   const load = useCallback(async () => {
-    const list: Client[] = await call(`/api/${broker}/clients`);
+    const [list, shop] = await Promise.all([call(`/api/${broker}/clients`), call(`/api/${broker}/shopify`)]);
     setClients(list);
-    if (list[0]) setOauthReady((await call(`/api/${broker}/clients/${list[0].id}/shopify`)).oauthReady);
+    setOauthReady(!!shop.oauthReady);
   }, [broker]);
 
   useEffect(() => {

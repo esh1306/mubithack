@@ -60,11 +60,11 @@ export const INFO = {
   },
   shopify: {
     title: "Shopify",
-    body: "Create a custom app in your Shopify admin (Settings → Apps → Develop apps) with read_products, read_inventory and write_inventory, then paste the shop domain and Admin API access token here. Products are imported as lines; approved codes are written back to each product (6-digit HS code + 10-digit GB code).",
+    body: "Connect with Precedent's Partner app (SHOPIFY_CLIENT_ID / SECRET), or paste a custom-app Admin API token (read_products, read_inventory, write_inventory). Approved codes write back as the 6-digit HS code plus the 10-digit GB code on the inventory item. No credentials? Import a Shopify product CSV — see docs/SHOPIFY.md.",
   },
   hmrc: {
     title: "HMRC Customs Declarations (sandbox)",
-    body: "Click Sign in with HMRC and log in as the importer (in the sandbox, a test company: create one with the button). The app keeps that sign-in for every broker and refreshes it, then files a classified invoice as an H1 import declaration.",
+    body: "Sandbox only — not live CDS. Needs HMRC_CLIENT_ID / SECRET and redirect http://localhost:3000/api/hmrc/callback. Sign in as a sandbox test company, then file a classified invoice as an H1. See docs/HMRC.md.",
   },
   export: {
     title: "Export",
