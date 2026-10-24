@@ -91,3 +91,47 @@ export async function writeCode(cfg: ShopifyConfig, inventoryItemId: string, cod
   const errors = d.inventoryItemUpdate.userErrors;
   if (errors.length) throw new Error(errors.map((e) => e.message).join("; "));
 }
+
+// OAuth (authorization code grant) for Precedent's own Shopify app, from the server environment.
+export const SHOPIFY_SCOPES = "read_products,read_inventory,write_inventory";
+
+export function shopifyApp(origin: string) {
+  const clientId = process.env.SHOPIFY_CLIENT_ID;
+  const clientSecret = process.env.SHOPIFY_CLIENT_SECRET;
+  return clientId && clientSecret ? { clientId, clientSecret, redirectUri: `${origin}/api/shopify/callback` } : null;
+}
+
+export const validShop = (shop: string) => /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shop);
+
+export function shopifyAuthorizeLink(app: NonNullable<ReturnType<typeof shopifyApp>>, shop: string, state: string) {
+  const u = new URL(`https://${shop}/admin/oauth/authorize`);
+  u.searchParams.set("client_id", app.clientId);
+  u.searchParams.set("scope", SHOPIFY_SCOPES);
+  u.searchParams.set("redirect_uri", app.redirectUri);
+  u.searchParams.set("state", state);
+  return u.toString();
+}
+
+// Shopify signs the callback's query string with the app secret; reject anything that doesn't match.
+export async function verifyShopifyHmac(params: URLSearchParams, secret: string) {
+  const hmac = params.get("hmac") ?? "";
+  const message = [...params.entries()]
+    .filter(([k]) => k !== "hmac" && k !== "signature")
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join("&");
+  const { createHmac, timingSafeEqual } = await import("node:crypto");
+  const digest = createHmac("sha256", secret).update(message).digest("hex");
+  return hmac.length === digest.length && timingSafeEqual(Buffer.from(hmac), Buffer.from(digest));
+}
+
+export async function exchangeShopifyCode(app: NonNullable<ReturnType<typeof shopifyApp>>, shop: string, code: string) {
+  const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ client_id: app.clientId, client_secret: app.clientSecret, code }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || !body.access_token) throw new Error(`Shopify token ${res.status}: ${body.error_description ?? body.error ?? res.statusText}`);
+  return body.access_token as string;
+}

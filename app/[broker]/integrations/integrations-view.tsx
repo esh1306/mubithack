@@ -70,10 +70,11 @@ export function IntegrationsView({ broker }: { broker: string }) {
   const [lookup, setLookup] = useState("");
   const [lookupResult, setLookupResult] = useState<{ code: string; path: string; dutyRate: string | null }[] | null>(null);
 
-  const [shop, setShop] = useState<{ connected: boolean; shop?: string; name?: string; token?: string } | null>(null);
+  const [shop, setShop] = useState<{ connected: boolean; oauthReady?: boolean; shop?: string; name?: string; token?: string } | null>(null);
   const [shopForm, setShopForm] = useState({ shop: "", token: "" });
   const [shopBusy, setShopBusy] = useState<string | null>(null);
-  const [shopError, setShopError] = useState<string | null>(null);
+  const [shopError, setShopError] = useState<string | null>(search.get("shopify") === "error" ? search.get("message") : null);
+  const [showToken, setShowToken] = useState(false);
 
   const [hmrc, setHmrc] = useState<Hmrc | null>(null);
   const [hmrcBusy, setHmrcBusy] = useState<string | null>(null);
@@ -225,18 +226,46 @@ export function IntegrationsView({ broker }: { broker: string }) {
             <p className="text-xs text-muted-foreground">After approving or fixing codes on Classify, use “Push to Shopify” to write them back to each product.</p>
           </>
         ) : (
-          <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-            <Input placeholder="your-store.myshopify.com" value={shopForm.shop} onChange={(e) => setShopForm({ ...shopForm, shop: e.target.value })} />
-            <Input type="password" placeholder="Admin API access token (shpat_…)" value={shopForm.token} onChange={(e) => setShopForm({ ...shopForm, token: e.target.value })} />
-            <Button
-              disabled={!shopForm.shop || !shopForm.token || !!shopBusy}
-              onClick={async () => {
-                const d = await shopify("connect", shopForm);
-                if (d) setShop(d);
-              }}
-            >
-              {shopBusy === "connect" && <Loader2 className="animate-spin" />} Connect
-            </Button>
+          <div className="space-y-3">
+            {shop?.oauthReady && (
+              <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                <Input placeholder="your-store.myshopify.com" value={shopForm.shop} onChange={(e) => setShopForm({ ...shopForm, shop: e.target.value })} />
+                <Button
+                  disabled={!shopForm.shop || !!shopBusy}
+                  onClick={async () => {
+                    const d = await shopify("oauth", { shop: shopForm.shop });
+                    if (d?.authorizeUrl) window.location.assign(d.authorizeUrl);
+                  }}
+                >
+                  {shopBusy === "oauth" && <Loader2 className="animate-spin" />} Connect with Shopify
+                </Button>
+              </div>
+            )}
+            {(!shop?.oauthReady || showToken) ? (
+              <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                <Input placeholder="your-store.myshopify.com" value={shopForm.shop} onChange={(e) => setShopForm({ ...shopForm, shop: e.target.value })} />
+                <Input type="password" placeholder="Admin API access token (shpat_…)" value={shopForm.token} onChange={(e) => setShopForm({ ...shopForm, token: e.target.value })} />
+                <Button
+                  variant={shop?.oauthReady ? "outline" : "default"}
+                  disabled={!shopForm.shop || !shopForm.token || !!shopBusy}
+                  onClick={async () => {
+                    const d = await shopify("connect", shopForm);
+                    if (d) setShop(d);
+                  }}
+                >
+                  {shopBusy === "connect" && <Loader2 className="animate-spin" />} Connect with token
+                </Button>
+              </div>
+            ) : (
+              <button type="button" className="text-xs text-muted-foreground hover:underline" onClick={() => setShowToken(true)}>
+                Or paste a custom-app access token
+              </button>
+            )}
+            {!shop?.oauthReady && (
+              <p className="text-xs text-muted-foreground">
+                For one-click Connect with Shopify, set SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET in .env.local.
+              </p>
+            )}
           </div>
         )}
         {shopError && <p className="text-sm text-destructive">{shopError}</p>}

@@ -1,21 +1,43 @@
 import { db } from "@/lib/db";
 import { clearConfig, getConfig, mask, setConfig } from "@/lib/integrations";
-import { listProducts, normaliseShop, shopInfo, writeCode, type ShopifyConfig } from "@/lib/shopify";
+import {
+  listProducts,
+  normaliseShop,
+  shopInfo,
+  shopifyApp,
+  shopifyAuthorizeLink,
+  validShop,
+  writeCode,
+  type ShopifyConfig,
+} from "@/lib/shopify";
 
 type Params = { params: Promise<{ broker: string }> };
 
 // GET → connection status (never the token itself).
-export async function GET() {
+export async function GET(req: Request) {
   const cfg = await getConfig<ShopifyConfig & { name?: string }>("shopify");
-  return Response.json(cfg ? { connected: true, shop: cfg.shop, name: cfg.name, token: mask(cfg.token) } : { connected: false });
+  const oauthReady = !!shopifyApp(new URL(req.url).origin);
+  return Response.json(
+    cfg ? { connected: true, oauthReady, shop: cfg.shop, name: cfg.name, token: mask(cfg.token) } : { connected: false, oauthReady },
+  );
 }
 
-// POST { action: "connect", shop, token } | { action: "disconnect" } | { action: "import", first? } | { action: "push", lineIds }
+// POST { action: "oauth", shop } → Shopify approval link | { action: "connect", shop, token } (custom-app token) | { action: "disconnect" } | { action: "import", first? } | { action: "push", lineIds }
 export async function POST(req: Request, { params }: Params) {
   const { broker } = await params;
   const body = await req.json();
 
   try {
+    if (body.action === "oauth") {
+      // "Connect with Shopify": send the broker to their store to approve Precedent's app.
+      const app = shopifyApp(new URL(req.url).origin);
+      if (!app) return Response.json({ error: "Set SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET in .env.local" }, { status: 500 });
+      const shop = normaliseShop(body.shop);
+      if (!validShop(shop)) return Response.json({ error: "Enter your store's myshopify.com address" }, { status: 400 });
+      const state = crypto.randomUUID();
+      await setConfig("shopify-oauth", { state, broker });
+      return Response.json({ authorizeUrl: shopifyAuthorizeLink(app, shop, state) });
+    }
     if (body.action === "connect") {
       const cfg = { shop: normaliseShop(body.shop), token: String(body.token).trim() };
       const shop = await shopInfo(cfg);
