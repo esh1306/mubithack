@@ -2,10 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
-import Lenis from "lenis";
 import { SiteNav } from "@/components/site-nav";
 import { StaticGlobe } from "@/components/static-globe";
-import { CargoCraftMark } from "@/components/cargo-craft";
+import { AirlinerSide } from "@/components/cargo-craft";
 import { PlaneWhoosh } from "@/components/plane-whoosh";
 import { PaperMap } from "@/components/paper-map";
 import { LandingStats } from "@/components/landing-stats";
@@ -57,7 +56,7 @@ function Headline({ show }: { show: boolean }) {
         <br />
         Never again.
       </h1>
-      <p className="mt-3 max-w-md text-[15px] font-medium leading-snug text-foreground/70">
+      <p className="mt-3 max-w-md text-[15px] font-medium leading-snug text-foreground/75">
         A desk for UK brokers. Suggestions only — the broker signs every code.
       </p>
     </div>
@@ -66,14 +65,10 @@ function Headline({ show }: { show: boolean }) {
 
 function Credits() {
   return (
-    <footer className="border-t border-foreground/10 px-5 py-8 text-[11px] leading-relaxed text-foreground/45 sm:px-8 lg:px-10">
+    <footer className="border-t border-white/10 px-5 py-8 text-[11px] leading-relaxed text-foreground/55 sm:px-8 lg:px-10">
       <p>
-        Globe: react-globe.gl / three.js (MIT). Land: Natural Earth via world-atlas (public domain). Plane and parcel are
-        procedural low-poly stand-ins — intended swap-ins for Akash Rudra&apos;s Very cute airplane (CC-BY,{" "}
-        <a className="underline decoration-[#E63B2E]/50" href="https://poly.pizza/m/3UtIosDm9u-">
-          poly.pizza/m/3UtIosDm9u-
-        </a>
-        ) and Kenney Cardboard Box Closed / Open (CC0).
+        Globe: react-globe.gl / three.js (MIT). Land: Natural Earth via world-atlas (public domain). Airliner stills are
+        original photoreal renders (no logos).
       </p>
     </footer>
   );
@@ -115,19 +110,12 @@ export function LandingView() {
     if (!root || !pin) return;
     registerLandingMotion();
 
-    const lenis = new Lenis({ autoRaf: false });
-    const ticker = (time: number) => {
-      lenis.raf(time * 1000);
-    };
-    gsap.ticker.add(ticker);
-    gsap.ticker.lagSmoothing(0);
-    lenis.on("scroll", ScrollTrigger.update);
-
     const st = ScrollTrigger.create({
       trigger: root,
       start: "top top",
       end: "+=720%",
       pin,
+      pinSpacing: true,
       scrub: 0.55,
       anticipatePin: 1,
       onUpdate: (self) => {
@@ -141,7 +129,7 @@ export function LandingView() {
     const go = (dir: number) => {
       const i = Math.max(0, Math.min(SCENE_AT.length - 1, sceneFromProgress(st.progress) + dir));
       const y = st.start + (st.end - st.start) * SCENE_AT[i];
-      lenis.scrollTo(y, { duration: 0.7 });
+      window.scrollTo({ top: y, behavior: "smooth" });
     };
 
     const onKey = (e: KeyboardEvent) => {
@@ -169,7 +157,7 @@ export function LandingView() {
     pin.addEventListener("touchend", onEnd);
 
     if (window.location.hash === "#journey") {
-      lenis.scrollTo(st.start + (st.end - st.start) * 0.5, { immediate: true });
+      window.scrollTo({ top: st.start + (st.end - st.start) * 0.5, behavior: "instant" as ScrollBehavior });
     }
 
     return () => {
@@ -177,8 +165,6 @@ export function LandingView() {
       pin.removeEventListener("touchstart", onStart);
       pin.removeEventListener("touchend", onEnd);
       st.kill();
-      gsap.ticker.remove(ticker);
-      lenis.destroy();
     };
   }, [pinOn]);
 
@@ -188,6 +174,7 @@ export function LandingView() {
 
   return (
     <div className="landing">
+      <SiteNav current="home" overlay />
       <section ref={story} className="relative">
         <div ref={viewport} className="relative isolate min-h-[100svh] overflow-hidden">
           <div className="absolute inset-0" style={{ opacity: globeFade }}>
@@ -203,34 +190,37 @@ export function LandingView() {
           {pinOn && (
             <div
               id="journey"
-              className="absolute inset-0 z-20 flex flex-col justify-end px-5 pb-8 pt-24 sm:px-8 lg:px-10"
+              className="absolute inset-0 z-20 flex flex-col justify-end px-5 pb-8 pt-28 sm:px-8 lg:px-10"
               style={{
                 opacity: mapOn ? 1 : 0,
                 pointerEvents: mapOn ? "auto" : "none",
               }}
             >
-              <p className="landing-kicker text-primary">Store to sandbox</p>
+              <p className="landing-kicker text-[#FDE68A]">Store to sandbox</p>
               <h2 className="landing-display mt-2 max-w-[16ch] overflow-visible">The parcel&apos;s journey.</h2>
               <div className="mt-5 max-h-[min(64vh,620px)]">
                 <PaperMap mobile={false} reduced={false} progress={progress} />
               </div>
             </div>
           )}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#f3f6fb] via-[#f3f6fb]/70 to-transparent" aria-hidden />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#f3f6fb] to-transparent" aria-hidden />
+          <div
+            className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#1236A8]/80 via-[#1E4FD8]/30 to-transparent"
+            aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#0F2A6B] to-transparent"
+            aria-hidden
+          />
           <div className="pointer-events-none relative z-30 flex min-h-[100svh] flex-col">
-            <div className="pointer-events-auto">
-              <SiteNav current="home" overlay />
-            </div>
-            <div className="relative flex flex-1 flex-col justify-center px-5 py-8 sm:px-8 lg:px-10">
+            <div className="relative flex flex-1 flex-col justify-center px-5 pb-8 pt-28 sm:px-8 lg:px-10">
               <Headline show={showHead} />
               {mobile && (
                 <div className="mt-8 flex justify-end">
-                  <CargoCraftMark className="w-28 cargo-drift" />
+                  <AirlinerSide className="w-36 cargo-drift sm:w-44" />
                 </div>
               )}
             </div>
-            <p className="px-5 pb-5 text-[11px] font-medium uppercase tracking-[0.16em] text-foreground/40 sm:px-8 lg:px-10">
+            <p className="px-5 pb-5 text-[11px] font-medium uppercase tracking-[0.16em] text-foreground/50 sm:px-8 lg:px-10">
               {pinOn ? "Scroll · the map unrolls" : "Shenzhen → London"}
             </p>
           </div>
@@ -238,10 +228,10 @@ export function LandingView() {
       </section>
 
       {ready && !pinOn && (
-        <section id="journey" className="relative z-20 border-t border-foreground/10 px-5 py-16 sm:px-8 lg:px-10">
-          <p className="landing-kicker text-primary">Store to sandbox</p>
+        <section id="journey" className="relative z-20 border-t border-white/10 px-5 py-16 sm:px-8 lg:px-10">
+          <p className="landing-kicker text-[#FDE68A]">Store to sandbox</p>
           <h2 className="landing-display mt-2 max-w-[16ch] overflow-visible">The parcel&apos;s journey.</h2>
-          <p className="mt-3 max-w-xl text-[15px] font-medium text-foreground/70">
+          <p className="mt-3 max-w-xl text-[15px] font-medium text-foreground/75">
             Pins drop in order from the Shopify store to the HMRC sandbox.
           </p>
           <div className="mt-8">
@@ -253,9 +243,9 @@ export function LandingView() {
       <LandingStats />
       <MubitShowcase />
 
-      <section className="border-t border-foreground/10 px-5 py-12 sm:px-8 lg:px-10">
-        <p className="landing-kicker text-foreground/50">Works with</p>
-        <p className="mt-2 text-[13px] font-medium text-foreground/50">Names for orientation. Not a partnership.</p>
+      <section className="border-t border-white/10 px-5 py-12 sm:px-8 lg:px-10">
+        <p className="landing-kicker text-foreground/55">Works with</p>
+        <p className="mt-2 text-[13px] font-medium text-foreground/55">Names for orientation. Not a partnership.</p>
         <div className="mt-5">
           <LogoLoop>
             <ShopifyMark size={26} />

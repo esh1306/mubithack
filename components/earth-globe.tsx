@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Globe, { type GlobeMethods } from "react-globe.gl";
-import * as THREE from "three";
 import { feature } from "topojson-client";
 import {
   alongGreatCircle,
@@ -23,6 +22,7 @@ export type EarthApi = {
 };
 
 type LandFeat = { type: string; geometry?: unknown };
+type HtmlPin = { lat: number; lng: number; name: string; sub: string; kind?: string; heading?: number; alt?: number };
 
 function oceanTexture() {
   const c = document.createElement("canvas");
@@ -31,12 +31,19 @@ function oceanTexture() {
   const ctx = c.getContext("2d");
   if (!ctx) return "";
   const g = ctx.createLinearGradient(0, 0, 0, 512);
-  g.addColorStop(0, "#f8fafc");
-  g.addColorStop(0.45, "#eef2fb");
-  g.addColorStop(1, "#e4ebf6");
+  g.addColorStop(0, "#2F6BFF");
+  g.addColorStop(0.28, "#1E4FD8");
+  g.addColorStop(0.62, "#1638A0");
+  g.addColorStop(1, "#0F2A6B");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 1024, 512);
-  ctx.strokeStyle = "rgba(124,107,255,0.06)";
+  const rad = ctx.createRadialGradient(360, 130, 16, 380, 170, 420);
+  rad.addColorStop(0, "rgba(191, 219, 254, 0.5)");
+  rad.addColorStop(0.4, "rgba(96, 165, 250, 0.16)");
+  rad.addColorStop(1, "rgba(15, 42, 107, 0)");
+  ctx.fillStyle = rad;
+  ctx.fillRect(0, 0, 1024, 512);
+  ctx.strokeStyle = "rgba(191, 219, 254, 0.08)";
   ctx.lineWidth = 1;
   for (let y = 24; y < 512; y += 24) {
     ctx.beginPath();
@@ -47,43 +54,18 @@ function oceanTexture() {
   return c.toDataURL("image/png");
 }
 
-function makeCraft() {
-  const group = new THREE.Group();
-  const paper = new THREE.MeshStandardMaterial({ color: 0xf8fafc, flatShading: true, roughness: 0.65 });
-  const red = new THREE.MeshStandardMaterial({ color: 0xe63b2e, flatShading: true, roughness: 0.5 });
-  const violet = new THREE.MeshStandardMaterial({ color: 0x7c6bff, flatShading: true, roughness: 0.45 });
-  const boxMat = new THREE.MeshStandardMaterial({ color: 0xc4a574, flatShading: true, roughness: 0.85 });
-  const tape = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, flatShading: true });
-
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, 2.1, 5), paper);
-  body.rotation.z = Math.PI / 2;
-  group.add(body);
-  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.7, 5), violet);
-  nose.rotation.z = -Math.PI / 2;
-  nose.position.x = 1.35;
-  group.add(nose);
-  const wing = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.08, 2.6), red);
-  group.add(wing);
-  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.55, 0.08), red);
-  tail.position.set(-0.9, 0.28, 0);
-  group.add(tail);
-  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.08, 0.9), red);
-  fin.position.set(-0.9, 0, 0);
-  group.add(fin);
-  const string = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.7, 4), tape);
-  string.position.set(0, -0.7, 0);
-  group.add(string);
-  const box = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.4, 0.48), boxMat);
-  box.position.set(0, -1.15, 0);
-  group.add(box);
-  group.scale.setScalar(5.4);
-  return group;
-}
-
 function stampEl(title: string, sub: string) {
   const el = document.createElement("div");
   el.className = "globe-html-pin globe-html-pin-pop";
   el.innerHTML = `<i></i><span><b>${title}</b><small>${sub}</small></span>`;
+  return el;
+}
+
+function planeEl(heading: number) {
+  const el = document.createElement("div");
+  el.className = "globe-airliner";
+  el.innerHTML = `<img src="/plane-side.webp" alt="" />`;
+  el.style.transform = `rotate(${90 - heading}deg)`;
   return el;
 }
 
@@ -99,6 +81,7 @@ export function EarthGlobe({
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const wrap = useRef<HTMLDivElement>(null);
   const progress = useRef(0);
+  const planeNode = useRef<HTMLDivElement | null>(null);
   const [ready, setReady] = useState(false);
   const [size, setSize] = useState({ w: 800, h: 600 });
   const [tex, setTex] = useState<string | null>(null);
@@ -109,7 +92,6 @@ export function EarthGlobe({
     alt: 0.18,
     heading: headingDegrees(SHENZHEN, LONDON),
   }));
-  const craftObj = useRef<THREE.Group | null>(null);
 
   useEffect(() => {
     setTex(oceanTexture());
@@ -153,12 +135,16 @@ export function EarthGlobe({
     const d = diveAmount(t);
     const here = alongGreatCircle(SHENZHEN, LONDON, u);
     const next = alongGreatCircle(SHENZHEN, LONDON, Math.min(1, u + 0.02));
+    const heading = headingDegrees({ ...here, name: "" }, { ...next, name: "" });
     setCraft({
       lat: here.lat,
       lng: here.lng,
       alt: 0.1 + 0.22 * Math.sin(Math.PI * u),
-      heading: headingDegrees({ ...here, name: "" }, { ...next, name: "" }),
+      heading,
     });
+    if (planeNode.current) {
+      planeNode.current.style.transform = `rotate(${90 - heading}deg)`;
+    }
     const g = globeRef.current;
     if (!g) return;
     const controls = g.controls();
@@ -207,10 +193,23 @@ export function EarthGlobe({
     [],
   );
 
-  const pins = useMemo(
-    () => DESTINATIONS.map((d) => ({ ...d, sub: "UK" })),
-    [],
-  );
+  const pins = useMemo<HtmlPin[]>(() => DESTINATIONS.map((d) => ({ ...d, sub: "UK" })), []);
+
+  const htmlData = useMemo<HtmlPin[]>(() => {
+    if (mobile) return pins;
+    return [
+      ...pins,
+      {
+        lat: craft.lat,
+        lng: craft.lng,
+        name: "plane",
+        sub: "",
+        kind: "plane",
+        heading: craft.heading,
+        alt: craft.alt,
+      },
+    ];
+  }, [pins, craft, mobile]);
 
   const rings = useMemo(
     () => DESTINATIONS.map((d, i) => ({ lat: d.lat, lng: d.lng, maxR: 3.2 + i * 0.4, period: 900 + i * 220 })),
@@ -240,10 +239,10 @@ export function EarthGlobe({
           backgroundColor="rgba(0,0,0,0)"
           globeImageUrl={tex}
           showAtmosphere
-          atmosphereColor="#9aa6ff"
-          atmosphereAltitude={0.22}
+          atmosphereColor="#9ED0FF"
+          atmosphereAltitude={0.26}
           hexPolygonsData={land}
-          hexPolygonColor={() => "#7C6BFF"}
+          hexPolygonColor={() => "#E8F4FF"}
           hexPolygonAltitude={0.003}
           hexPolygonResolution={mobile ? 2 : 3}
           hexPolygonMargin={0.68}
@@ -251,33 +250,31 @@ export function EarthGlobe({
           hexPolygonsTransitionDuration={0}
           arcsData={arcs}
           arcColor={(d: object) => (d as { colors: string[] }).colors}
-          arcStroke={(d: object) => ((d as { main?: boolean }).main ? 0.85 : 0.42)}
+          arcStroke={(d: object) => ((d as { main?: boolean }).main ? 0.95 : 0.48)}
           arcDashLength={0.28}
           arcDashGap={0.55}
           arcDashAnimateTime={(d: object) => (d as { dash: number }).dash}
           arcAltitudeAutoScale={0.42}
           arcsTransitionDuration={0}
           ringsData={rings}
-          ringColor={() => (t: number) => `rgba(124,107,255,${0.55 * (1 - t)})`}
+          ringColor={() => (t: number) => `rgba(232,244,255,${0.7 * (1 - t)})`}
           ringMaxRadius="maxR"
           ringPropagationSpeed={2.4}
           ringRepeatPeriod="period"
-          htmlElementsData={pins}
+          htmlElementsData={htmlData}
           htmlLat="lat"
           htmlLng="lng"
-          htmlAltitude={0.018}
-          htmlElement={(d) => stampEl((d as { name: string }).name.toUpperCase(), (d as { sub: string }).sub)}
-          htmlTransitionDuration={0}
-          objectsData={mobile ? [] : [craft]}
-          objectLat="lat"
-          objectLng="lng"
-          objectAltitude="alt"
-          objectFacesSurfaces={false}
-          objectRotation={() => ({ y: 90 - craft.heading, x: -10, z: 0 })}
-          objectThreeObject={() => {
-            craftObj.current ??= makeCraft();
-            return craftObj.current;
+          htmlAltitude={(d: object) => ((d as HtmlPin).kind === "plane" ? ((d as HtmlPin).alt ?? 0.16) : 0.018)}
+          htmlElement={(d) => {
+            const pin = d as HtmlPin;
+            if (pin.kind === "plane") {
+              const el = planeEl(pin.heading ?? craft.heading);
+              planeNode.current = el;
+              return el;
+            }
+            return stampEl(pin.name.toUpperCase(), pin.sub);
           }}
+          htmlTransitionDuration={0}
           enablePointerInteraction
           onGlobeReady={() => {
             const g = globeRef.current;

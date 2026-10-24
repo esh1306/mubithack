@@ -1,4 +1,4 @@
-/** Pale dotted globe. Shown until react-globe.gl is ready, and for reduced motion. */
+/** Luminous blue dotted globe. Shown until react-globe.gl is ready, and for reduced motion. */
 
 export function StaticGlobe({ className = "" }: { className?: string }) {
   const dots = [
@@ -10,25 +10,32 @@ export function StaticGlobe({ className = "" }: { className?: string }) {
     <svg viewBox="0 0 200 200" className={className} aria-hidden role="img">
       <title>Earth</title>
       <defs>
-        <radialGradient id="ocean-ball" cx="38%" cy="32%" r="70%">
-          <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="55%" stopColor="#eef2fb" />
-          <stop offset="100%" stopColor="#d9e2f2" />
+        <radialGradient id="ocean-ball" cx="36%" cy="30%" r="72%">
+          <stop offset="0%" stopColor="#60A5FA" />
+          <stop offset="42%" stopColor="#2563EB" />
+          <stop offset="100%" stopColor="#0F2A6B" />
         </radialGradient>
         <filter id="globe-soft">
-          <feDropShadow dx="0" dy="10" stdDeviation="10" floodColor="#7C6BFF" floodOpacity="0.18" />
+          <feDropShadow dx="0" dy="10" stdDeviation="12" floodColor="#93C5FD" floodOpacity="0.45" />
+        </filter>
+        <filter id="dot-glow">
+          <feGaussianBlur stdDeviation="1.2" result="b" />
+          <feMerge>
+            <feMergeNode in="b" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
         </filter>
       </defs>
-      <circle cx="100" cy="100" r="84" fill="none" stroke="#7C6BFF" strokeOpacity="0.22" strokeWidth="6" />
+      <circle cx="100" cy="100" r="84" fill="none" stroke="#BFDBFE" strokeOpacity="0.35" strokeWidth="6" />
       <circle cx="100" cy="100" r="78" fill="url(#ocean-ball)" filter="url(#globe-soft)" />
       {dots.map(([x, y], i) => (
-        <circle key={`${x}-${y}-${i}`} cx={x} cy={y} r="1.7" fill="#7C6BFF" fillOpacity="0.72" />
+        <circle key={`${x}-${y}-${i}`} cx={x} cy={y} r="1.8" fill="#E8F4FF" fillOpacity="0.92" filter="url(#dot-glow)" />
       ))}
-      <path d="M148 108 C 118 64, 78 58, 58 80" fill="none" stroke="#FF5CAD" strokeWidth="1.5" strokeDasharray="4 3" />
-      <path d="M142 116 C 110 78, 70 92, 62 108" fill="none" stroke="#3DDBE8" strokeWidth="1.2" strokeDasharray="3 3" />
-      <circle cx="148" cy="108" r="2.4" fill="#E63B2E" />
-      <circle cx="58" cy="80" r="2.4" fill="#7C6BFF" />
-      <ellipse cx="100" cy="182" rx="40" ry="5" fill="#7C6BFF" opacity="0.12" />
+      <path d="M148 108 C 118 64, 78 58, 58 80" fill="none" stroke="#FF5CAD" strokeWidth="1.6" strokeDasharray="4 3" />
+      <path d="M142 116 C 110 78, 70 92, 62 108" fill="none" stroke="#3DDBE8" strokeWidth="1.3" strokeDasharray="3 3" />
+      <circle cx="148" cy="108" r="2.4" fill="#FF8A3D" />
+      <circle cx="58" cy="80" r="2.4" fill="#E8F4FF" />
+      <ellipse cx="100" cy="182" rx="40" ry="5" fill="#93C5FD" opacity="0.22" />
     </svg>
   );
 }

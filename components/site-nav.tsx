@@ -12,7 +12,7 @@ export function SiteNav({ current, overlay }: { current?: "home" | "how"; overla
     <header
       className={cn(
         "flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10",
-        overlay && "bg-background/80 backdrop-blur-sm",
+        overlay && "landing-nav border-b border-white/10 bg-[#0B2466]/55 backdrop-blur-md",
       )}
     >
       <Link href="/" className="w-fit rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

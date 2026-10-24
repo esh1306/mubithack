@@ -5,7 +5,7 @@ import { geoMercator, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import { Wordmark } from "@/components/mark";
 import { HmrcMark, MubitMark, ShopifyMark } from "@/components/partner-marks";
-import { CargoCraft } from "@/components/cargo-craft";
+import { CargoCraft, RouteParcel } from "@/components/cargo-craft";
 import { JOURNEY_STEPS } from "@/lib/landing-steps";
 import { FELIXSTOWE, LONDON, pinAmount, SHENZHEN, unfoldAmount } from "@/lib/landing-geo";
 
@@ -55,6 +55,7 @@ function MapArt({ landD, routeD, routeDraw }: { landD: string; routeD: string; r
         style={{ strokeDashoffset: 1 - routeDraw }}
       />
       <CargoCraft pathId="paper-route" progress={routeDraw} />
+      <RouteParcel x={520} y={188} show={routeDraw > 0.35} />
     </svg>
   );
 }
