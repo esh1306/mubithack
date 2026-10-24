@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Sparkles, Flag, MessageCircleQuestion, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Code } from "@/components/code";
+import { Prue } from "@/components/prue";
 import { Panel, Stat, Empty, Status } from "@/components/page";
 
 type Home = {
@@ -58,7 +59,9 @@ export function HomeView({ broker, brokerName }: { broker: string; brokerName: s
   return (
     <div className="mx-auto max-w-6xl space-y-10">
       <header className="flex flex-wrap items-end justify-between gap-6">
-        <div className="max-w-3xl space-y-3">
+        <div className="flex max-w-4xl items-end gap-6">
+          <Prue size={104} mood={d && d.totals.review === 0 ? "happy" : "neutral"} className="shrink-0" />
+          <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
             {brokerName}
             {greeting.date && <> · {greeting.date}</>}
@@ -80,6 +83,7 @@ export function HomeView({ broker, brokerName }: { broker: string; brokerName: s
               )}
             </p>
           )}
+          </div>
         </div>
         <Button size="lg" asChild>
           <Link href={`/${broker}/classify?sample=01-ningbo-homeware`}>

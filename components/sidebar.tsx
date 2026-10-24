@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
 import { Info } from "@/components/info";
+import { Prue } from "@/components/prue";
 import { CommandMenu, openCommandMenu } from "@/components/command-menu";
 import { cn } from "@/lib/utils";
 
@@ -67,8 +68,9 @@ export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker
 
   return (
     <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col gap-6 border-r border-sidebar-border bg-sidebar px-3.5 py-6">
-      <Link href={`/${current.id}/home`} className="px-2 font-serif text-[28px] leading-none tracking-tight">
-        Precedent
+      <Link href={`/${current.id}/home`} className="flex items-end gap-2 px-2">
+        <Prue size={30} mood="happy" />
+        <span className="font-serif text-[28px] leading-none tracking-tight">Precedent</span>
       </Link>
 
       <DropdownMenu>

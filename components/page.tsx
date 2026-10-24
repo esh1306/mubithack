@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Info, INFO } from "@/components/info";
+import { Prue } from "@/components/prue";
 
 // Shared page parts, so every screen has the same rhythm: a serif headline, then soft cards on paper.
 
@@ -91,10 +92,12 @@ export function Stat({
 export function Empty({ icon: Icon, title, children }: { icon?: React.ComponentType<{ className?: string }>; title: string; children?: React.ReactNode }) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-card/60 px-6 py-16 text-center">
-      {Icon && (
+      {Icon ? (
         <span className="flex size-11 items-center justify-center rounded-full bg-muted">
           <Icon className="size-5 text-muted-foreground" />
         </span>
+      ) : (
+        <Prue size={72} />
       )}
       <p className="font-serif text-2xl">{title}</p>
       {children && <div className="max-w-md text-[15px] text-muted-foreground">{children}</div>}
