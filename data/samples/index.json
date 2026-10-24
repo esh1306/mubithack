@@ -1,8 +1,62 @@
 [
-  { "id": "01-ningbo-homeware", "name": "Ningbo homeware", "supplier": "Sunrise Homeware · Ningbo", "about": "The main demo: bamboo set, shirt, LED bulb, silicone mat and more" },
-  { "id": "02-little-sprout-kids", "name": "Kids & baby", "supplier": "Little Sprout Kids · Ningbo", "about": "Bamboo tableware, costumes, baby goods: shows the bamboo precedent at work" },
-  { "id": "03-dhaka-apparel", "name": "Apparel", "supplier": "Meghna Apparel · Dhaka", "about": "Shirts and tops where knitted vs woven decides the code" },
-  { "id": "04-shenzhen-electronics", "name": "Electronics", "supplier": "Pearl River Electronics · Shenzhen", "about": "Smartwatch, earbuds, drone, vape: rule traps in chapters 85 and 88" },
-  { "id": "05-peak-outdoor", "name": "Outdoor & sport", "supplier": "Peak Outdoor · Ho Chi Minh City", "about": "Footwear, helmets, mats and bags, where material decides the code" },
-  { "id": "06-istanbul-home", "name": "Home & textiles", "supplier": "Dales Home Goods · Istanbul", "about": "Bedding, towels, tableware and festive lights" }
+  {
+    "id": "01-ningbo-homeware",
+    "name": "Ningbo homeware",
+    "supplier": "Sunrise Homeware \u00b7 Ningbo",
+    "about": "The main demo: bamboo set, shirt, LED bulb, silicone mat and more",
+    "client": {
+      "name": "Sunrise Homeware Ltd",
+      "eori": "GB683471029001"
+    }
+  },
+  {
+    "id": "02-little-sprout-kids",
+    "name": "Kids & baby",
+    "supplier": "Little Sprout Kids \u00b7 Ningbo",
+    "about": "Bamboo tableware, costumes, baby goods: shows the bamboo precedent at work",
+    "client": {
+      "name": "Little Sprout Kids Ltd",
+      "eori": "GB683471029002"
+    }
+  },
+  {
+    "id": "03-dhaka-apparel",
+    "name": "Apparel",
+    "supplier": "Meghna Apparel \u00b7 Dhaka",
+    "about": "Shirts and tops where knitted vs woven decides the code",
+    "client": {
+      "name": "Meghna Apparel UK Ltd",
+      "eori": "GB683471029003"
+    }
+  },
+  {
+    "id": "04-shenzhen-electronics",
+    "name": "Electronics",
+    "supplier": "Pearl River Electronics \u00b7 Shenzhen",
+    "about": "Smartwatch, earbuds, drone, vape: rule traps in chapters 85 and 88",
+    "client": {
+      "name": "Pearl River Gadgets UK Ltd",
+      "eori": "GB683471029004"
+    }
+  },
+  {
+    "id": "05-peak-outdoor",
+    "name": "Outdoor & sport",
+    "supplier": "Peak Outdoor \u00b7 Ho Chi Minh City",
+    "about": "Footwear, helmets, mats and bags, where material decides the code",
+    "client": {
+      "name": "Peak Outdoor Supplies Ltd",
+      "eori": "GB683471029005"
+    }
+  },
+  {
+    "id": "06-istanbul-home",
+    "name": "Home & textiles",
+    "supplier": "Dales Home Goods \u00b7 Istanbul",
+    "about": "Bedding, towels, tableware and festive lights",
+    "client": {
+      "name": "Dales Home Goods Ltd",
+      "eori": "GB683471029006"
+    }
+  }
 ]

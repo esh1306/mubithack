@@ -1,12 +1,12 @@
 import { clearConfig, getConfig, setConfig } from "@/lib/integrations";
-import { exchangeShopifyCode, shopInfo, shopifyApp, validShop, verifyShopifyHmac } from "@/lib/shopify";
+import { exchangeShopifyCode, shopInfo, shopifyApp, shopifyKey, validShop, verifyShopifyHmac } from "@/lib/shopify";
 
-// Shopify sends the broker back here after they approve the app: ?code&hmac&shop&state&timestamp.
+// Shopify sends the broker back here after the client's store approves the app: ?code&hmac&shop&state&timestamp.
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const pending = await getConfig<{ state: string; broker: string }>("shopify-oauth");
+  const pending = await getConfig<{ state: string; broker: string; clientId: number }>("shopify-oauth");
   const broker = pending?.broker ?? "harbourline";
-  const back = (q: string) => Response.redirect(`${url.origin}/${broker}/integrations?${q}`, 302);
+  const back = (q: string) => Response.redirect(`${url.origin}/${broker}/clients?${q}`, 302);
 
   const app = shopifyApp(url.origin);
   const shop = url.searchParams.get("shop") ?? "";
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
   try {
     const token = await exchangeShopifyCode(app, shop, code);
     const info = await shopInfo({ shop, token });
-    await setConfig("shopify", { shop, token, name: info.name, via: "oauth" });
+    await setConfig(shopifyKey(pending.clientId), { shop, token, name: info.name, via: "oauth" });
     await clearConfig("shopify-oauth");
     return back("shopify=connected");
   } catch (e) {

@@ -94,7 +94,13 @@ function countryCode(origin: string | null) {
 // A Type H1 import declaration (DE 1/1 IM, 1/2 A: standard, frontier), procedure 40 00 (release for
 // free circulation). WCO DEC-DMS is strict about element order, so each block below follows the schema.
 // DE 6/14 is the first 8 digits of the commodity code and DE 6/15 the 2 TARIC digits.
-export function buildDeclaration(cfg: HmrcConfig & { eori: string }, lrn: string, items: DeclarationItem[]) {
+export function buildDeclaration(
+  cfg: HmrcConfig & { eori: string },
+  lrn: string,
+  items: DeclarationItem[],
+  importer: { importerEori?: string; importerName?: string } = {},
+) {
+  const importerEori = importer.importerEori || cfg.eori;
   const lines = items.map((it, i) => ({
     seq: i + 1,
     description: it.description.slice(0, 512),
@@ -111,7 +117,8 @@ export function buildDeclaration(cfg: HmrcConfig & { eori: string }, lrn: string
     procedure: "4000",
     procedureLabel: "Release for free circulation, no previous procedure",
     declarant: cfg.eori,
-    importer: cfg.eori,
+    importer: importerEori,
+    importerName: importer.importerName ?? null,
     representation: "Direct (agent for the importer)",
     goodsLocation: "FXTFXTFXT (Felixstowe)",
     currency: "GBP",
@@ -198,7 +205,7 @@ export function buildDeclaration(cfg: HmrcConfig & { eori: string }, lrn: string
         <CountryCode>GB</CountryCode>
       </Destination>${goods}
       <Importer>
-        <ID>${esc(cfg.eori)}</ID>
+        <ID>${esc(importerEori)}</ID>
       </Importer>
       <PreviousDocument>
         <CategoryCode>Z</CategoryCode>

@@ -14,12 +14,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ broker: 
       by: ["batchId"],
       where: { brokerId: broker, batchId: { notIn: SYSTEM_BATCHES } },
       _count: true,
-      _min: { createdAt: true, id: true },
+      _min: { createdAt: true, id: true, clientId: true },
     });
+    const clients = await db.client.findMany({ where: { brokerId: broker }, select: { id: true, name: true } });
     return Response.json(
       groups
         .sort((a, b) => (b._min.id ?? 0) - (a._min.id ?? 0))
-        .map((g) => ({ batchId: g.batchId, lines: g._count, createdAt: g._min.createdAt })),
+        .map((g) => ({
+          batchId: g.batchId,
+          lines: g._count,
+          createdAt: g._min.createdAt,
+          client: clients.find((c) => c.id === g._min.clientId)?.name ?? null,
+        })),
     );
   }
   const id = search.get("id");
@@ -34,12 +40,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ broker: 
 
   const lines = await db.line.findMany({
     where: { brokerId: broker, batchId: latest.batchId },
-    include: { suggestions: { orderBy: { id: "desc" }, take: 1 } },
+    include: { suggestions: { orderBy: { id: "desc" }, take: 1 }, client: { select: { id: true, name: true, eori: true } } },
     orderBy: { id: "asc" },
   });
   const now = Date.now();
   return Response.json({
     batchId: latest.batchId,
+    client: lines[0]?.client ?? null,
     rows: lines.map((l) => {
       const suggestion = l.suggestions[0];
       const status = suggestion ? "done" : now - l.createdAt.getTime() < STILL_RUNNING_MS ? "running" : "error";

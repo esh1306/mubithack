@@ -135,3 +135,6 @@ export async function exchangeShopifyCode(app: NonNullable<ReturnType<typeof sho
   if (!res.ok || !body.access_token) throw new Error(`Shopify token ${res.status}: ${body.error_description ?? body.error ?? res.statusText}`);
   return body.access_token as string;
 }
+
+// Each client's store is saved as its own Credential.
+export const shopifyKey = (clientId: number) => `shopify:${clientId}`;

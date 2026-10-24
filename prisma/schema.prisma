@@ -10,6 +10,7 @@ datasource db {
 model Broker {
   id          String       @id
   name        String
+  clients     Client[]
   lines       Line[]
   precedents  Precedent[]
   pastEntries PastEntry[]
@@ -28,6 +29,8 @@ model Line {
   source      String?     // "shopify" when imported from a store
   externalRef String?     // e.g. the Shopify inventory item id, for writing the code back
   existingCode String?    // the code the source system already had, if any
+  clientId    Int?        // the importer this invoice is for
+  client      Client?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
   createdAt   DateTime    @default(now())
   suggestions Suggestion[]
 }
@@ -104,4 +107,16 @@ model Credential {
   kind      String   @id // shopify | hmrc
   config    String   // JSON
   updatedAt DateTime @updatedAt
+}
+
+// An importer the broker works for. Its EORI is the importer (DE 3/16) on declarations;
+// its Shopify store, if connected, is saved as the Credential "shopify:<id>".
+model Client {
+  id        Int      @id @default(autoincrement())
+  brokerId  String
+  broker    Broker   @relation(fields: [brokerId], references: [id])
+  name      String
+  eori      String?
+  lines     Line[]
+  createdAt DateTime @default(now())
 }

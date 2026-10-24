@@ -93,15 +93,17 @@ export async function POST(req: Request, { params }: Params) {
 
   const lines = await db.line.findMany({
     where: { brokerId: broker, batchId: String(body.batchId) },
-    include: { suggestions: { orderBy: { id: "desc" }, take: 1 } },
+    include: { suggestions: { orderBy: { id: "desc" }, take: 1 }, client: true },
     orderBy: { id: "asc" },
   });
+  // The invoice's client is the importer (DE 3/16); the signed-in broker firm is the declarant (DE 3/18).
+  const client = lines[0]?.client ?? null;
   const items = lines
     .filter((l) => l.suggestions[0])
     .map((l) => ({ description: l.text, code: l.suggestions[0].code, value: l.value, origin: l.origin, qty: l.qty }));
   if (items.length === 0) return Response.json({ error: "That invoice has no classified lines" }, { status: 400 });
   const lrn = `PREC${Date.now().toString(36).toUpperCase()}`.slice(0, 22);
-  const { summary, xml } = buildDeclaration(declarant, lrn, items);
+  const { summary, xml } = buildDeclaration(declarant, lrn, items, { importerEori: client?.eori ?? undefined, importerName: client?.name });
 
   if (body.action === "preview") return Response.json({ lrn, xml, summary });
 

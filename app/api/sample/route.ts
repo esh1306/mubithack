@@ -1,13 +1,14 @@
 import { readFileSync } from "node:fs";
 import { parseCsv } from "@/lib/csv";
 
-type Sample = { id: string; name: string; supplier: string; about: string };
+type Sample = { id: string; name: string; supplier: string; about: string; client: { name: string; eori: string } };
 
 function samples(): Sample[] {
   return JSON.parse(readFileSync("data/samples/index.json", "utf8"));
 }
 
-// GET → the list of sample invoices. GET ?id= → that invoice as lines for /api/[broker]/classify.
+// GET → the list of sample invoices. GET ?id= → that invoice as lines for /api/[broker]/classify,
+// with the demo client (importer) it belongs to.
 export function GET(req: Request) {
   const id = new URL(req.url).searchParams.get("id");
   const list = samples();
@@ -15,7 +16,8 @@ export function GET(req: Request) {
   const sample = list.find((s) => s.id === id);
   if (!sample) return Response.json({ error: "unknown sample" }, { status: 404 });
   const rows = parseCsv(readFileSync(`data/samples/${sample.id}.csv`, "utf8"));
-  return Response.json(
-    rows.map((r) => ({ description: r.description, qty: Number(r.qty), value: Number(r.value_gbp), origin: r.origin })),
-  );
+  return Response.json({
+    client: sample.client,
+    lines: rows.map((r) => ({ description: r.description, qty: Number(r.qty), value: Number(r.value_gbp), origin: r.origin })),
+  });
 }

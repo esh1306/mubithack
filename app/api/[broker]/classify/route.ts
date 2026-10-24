@@ -18,7 +18,7 @@ const CONCURRENCY = 4;
 // "batch" with the saved lines, then one "result" or "error" per line, then "done".
 export async function POST(req: Request, { params }: { params: Promise<{ broker: string }> }) {
   const { broker } = await params;
-  const body = (await req.json()) as { lines?: InLine[]; lineIds?: number[] };
+  const body = (await req.json()) as { lines?: InLine[]; lineIds?: number[]; clientId?: number | null };
 
   let saved;
   if (body.lineIds) {
@@ -39,6 +39,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ broker:
             source: l.source ?? null,
             externalRef: l.externalRef ?? null,
             existingCode: l.existingCode ?? null,
+            clientId: body.clientId ?? null,
           },
         }),
       );
