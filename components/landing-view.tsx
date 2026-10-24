@@ -3,16 +3,19 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { SiteNav } from "@/components/site-nav";
+import { StaticGlobe } from "@/components/static-globe";
+import { PlaneWhoosh } from "@/components/plane-whoosh";
 import { PaperMap } from "@/components/paper-map";
 import { LandingStats } from "@/components/landing-stats";
 import { MubitShowcase } from "@/components/mubit-showcase";
 import { LogoLoop } from "@/components/bits/logo-loop";
 import { HmrcMark, MubitMark, QwenMark, ShopifyMark } from "@/components/partner-marks";
 import { gsap, registerLandingMotion, ScrollTrigger, SplitText } from "@/components/landing-motion";
+import type { EarthApi } from "@/components/earth-globe";
 
-const GlobeHero = dynamic(() => import("@/components/globe-hero"), {
+const EarthGlobe = dynamic(() => import("@/components/earth-globe"), {
   ssr: false,
-  loading: () => <div className="globe-hero" aria-hidden />,
+  loading: () => <StaticGlobe className="h-full w-full" />,
 });
 
 function Headline() {
@@ -68,14 +71,17 @@ function Credits() {
   return (
     <footer className="border-t border-white/10 px-5 py-8 text-[11px] leading-relaxed text-foreground/55 sm:px-8 lg:px-10">
       <p>
-        Globe: three.js (MIT). Land mask: Natural Earth via world-atlas (public domain).
+        Globe: react-globe.gl / three.js (MIT). Land: Natural Earth via world-atlas (public domain). Airliner stills are
+        original photoreal renders (no logos).
       </p>
     </footer>
   );
 }
 
 export function LandingView() {
+  const hero = useRef<HTMLElement>(null);
   const journey = useRef<HTMLElement>(null);
+  const earth = useRef<EarthApi | null>(null);
   const [reduce, setReduce] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [mapT, setMapT] = useState(0);
@@ -99,8 +105,21 @@ export function LandingView() {
   useEffect(() => {
     registerLandingMotion();
     const refresh = () => ScrollTrigger.refresh();
+    const heroEl = hero.current;
     const journeyEl = journey.current;
     const triggers: ScrollTrigger[] = [];
+
+    if (heroEl) {
+      triggers.push(
+        ScrollTrigger.create({
+          trigger: heroEl,
+          start: "top top",
+          end: "bottom top",
+          scrub: 0.45,
+          onUpdate: (self) => earth.current?.setProgress(self.progress),
+        }),
+      );
+    }
 
     if (journeyEl && !reduce && !mobile) {
       triggers.push(
@@ -127,14 +146,30 @@ export function LandingView() {
   return (
     <div className="landing">
       <SiteNav current="home" overlay />
-      <section className="landing-hero relative min-h-[100svh]">
+      <section ref={hero} className="landing-hero relative min-h-[100svh]">
         <div className="relative mx-auto flex min-h-[100svh] max-w-[86rem] flex-col justify-center gap-8 px-5 pb-10 pt-28 lg:flex-row lg:items-center lg:justify-center lg:gap-10 sm:px-8 lg:px-10">
           <div className="relative z-30 pointer-events-none lg:max-w-lg">
             <Headline />
             <p className="landing-lane mt-7">Every lane into the UK</p>
           </div>
           <div className="globe-slot">
-            <GlobeHero />
+            <EarthGlobe
+              mobile={mobile}
+              reduced={reduce}
+              onApi={(api) => {
+                earth.current = api;
+              }}
+              onReady={() => {
+                registerLandingMotion();
+                ScrollTrigger.refresh();
+              }}
+            />
+            <PlaneWhoosh
+              reduced={reduce}
+              onFlight={(t) => {
+                earth.current?.setWhoosh(t);
+              }}
+            />
           </div>
         </div>
       </section>
