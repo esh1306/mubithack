@@ -129,9 +129,8 @@ export function MubitShowcase() {
   }, []);
 
   return (
-    <section ref={root} id="mubit" className="relative border-t border-foreground/10 px-5 py-16 sm:px-8 lg:px-10">
-      <p className="landing-kicker text-primary">Taught in Mubit</p>
-      <h2 className="landing-display landing-shine mt-2 max-w-[16ch] overflow-visible">Learns your broker.</h2>
+    <section ref={root} id="mubit" className="relative mx-auto max-w-[86rem] border-t border-foreground/10 px-5 py-20 sm:px-8 lg:px-10">
+      <h2 className="landing-display landing-section-title overflow-visible">Learns your house rules.</h2>
       <p className="mt-3 max-w-xl text-[15px] font-medium leading-snug text-foreground/70">
         One correction becomes ~20 paraphrases, sent through this firm&apos;s Mubit task. We count examples toward{" "}
         {TRAIN_AFTER}. We cannot see if an adapter is live.

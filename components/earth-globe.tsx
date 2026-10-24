@@ -64,7 +64,8 @@ const CITIES: [string, number, number][] = [
   ["Tokyo", 35.68, 139.69],
   ["Sydney", -33.87, 151.21],
 ];
-const ORIGIN = { lat: 1.3521, lon: 103.8198 };
+// Ningbo, a major origin port for UK imports (the demo invoice is Ningbo homeware).
+const ORIGIN = { lat: 29.8683, lon: 121.544 };
 
 /* ── math helpers ── */
 const D = Math.PI / 180;
