@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Info } from "@/components/info";
 import { readSse } from "@/lib/sse";
+import { DeclarationPreview, type DeclarationSummary } from "@/components/declaration-preview";
 
 type Batch = { batchId: string; lines: number; createdAt: string };
 type Hmrc = {
@@ -47,6 +48,13 @@ function Card({ icon: Icon, title, info, status, children }: {
   );
 }
 
+// HMRC's XML error, as one readable sentence.
+function hmrcErrorText(body: string) {
+  const msg = (tag: string) => body.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, "g"))?.map((m) => m.replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/\{"[^"]*":(\w+)\}/g, "$1").trim());
+  const detail = msg("message")?.slice(1).join(" ");
+  return [msg("message")?.[0], detail].filter(Boolean).join(": ") || "HMRC rejected the declaration.";
+}
+
 // A failed route can answer with an empty body; turn that into a readable error.
 async function safeJson(res: Response) {
   const text = await res.text();
@@ -79,7 +87,7 @@ export function IntegrationsView({ broker }: { broker: string }) {
   const [hmrc, setHmrc] = useState<Hmrc | null>(null);
   const [hmrcBusy, setHmrcBusy] = useState<string | null>(null);
   const [hmrcError, setHmrcError] = useState<string | null>(search.get("hmrc") === "error" ? search.get("message") : null);
-  const [xml, setXml] = useState<string | null>(null);
+  const [decl, setDecl] = useState<{ summary: DeclarationSummary; xml: string } | null>(null);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [batchId, setBatchId] = useState<string | null>(null);
 
@@ -160,7 +168,7 @@ export function IntegrationsView({ broker }: { broker: string }) {
         body: JSON.stringify({ action, ...extra }),
       });
       const data = await safeJson(res);
-      if (data.xml) setXml(data.xml);
+      if (data.xml && data.summary) setDecl({ summary: data.summary, xml: data.xml });
       if (!res.ok) throw new Error(data.error);
       return data;
     } catch (e) {
@@ -363,24 +371,29 @@ export function IntegrationsView({ broker }: { broker: string }) {
                   </Button>
                 </div>
                 {hmrc.lastSubmission && (
-                  <div className="space-y-1 rounded-md border p-3 text-sm">
+                  <div className={`space-y-1 rounded-md border p-3 text-sm ${hmrc.lastSubmission.status === 202 ? "border-emerald-600/30 bg-emerald-600/5" : "border-destructive/30 bg-destructive/5"}`}>
                     <p>
                       Last submission <span className="font-mono">{hmrc.lastSubmission.lrn}</span> ·{" "}
                       <span className={hmrc.lastSubmission.status === 202 ? "text-emerald-700" : "text-destructive"}>HTTP {hmrc.lastSubmission.status}</span>
                       {hmrc.lastSubmission.status === 202 && " accepted for processing"}
                       {hmrc.lastSubmission.conversationId && <> · conversation <span className="font-mono text-xs">{hmrc.lastSubmission.conversationId}</span></>}
                     </p>
-                    {hmrc.lastSubmission.body && (
-                      <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-muted p-2 font-mono text-xs">{hmrc.lastSubmission.body}</pre>
+                    {hmrc.lastSubmission.status === 202 ? (
+                      <p className="text-muted-foreground">HMRC has the declaration. CDS checks it next and sends its decision (accepted, cleared, or a query) as a notification.</p>
+                    ) : (
+                      hmrc.lastSubmission.body && (
+                        <>
+                          <p className="text-muted-foreground">{hmrcErrorText(hmrc.lastSubmission.body)}</p>
+                          <details>
+                            <summary className="cursor-pointer text-xs text-muted-foreground">HMRC&apos;s full response</summary>
+                            <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-muted p-2 font-mono text-xs">{hmrc.lastSubmission.body}</pre>
+                          </details>
+                        </>
+                      )
                     )}
                   </div>
                 )}
-                {xml && (
-                  <details className="rounded-md border">
-                    <summary className="cursor-pointer px-3 py-2 text-sm">Declaration XML (WCO DEC-DMS)</summary>
-                    <pre className="max-h-80 overflow-auto border-t p-3 font-mono text-[11px] leading-relaxed">{xml}</pre>
-                  </details>
-                )}
+                {decl && <DeclarationPreview summary={decl.summary} xml={decl.xml} />}
               </div>
             )}
           </>

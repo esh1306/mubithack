@@ -91,28 +91,52 @@ function countryCode(origin: string | null) {
   return map[o.toLowerCase()] ?? "CN";
 }
 
-// A Type H1 import declaration (DE 1/1 IM, 1/2 Z: pre-lodged), procedure 40 00 (release for free circulation).
+// A Type H1 import declaration (DE 1/1 IM, 1/2 A: standard, frontier), procedure 40 00 (release for
+// free circulation). WCO DEC-DMS is strict about element order, so each block below follows the schema.
 // DE 6/14 is the first 8 digits of the commodity code and DE 6/15 the 2 TARIC digits.
-export function importDeclarationXml(cfg: HmrcConfig & { eori: string }, lrn: string, items: DeclarationItem[]) {
-  const total = items.reduce((s, i) => s + (i.value ?? 0), 0);
-  const goods = items
+export function buildDeclaration(cfg: HmrcConfig & { eori: string }, lrn: string, items: DeclarationItem[]) {
+  const lines = items.map((it, i) => ({
+    seq: i + 1,
+    description: it.description.slice(0, 512),
+    cn: it.code.slice(0, 8),
+    taric: it.code.slice(8, 10) || "00",
+    value: Math.round((it.value ?? 0) * 100) / 100,
+    origin: countryCode(it.origin),
+    packages: Math.max(1, Math.round(it.qty ?? 1)),
+  }));
+  const summary = {
+    lrn,
+    type: "IMA",
+    typeLabel: "Import · standard declaration (H1)",
+    procedure: "4000",
+    procedureLabel: "Release for free circulation, no previous procedure",
+    declarant: cfg.eori,
+    importer: cfg.eori,
+    representation: "Direct (agent for the importer)",
+    goodsLocation: "FXTFXTFXT (Felixstowe)",
+    currency: "GBP",
+    total: Math.round(lines.reduce((s, l) => s + l.value, 0) * 100) / 100,
+    lines,
+  };
+
+  const goods = lines
     .map(
-      (it, i) => `
+      (l) => `
       <GovernmentAgencyGoodsItem>
-        <SequenceNumeric>${i + 1}</SequenceNumeric>
-        <StatisticalValueAmount currencyID="GBP">${(it.value ?? 0).toFixed(2)}</StatisticalValueAmount>
+        <SequenceNumeric>${l.seq}</SequenceNumeric>
+        <StatisticalValueAmount currencyID="GBP">${l.value.toFixed(2)}</StatisticalValueAmount>
         <Commodity>
-          <Description>${esc(it.description.slice(0, 512))}</Description>
+          <Description>${esc(l.description)}</Description>
           <Classification>
-            <ID>${it.code.slice(0, 8)}</ID>
+            <ID>${l.cn}</ID>
             <IdentificationTypeCode>TSP</IdentificationTypeCode>
           </Classification>
           <Classification>
-            <ID>${it.code.slice(8, 10) || "00"}</ID>
+            <ID>${l.taric}</ID>
             <IdentificationTypeCode>TRC</IdentificationTypeCode>
           </Classification>
           <InvoiceLine>
-            <ItemChargeAmount currencyID="GBP">${(it.value ?? 0).toFixed(2)}</ItemChargeAmount>
+            <ItemChargeAmount currencyID="GBP">${l.value.toFixed(2)}</ItemChargeAmount>
           </InvoiceLine>
         </Commodity>
         <GovernmentProcedure>
@@ -123,22 +147,19 @@ export function importDeclarationXml(cfg: HmrcConfig & { eori: string }, lrn: st
           <CurrentCode>000</CurrentCode>
         </GovernmentProcedure>
         <Origin>
-          <CountryCode>${countryCode(it.origin)}</CountryCode>
+          <CountryCode>${l.origin}</CountryCode>
           <TypeCode>1</TypeCode>
         </Origin>
         <Packaging>
           <SequenceNumeric>1</SequenceNumeric>
-          <QuantityQuantity>${Math.max(1, Math.round(it.qty ?? 1))}</QuantityQuantity>
+          <QuantityQuantity>${l.packages}</QuantityQuantity>
           <TypeCode>PK</TypeCode>
         </Packaging>
-        <ValuationAdjustment>
-          <AdditionCode>0000</AdditionCode>
-        </ValuationAdjustment>
       </GovernmentAgencyGoodsItem>`,
     )
     .join("");
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <md:MetaData xmlns:md="urn:wco:datamodel:WCO:DocumentMetaData-DMS:2" xmlns="urn:wco:datamodel:WCO:DEC-DMS:2" xmlns:clm63055="urn:un:unece:uncefact:codelist:standard:UNECE:AgencyIdentificationCode:D12B" xmlns:ds="urn:wco:datamodel:WCO:MetaData_DS-DMS:2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <md:WCODataModelVersionCode>3.6</md:WCODataModelVersionCode>
   <md:WCOTypeName>DEC</md:WCOTypeName>
@@ -146,22 +167,22 @@ export function importDeclarationXml(cfg: HmrcConfig & { eori: string }, lrn: st
   <md:ResponsibleAgencyName>HMRC</md:ResponsibleAgencyName>
   <md:AgencyAssignedCustomizationVersionCode>v2.1</md:AgencyAssignedCustomizationVersionCode>
   <Declaration xmlns:clm5ISO42173A="urn:un:unece:uncefact:codelist:standard:ISO:ISO3AlphaCurrencyCode:2012-08-31" xmlns:p1="urn:wco:datamodel:WCO:Declaration_DS:DMS:2" xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:6">
-    <AcceptanceDateTime>
-      <p1:DateTimeString formatCode="304">${new Date().toISOString().replace(/[-:]/g, "").slice(0, 15).replace("T", "")}+00</p1:DateTimeString>
-    </AcceptanceDateTime>
     <FunctionCode>9</FunctionCode>
     <FunctionalReferenceID>${esc(lrn)}</FunctionalReferenceID>
-    <TypeCode>IMZ</TypeCode>
-    <GoodsItemQuantity>${items.length}</GoodsItemQuantity>
-    <InvoiceAmount currencyID="GBP">${total.toFixed(2)}</InvoiceAmount>
+    <TypeCode>${summary.type}</TypeCode>
+    <GoodsItemQuantity>${lines.length}</GoodsItemQuantity>
+    <InvoiceAmount currencyID="GBP">${summary.total.toFixed(2)}</InvoiceAmount>
+    <Agent>
+      <FunctionCode>2</FunctionCode>
+    </Agent>
+    <BorderTransportMeans>
+      <ModeCode>1</ModeCode>
+    </BorderTransportMeans>
     <Declarant>
       <ID>${esc(cfg.eori)}</ID>
     </Declarant>
     <GoodsShipment>
       <TransactionNatureCode>1</TransactionNatureCode>
-      <Importer>
-        <ID>${esc(cfg.eori)}</ID>
-      </Importer>
       <Consignment>
         <ContainerCode>1</ContainerCode>
         <GoodsLocation>
@@ -175,8 +196,10 @@ export function importDeclarationXml(cfg: HmrcConfig & { eori: string }, lrn: st
       </Consignment>
       <Destination>
         <CountryCode>GB</CountryCode>
-      </Destination>
-      ${goods}
+      </Destination>${goods}
+      <Importer>
+        <ID>${esc(cfg.eori)}</ID>
+      </Importer>
       <PreviousDocument>
         <CategoryCode>Z</CategoryCode>
         <ID>${esc(`${new Date().getFullYear() % 10}${cfg.eori}-${lrn.slice(-6)}`)}</ID>
@@ -185,7 +208,10 @@ export function importDeclarationXml(cfg: HmrcConfig & { eori: string }, lrn: st
     </GoodsShipment>
   </Declaration>
 </md:MetaData>`;
+  return { summary, xml };
 }
+
+export type DeclarationSummary = ReturnType<typeof buildDeclaration>["summary"];
 
 export async function submitDeclaration(cfg: HmrcConfig & { eori: string }, xml: string) {
   const headers: Record<string, string> = {

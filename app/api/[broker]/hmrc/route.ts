@@ -4,7 +4,7 @@ import {
   authorizeLink,
   createTestOrganisation,
   hmrcApp,
-  importDeclarationXml,
+  buildDeclaration,
   refresh,
   submitDeclaration,
   type HmrcApp,
@@ -101,16 +101,16 @@ export async function POST(req: Request, { params }: Params) {
     .map((l) => ({ description: l.text, code: l.suggestions[0].code, value: l.value, origin: l.origin, qty: l.qty }));
   if (items.length === 0) return Response.json({ error: "That invoice has no classified lines" }, { status: 400 });
   const lrn = `PREC${Date.now().toString(36).toUpperCase()}`.slice(0, 22);
-  const xml = importDeclarationXml(declarant, lrn, items);
+  const { summary, xml } = buildDeclaration(declarant, lrn, items);
 
-  if (body.action === "preview") return Response.json({ lrn, xml });
+  if (body.action === "preview") return Response.json({ lrn, xml, summary });
 
   if (body.action === "submit") {
     if (!cfg.accessToken) return Response.json({ error: "Sign in with HMRC first", lrn, xml }, { status: 400 });
     try {
       const result = await submitDeclaration(declarant, xml);
       await setConfig("hmrc", { ...cfg, lastSubmission: { at: new Date().toISOString(), lrn, ...result } });
-      return Response.json({ lrn, xml, ...result });
+      return Response.json({ lrn, xml, summary, ...result });
     } catch (e) {
       return Response.json({ error: (e as Error).message, lrn, xml }, { status: 502 });
     }
