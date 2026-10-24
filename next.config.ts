@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  // Every page reads live SQLite data, so no prerendering (Cache Components off).
+  async redirects() {
+    return [{ source: "/", destination: "/harbourline/classify", permanent: false }];
+  },
   turbopack: {
     rules: {
       "*.css": {

@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Broker {
+  id          String       @id
+  name        String
+  lines       Line[]
+  precedents  Precedent[]
+  pastEntries PastEntry[]
+}
+
+model Line {
+  id          Int         @id @default(autoincrement())
+  brokerId    String
+  broker      Broker      @relation(fields: [brokerId], references: [id])
+  batchId     String
+  text        String
+  value       Float?
+  qty         Float?
+  origin      String?
+  neverSeen   Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  suggestions Suggestion[]
+}
+
+model Suggestion {
+  id            Int      @id @default(autoincrement())
+  lineId        Int
+  line          Line     @relation(fields: [lineId], references: [id])
+  code          String
+  reason        String
+  confidence    Float
+  flagged       Boolean
+  question      String?
+  status        String   @default("pending") // pending | approved | corrected
+  precedentId   Int?
+  mubitRequestId String?
+  model         String
+  toolCalls     String   // JSON log of the agent's tool calls
+  createdAt     DateTime @default(now())
+}
+
+model Precedent {
+  id        Int      @id @default(autoincrement())
+  brokerId  String
+  broker    Broker   @relation(fields: [brokerId], references: [id])
+  lineText  String
+  oldCode   String
+  newCode   String
+  reason    String
+  createdAt DateTime @default(now())
+}
+
+model Tariff {
+  code        String  @id // 10 digits, declarable leaves only
+  description String  // the leaf's own text, e.g. "Other"
+  path        String  // heading > ... > leaf, so "Other" has meaning
+  heading     String  // 4 digits
+  chapter     String  // 2 digits
+  dutyRate    String? // third-country duty, e.g. "6.00%"
+}
+
+model Chapter {
+  id          String @id // 2 digits
+  description String
+  notes       String
+}
+
+model PastEntry {
+  id           Int     @id @default(autoincrement())
+  brokerId     String
+  broker       Broker  @relation(fields: [brokerId], references: [id])
+  entryDate    String
+  text         String
+  declaredCode String
+  customsValue Float
+  dutyPaid     Float
+  findings     RetroFinding[]
+}
+
+model RetroFinding {
+  id            Int       @id @default(autoincrement())
+  pastEntryId   Int
+  pastEntry     PastEntry @relation(fields: [pastEntryId], references: [id])
+  suggestedCode String
+  direction     String    // over | under | same
+  dutyDelta     Float
+  reason        String
+  createdAt     DateTime  @default(now())
+}

@@ -1,0 +1,19 @@
+import { notFound } from "next/navigation";
+import { db } from "@/lib/db";
+import { Sidebar } from "@/components/sidebar";
+
+export default async function BrokerLayout({ children, params }: LayoutProps<"/[broker]">) {
+  const { broker } = await params;
+  const [current, brokers] = await Promise.all([
+    db.broker.findUnique({ where: { id: broker } }),
+    db.broker.findMany({ orderBy: { name: "asc" } }),
+  ]);
+  if (!current) notFound();
+
+  return (
+    <div className="flex min-h-screen">
+      <Sidebar current={current} brokers={brokers} />
+      <main className="flex-1 min-w-0 px-8 py-8">{children}</main>
+    </div>
+  );
+}
