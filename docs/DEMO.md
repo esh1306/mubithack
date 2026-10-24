@@ -2,7 +2,7 @@
 
 ## Before you go on
 
-1. `bun run dev` and open http://localhost:3000 in an **incognito** window, so no extensions interfere.
+1. `bun run demo` (production build, with no dev live-reload, which can loop when a browser extension scans localhost), then open http://localhost:3000 in an **incognito** window.
 2. Sidebar → **Reset demo** (click twice). This clears invoices, fixes and findings, but keeps the never-seen "before" results.
 3. Open **Classify → Learning** once and wait for "Preparing baseline…" to finish. The before/after panel is then instant.
 4. Check the Mubit console → **Tasks**. Note the status of *Commodity-code classifier 2* (Harbourline). Mention it only if it has moved on from Reviewing.

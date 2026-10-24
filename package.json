@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "script": "tsx --env-file-if-exists=.env.local",
-    "seed": "tsx scripts/seed.mts"
+    "seed": "tsx scripts/seed.mts",
+    "demo": "next build && next start"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "4.0.87",

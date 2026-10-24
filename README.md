@@ -38,7 +38,8 @@ cp .env.example .env          # DATABASE_URL
 cp .env.example .env.local    # MUBIT_API_KEY (from app.mubit.ai)
 bunx prisma migrate dev       # creates dev.db
 bun run seed                  # brokers, tariff, past entries
-bun run dev                   # http://localhost:3000
+bun run dev                   # http://localhost:3000 (development)
+bun run demo                  # production build + start, for demos
 ```
 
 Scripts run on Node through `bun run script scripts/<name>.mts`, because better-sqlite3 doesn't load under Bun:
