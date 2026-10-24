@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Info } from "@/components/info";
+import { PageHeader } from "@/components/page";
 import { DeclarationPreview, type DeclarationSummary } from "@/components/declaration-preview";
 
 type Batch = { batchId: string; lines: number; createdAt: string };
@@ -30,7 +31,7 @@ function Card({ icon: Icon, title, info, status, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-4 rounded-lg border p-5">
+    <section className="space-y-4 rounded-lg border bg-card p-5">
       <header className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <span className="flex size-8 items-center justify-center rounded-md bg-muted">
@@ -65,7 +66,7 @@ async function safeJson(res: Response) {
 }
 
 const On = ({ children = "Connected" }: { children?: React.ReactNode }) => (
-  <Badge className="bg-emerald-600/10 text-emerald-700 hover:bg-emerald-600/10"><Check /> {children}</Badge>
+  <Badge className="bg-good/15 text-good hover:bg-good/15"><Check /> {children}</Badge>
 );
 const Off = ({ children = "Not connected" }: { children?: React.ReactNode }) => <Badge variant="outline">{children}</Badge>;
 
@@ -132,13 +133,12 @@ export function IntegrationsView({ broker }: { broker: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
-      <header>
-        <h1 className="flex items-center gap-1.5 text-2xl font-semibold tracking-tight">
-          Integrations <Info id="integrations" />
-        </h1>
-        <p className="text-sm text-muted-foreground">The systems a broker already works in: where codes come from, where products live, and where declarations go.</p>
-      </header>
+    <div className="mx-auto max-w-4xl space-y-6">
+      <PageHeader
+        title="Integrations"
+        info="integrations"
+        description="The systems a broker already works in: where codes come from, where products live, and where declarations go."
+      />
 
       <Card
         icon={BookOpen}
@@ -273,10 +273,10 @@ export function IntegrationsView({ broker }: { broker: string }) {
                   </Button>
                 </div>
                 {hmrc.lastSubmission && (
-                  <div className={`space-y-1 rounded-md border p-3 text-sm ${hmrc.lastSubmission.status === 202 ? "border-emerald-600/30 bg-emerald-600/5" : "border-destructive/30 bg-destructive/5"}`}>
+                  <div className={`space-y-1 rounded-md border p-3 text-sm ${hmrc.lastSubmission.status === 202 ? "border-good/30 bg-good/5" : "border-bad/30 bg-bad/5"}`}>
                     <p>
                       Last submission <span className="font-mono">{hmrc.lastSubmission.lrn}</span> ·{" "}
-                      <span className={hmrc.lastSubmission.status === 202 ? "text-emerald-700" : "text-destructive"}>HTTP {hmrc.lastSubmission.status}</span>
+                      <span className={hmrc.lastSubmission.status === 202 ? "text-good" : "text-destructive"}>HTTP {hmrc.lastSubmission.status}</span>
                       {hmrc.lastSubmission.status === 202 && " accepted for processing"}
                       {hmrc.lastSubmission.conversationId && <> · conversation <span className="font-mono text-xs">{hmrc.lastSubmission.conversationId}</span></>}
                     </p>

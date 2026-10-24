@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Code } from "@/components/code";
-import { Info } from "@/components/info";
+import { PageHeader } from "@/components/page";
 
 type Precedent = {
   id: number;
@@ -35,13 +35,12 @@ export function PrecedentsView({ broker }: { broker: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
-      <header>
-        <h1 className="flex items-center gap-1.5 text-2xl font-semibold tracking-tight">Precedents <Info id="precedents" /></h1>
-        <p className="text-sm text-muted-foreground">
-          Every fix your team makes, with the reason. The AI checks these first, for this broker only.
-        </p>
-      </header>
+    <div className="mx-auto max-w-4xl space-y-6">
+      <PageHeader
+        title="Precedents"
+        info="precedents"
+        description="Every fix your team makes, with the reason. The AI checks these first, for this broker only."
+      />
 
       {list?.length === 0 && (
         <div className="rounded-lg border border-dashed px-6 py-12 text-center text-sm text-muted-foreground">
@@ -55,7 +54,7 @@ export function PrecedentsView({ broker }: { broker: string }) {
 
       <ul className="space-y-3">
         {list?.map((p) => (
-          <li key={p.id} className="rounded-lg border p-4">
+          <li key={p.id} className="rounded-lg border bg-card p-4">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 space-y-2">
                 <p className="text-xs text-muted-foreground">

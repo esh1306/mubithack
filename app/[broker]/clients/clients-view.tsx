@@ -7,7 +7,7 @@ import { ShoppingBag, Loader2, Plus, Trash2, Check, Building2 } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Info } from "@/components/info";
+import { PageHeader } from "@/components/page";
 import { readSse } from "@/lib/sse";
 
 type Client = {
@@ -155,15 +155,12 @@ export function ClientsView({ broker }: { broker: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
-      <header>
-        <h1 className="flex items-center gap-1.5 text-2xl font-semibold tracking-tight">
-          Clients <Info id="clients" />
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          The importers you declare for. Connect a client&apos;s online store to classify their whole catalogue once and write the codes back to it.
-        </p>
-      </header>
+    <div className="mx-auto max-w-4xl space-y-6">
+      <PageHeader
+        title="Clients"
+        info="clients"
+        description="The importers you declare for. Connect a client's online store to classify their whole catalogue once and write the codes back to it."
+      />
 
       {notice && <p className="rounded-md border px-3 py-2 text-sm">{notice}</p>}
 
@@ -181,7 +178,7 @@ export function ClientsView({ broker }: { broker: string }) {
 
       <ul className="space-y-3">
         {clients?.map((c) => (
-          <li key={c.id} className="space-y-3 rounded-lg border p-4">
+          <li key={c.id} className="space-y-3 rounded-lg border bg-card p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <span className="flex size-8 items-center justify-center rounded-md bg-muted">
@@ -196,7 +193,7 @@ export function ClientsView({ broker }: { broker: string }) {
               </div>
               <div className="flex items-center gap-2">
                 {c.store ? (
-                  <Badge className="bg-emerald-600/10 text-emerald-700 hover:bg-emerald-600/10"><Check /> Store connected</Badge>
+                  <Badge className="bg-good/15 text-good hover:bg-good/15"><Check /> Store connected</Badge>
                 ) : (
                   <Badge variant="outline">No store</Badge>
                 )}

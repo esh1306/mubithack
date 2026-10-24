@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Code } from "@/components/code";
-import { Info } from "@/components/info";
+import { PageHeader } from "@/components/page";
 import { readSse } from "@/lib/sse";
 
 type Entry = {
@@ -78,18 +78,17 @@ export function RetroScanView({ broker }: { broker: string }) {
   const years = entries.length ? `${entries[0].entryDate.slice(0, 7)} to ${entries.at(-1)!.entryDate.slice(0, 7)}` : "";
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="flex items-center gap-1.5 text-2xl font-semibold tracking-tight">Retro-scan <Info id="retroScan" /></h1>
-          <p className="text-sm text-muted-foreground">
-            Re-check {entries.length} past entries ({years}) with today&apos;s precedents. Find duty to reclaim, and duty to disclose before HMRC finds it.
-          </p>
-        </div>
-        <Button onClick={scan} disabled={!!progress || entries.length === 0}>
-          {progress ? <Loader2 className="animate-spin" /> : <History />} {scanned ? "Scan again" : "Scan past entries"}
-        </Button>
-      </header>
+    <div className="mx-auto max-w-6xl space-y-6">
+      <PageHeader
+        title="Retro-scan"
+        info="retroScan"
+        description={<>Re-check {entries.length} past entries ({years}) with today&apos;s precedents. Find duty to reclaim, and duty to disclose before HMRC finds it.</>}
+        actions={
+          <Button onClick={scan} disabled={!!progress || entries.length === 0}>
+            {progress ? <Loader2 className="animate-spin" /> : <History />} {scanned ? "Scan again" : "Scan past entries"}
+          </Button>
+        }
+      />
 
       {progress && (
         <div className="space-y-2">
@@ -102,7 +101,7 @@ export function RetroScanView({ broker }: { broker: string }) {
 
       {scanned && (
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-lg border p-5">
+          <div className="rounded-lg border bg-card p-5">
             <p className="text-sm text-muted-foreground">Overpaid · reclaim</p>
             <p className="mt-1 text-3xl font-semibold tabular-nums">{gbp(sum(over))}</p>
             <p className="text-xs text-muted-foreground">{over.length} entries · CDS repayment claim, within 3 years</p>
@@ -110,7 +109,7 @@ export function RetroScanView({ broker }: { broker: string }) {
               <FileText /> Claim pack
             </Button>
           </div>
-          <div className="rounded-lg border p-5">
+          <div className="rounded-lg border bg-card p-5">
             <p className="text-sm text-muted-foreground">Underpaid · disclose</p>
             <p className="mt-1 text-3xl font-semibold tabular-nums">{gbp(sum(under))}</p>
             <p className="text-xs text-muted-foreground">{under.length} entries · voluntary disclosure avoids the penalty</p>
@@ -121,7 +120,7 @@ export function RetroScanView({ broker }: { broker: string }) {
         </div>
       )}
 
-      <div className="rounded-lg border">
+      <div className="overflow-hidden rounded-lg border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -156,8 +155,8 @@ export function RetroScanView({ broker }: { broker: string }) {
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{gbp(e.dutyPaid)}</TableCell>
                   <TableCell className="text-right">
-                    {f?.direction === "over" && <Badge variant="outline" className="border-emerald-600/30 text-emerald-700">Reclaim {gbp(-f.dutyDelta)}</Badge>}
-                    {f?.direction === "under" && <Badge variant="outline" className="border-destructive/30 text-destructive">Owe {gbp(f.dutyDelta)}</Badge>}
+                    {f?.direction === "over" && <Badge variant="outline" className="border-good/30 text-good">Reclaim {gbp(-f.dutyDelta)}</Badge>}
+                    {f?.direction === "under" && <Badge variant="outline" className="border-bad/30 text-bad">Owe {gbp(f.dutyDelta)}</Badge>}
                     {f?.direction === "check" && <Badge variant="outline">Check rate</Badge>}
                   </TableCell>
                 </TableRow>

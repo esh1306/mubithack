@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Code } from "@/components/code";
-import { Info } from "@/components/info";
+import { PageHeader } from "@/components/page";
 
 type Batch = { batchId: string; lines: number; createdAt: string };
 type Row = { id: number; text: string; qty: number | null; value: number | null; origin: string | null; suggestion?: { code: string; status: string } };
@@ -37,15 +37,12 @@ export function ExportView({ broker }: { broker: string }) {
   const notSignedOff = rows.filter((r) => !["approved", "corrected"].includes(r.suggestion?.status ?? "")).length;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="flex items-center gap-1.5 text-2xl font-semibold tracking-tight">Export <Info id="export" /></h1>
-          <p className="text-sm text-muted-foreground">
-            Codes as a CSV for your declaration software: DE 6/14 (8 digits) and DE 6/15 (TARIC) split out. No retyping.
-          </p>
-        </div>
-        {batchId && (
+    <div className="mx-auto max-w-5xl space-y-6">
+      <PageHeader
+        title="Export"
+        info="export"
+        description="Codes as a CSV for your declaration software: DE 6/14 (8 digits) and DE 6/15 (TARIC) split out. No retyping."
+        actions={batchId && (
           <div className="flex gap-2">
             <Button variant="outline" asChild title="Every code with its reason, precedent, agent steps and Mubit request IDs">
               <a href={`/api/${broker}/export?batch=${batchId}&audit=1`}>
@@ -59,7 +56,7 @@ export function ExportView({ broker }: { broker: string }) {
             </Button>
           </div>
         )}
-      </header>
+      />
 
       {batches?.length === 0 && (
         <div className="rounded-lg border border-dashed px-6 py-12 text-center text-sm text-muted-foreground">
@@ -90,7 +87,7 @@ export function ExportView({ broker }: { broker: string }) {
       )}
 
       {rows.length > 0 && (
-        <div className="rounded-lg border">
+        <div className="overflow-hidden rounded-lg border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
