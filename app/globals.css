@@ -157,8 +157,8 @@
 
 .landing-display {
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  font-size: clamp(3.5rem, 16vw, 9.25rem);
-  line-height: 0.86;
+  font-size: clamp(2.4rem, 6.6vw, 5rem);
+  line-height: 0.85;
   letter-spacing: -0.07em;
   font-weight: 900;
 }
