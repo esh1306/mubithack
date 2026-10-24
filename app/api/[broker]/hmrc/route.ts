@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { clearConfig, getConfig, mask, setConfig } from "@/lib/integrations";
-import { authorizeLink, importDeclarationXml, refresh, submitDeclaration, type HmrcConfig } from "@/lib/cds";
+import { authorizeLink, createTestOrganisation, importDeclarationXml, refresh, submitDeclaration, type HmrcConfig } from "@/lib/cds";
 
 type Params = { params: Promise<{ broker: string }> };
 
@@ -26,6 +26,7 @@ export async function GET(req: Request, { params }: Params) {
 }
 
 // POST { action: "save", clientId, clientSecret, eori, badgeId? } → saves app settings, returns the HMRC sign-in link
+//      { action: "test-user", clientId?, clientSecret? } → a sandbox organisation with customs-services (user ID, password, EORI)
 //      { action: "disconnect" }
 //      { action: "preview" | "submit", batchId } → the declaration XML (and for submit, HMRC's response)
 export async function POST(req: Request, { params }: Params) {
@@ -44,6 +45,18 @@ export async function POST(req: Request, { params }: Params) {
     };
     await setConfig(broker, "hmrc", cfg);
     return Response.json({ ...status(cfg), authorizeUrl: authorizeLink(cfg, broker) });
+  }
+  if (body.action === "test-user") {
+    // Uses the saved app, or the client ID and secret typed into the form.
+    const prev = await getConfig<HmrcConfig>(broker, "hmrc");
+    const clientId = String(body.clientId || prev?.clientId || "").trim();
+    const clientSecret = String(body.clientSecret || prev?.clientSecret || "").trim();
+    if (!clientId || !clientSecret) return Response.json({ error: "Enter the app's client ID and secret first" }, { status: 400 });
+    try {
+      return Response.json(await createTestOrganisation({ clientId, clientSecret }));
+    } catch (e) {
+      return Response.json({ error: (e as Error).message }, { status: 502 });
+    }
   }
   if (body.action === "disconnect") {
     await clearConfig(broker, "hmrc");

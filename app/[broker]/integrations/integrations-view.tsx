@@ -74,6 +74,7 @@ export function IntegrationsView({ broker }: { broker: string }) {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [batchId, setBatchId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [testUser, setTestUser] = useState<{ userId: string; password: string; eori: string; name?: string } | null>(null);
 
   const load = useCallback(async () => {
     const [t, s, h, b] = await Promise.all([
@@ -285,7 +286,31 @@ export function IntegrationsView({ broker }: { broker: string }) {
           <Input placeholder="Importer EORI, e.g. GB123456789000" value={hmrcForm.eori} onChange={(e) => setHmrcForm({ ...hmrcForm, eori: e.target.value })} />
           <Input placeholder="Badge ID (optional, CSP users)" value={hmrcForm.badgeId} onChange={(e) => setHmrcForm({ ...hmrcForm, badgeId: e.target.value })} />
         </div>
+        {testUser && (
+          <div className="rounded-md border border-emerald-600/30 bg-emerald-600/5 p-3 text-sm">
+            <p className="font-medium">Sandbox test user created{testUser.name ? ` · ${testUser.name}` : ""}</p>
+            <p className="text-muted-foreground">Sign in to HMRC with these. Its EORI is filled in below.</p>
+            <dl className="mt-2 grid grid-cols-[6rem_1fr] gap-y-1 font-mono text-xs">
+              <dt className="text-muted-foreground">User ID</dt><dd>{testUser.userId}</dd>
+              <dt className="text-muted-foreground">Password</dt><dd>{testUser.password}</dd>
+              <dt className="text-muted-foreground">EORI</dt><dd>{testUser.eori}</dd>
+            </dl>
+          </div>
+        )}
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            disabled={!hmrcForm.clientId || (!hmrcForm.clientSecret && !hmrc?.clientSecret) || !!hmrcBusy}
+            onClick={async () => {
+              const d = await hmrcCall("test-user", { clientId: hmrcForm.clientId, clientSecret: hmrcForm.clientSecret });
+              if (d) {
+                setTestUser(d);
+                if (d.eori) setHmrcForm((f) => ({ ...f, eori: d.eori }));
+              }
+            }}
+          >
+            {hmrcBusy === "test-user" && <Loader2 className="animate-spin" />} Create test user
+          </Button>
           <Button
             disabled={!hmrcForm.clientId || (!hmrcForm.clientSecret && !hmrc?.clientSecret) || !hmrcForm.eori || !!hmrcBusy}
             onClick={async () => {

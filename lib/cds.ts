@@ -49,6 +49,27 @@ export function refresh(cfg: HmrcConfig) {
   return token({ grant_type: "refresh_token", client_id: cfg.clientId, client_secret: cfg.clientSecret, refresh_token: cfg.refreshToken! });
 }
 
+// Sandbox test organisation enrolled for customs ("customs-services"), via the Create Test User API.
+// Needs an application-restricted token (client credentials) and a subscription to that API.
+export async function createTestOrganisation(cfg: Pick<HmrcConfig, "clientId" | "clientSecret">) {
+  const tokenRes = await fetch(HMRC.tokenUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "client_credentials", client_id: cfg.clientId, client_secret: cfg.clientSecret }),
+  });
+  const tok = await tokenRes.json().catch(() => ({}));
+  if (!tokenRes.ok) throw new Error(`HMRC token ${tokenRes.status}: ${tok.error_description ?? tok.error ?? tokenRes.statusText}`);
+
+  const res = await fetch(`${HMRC.apiBase}/create-test-user/organisations`, {
+    method: "POST",
+    headers: { Accept: "application/vnd.hmrc.1.0+json", "Content-Type": "application/json", Authorization: `Bearer ${tok.access_token}` },
+    body: JSON.stringify({ serviceNames: ["customs-services"] }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(`Create test user ${res.status}: ${body.message ?? body.code ?? res.statusText}`);
+  return { userId: body.userId as string, password: body.password as string, eori: (body.eoriNumber ?? "") as string, name: body.organisationDetails?.name as string | undefined };
+}
+
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 export type DeclarationItem = { description: string; code: string; value: number | null; origin: string | null; qty: number | null };
