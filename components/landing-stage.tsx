@@ -33,15 +33,15 @@ function usePrefersReducedMotion() {
 
 type Phase = "type" | "suggest" | "correct" | "stamp";
 
-/** Scripted bamboo sample. Classify writes invoices to the desk — not used from this public page. */
+/** Scripted bamboo sample. Classify writes invoices — this page never calls it. */
 export function LandingStage() {
   const reduce = usePrefersReducedMotion();
-  const [typed, setTyped] = useState(SAMPLE);
-  const [phase, setPhase] = useState<Phase>("stamp");
-  const [sure, setSure] = useState(72);
+  const [typed, setTyped] = useState("");
+  const [phase, setPhase] = useState<Phase>("type");
+  const [sure, setSure] = useState(0);
   const suggestRef = useRef<HTMLDivElement>(null);
   const afterRef = useRef<HTMLDivElement>(null);
-  const stampRef = useRef<HTMLSpanElement>(null);
+  const stampRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (reduce) {
@@ -63,15 +63,15 @@ export function LandingStage() {
           await wait(22);
         }
         if (cancelled) return;
-        await wait(240);
+        await wait(200);
         setPhase("suggest");
-        await wait(1300);
+        await wait(1200);
         if (cancelled) return;
         setPhase("correct");
-        await wait(800);
+        await wait(700);
         if (cancelled) return;
         setPhase("stamp");
-        await wait(2200);
+        await wait(2000);
       }
     };
     void play();
@@ -82,26 +82,19 @@ export function LandingStage() {
 
   useEffect(() => {
     if (reduce) return;
-    if (phase === "suggest") {
-      if (suggestRef.current) {
-        gsap.fromTo(suggestRef.current, { y: 14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" });
-      }
+    if (phase === "suggest" && suggestRef.current) {
+      gsap.fromTo(suggestRef.current, { y: 10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" });
       const obj = { n: 0 };
-      gsap.to(obj, {
-        n: 72,
-        duration: 0.55,
-        ease: "power2.out",
-        onUpdate: () => setSure(Math.round(obj.n)),
-      });
+      gsap.to(obj, { n: 72, duration: 0.5, ease: "power2.out", onUpdate: () => setSure(Math.round(obj.n)) });
     }
     if (phase === "correct" && afterRef.current) {
-      gsap.fromTo(afterRef.current, { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.42, ease: "power3.out" });
+      gsap.fromTo(afterRef.current, { y: 10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power3.out" });
     }
     if (phase === "stamp" && stampRef.current) {
       gsap.fromTo(
         stampRef.current,
-        { scale: 1.55, rotate: -20, opacity: 0 },
-        { scale: 1, rotate: -6, opacity: 1, duration: 0.48, ease: "back.out(1.7)" },
+        { scale: 1.2, rotate: -12, opacity: 0 },
+        { scale: 1, rotate: -4, opacity: 1, duration: 0.4, ease: "back.out(1.6)" },
       );
     }
   }, [phase, reduce]);
@@ -111,59 +104,66 @@ export function LandingStage() {
   const showStamp = phase === "stamp";
 
   return (
-    <div className="landing-stage flex h-full min-h-[22rem] flex-col justify-between rounded-md border border-border bg-card p-4 shadow-card sm:p-5">
-      <div className="flex items-center justify-between gap-3">
+    <div className="rounded-md border-2 border-foreground/20 bg-card p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="landing-kicker text-primary">Scripted sample</p>
-        <p className="text-[11px] font-medium text-muted-foreground">Bamboo line from the 3-minute demo</p>
+        <p className="text-[12px] font-medium text-foreground/70">Bamboo line from the 3-minute demo</p>
       </div>
 
-      <p className="landing-lede mt-4 min-h-[2.4em] text-[1.35rem] sm:text-[1.6rem]">
+      <p className="mt-3 min-h-[2.6em] text-[1.2rem] font-extrabold leading-[1.15] tracking-[-0.04em] sm:text-[1.35rem]">
         {typed}
-        {phase === "type" && <span className="ml-0.5 inline-block w-[0.55ch] animate-pulse bg-primary align-[-0.08em]">&nbsp;</span>}
+        {phase === "type" && <span className="ml-0.5 inline-block h-[1em] w-[0.45ch] bg-primary align-[-0.1em]" aria-hidden />}
       </p>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+      <div className="mt-3 grid grid-cols-2 gap-2">
         <div
           ref={suggestRef}
-          className={cn(
-            "rounded-md border border-border/80 bg-background px-3 py-2.5",
-            !showSuggest && "invisible",
-          )}
+          className={cn("rounded-md border-2 border-foreground/15 bg-background px-3 py-2.5", !showSuggest && "opacity-40")}
         >
-          <p className="text-[11px] font-extrabold uppercase tracking-wide text-muted-foreground">Suggested</p>
-          <p className={cn("mt-1 font-mono text-lg font-semibold tracking-tight", showCorrect && "line-through opacity-45")}>
-            {pretty(OLD)}
+          <p className="text-[11px] font-extrabold uppercase tracking-wide text-foreground/70">Suggested</p>
+          <p className={cn("mt-1 font-mono text-[1.05rem] font-bold tracking-tight", showCorrect && "line-through opacity-50")}>
+            {showSuggest ? pretty(OLD) : "—"}
           </p>
-          <p className="text-sm text-muted-foreground">{sure}% sure · 0% duty</p>
+          <p className="mt-0.5 text-[13px] font-medium text-foreground/80">{showSuggest ? `${sure}% sure · 0% duty` : "Waiting"}</p>
         </div>
         <div
           ref={afterRef}
           className={cn(
-            "rounded-md border border-primary/35 bg-primary/[0.04] px-3 py-2.5",
-            !showCorrect && "invisible",
+            "rounded-md border-2 px-3 py-2.5",
+            showCorrect ? "border-primary bg-primary/[0.06]" : "border-foreground/15 bg-background opacity-40",
           )}
         >
-          <p className="text-[11px] font-extrabold uppercase tracking-wide text-primary">Corrected</p>
-          <p className="mt-1 font-mono text-lg font-semibold tracking-tight text-primary">{pretty(NEW)}</p>
-          <p className="text-sm text-muted-foreground">6% · plastics, not wood</p>
+          <p className={cn("text-[11px] font-extrabold uppercase tracking-wide", showCorrect ? "text-primary" : "text-foreground/70")}>
+            Corrected
+          </p>
+          <p className={cn("mt-1 font-mono text-[1.05rem] font-bold tracking-tight", showCorrect && "text-primary")}>
+            {showCorrect ? pretty(NEW) : "—"}
+          </p>
+          <p className="mt-0.5 text-[13px] font-medium text-foreground/80">{showCorrect ? "6% · plastics, not wood" : "Broker fix"}</p>
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-3 border-t border-border/70 pt-3">
-        <p className={cn("max-w-[34ch] text-[13px] leading-snug text-muted-foreground", !showSuggest && "invisible")}>
-          Receipt: decided just now · tariff notes read · {showCorrect ? "Precedent #1" : "no precedent yet"} · not classified
-          from this page.
-        </p>
-        <span
+      <div className="mt-3 rounded-md border-2 border-foreground/15 bg-background px-3 py-2.5">
+        <p className="landing-kicker text-foreground/70">Mini receipt</p>
+        <dl className="mt-2 grid grid-cols-[7.5rem_1fr] gap-x-3 gap-y-1 text-[13px] font-semibold leading-snug">
+          <dt className="text-foreground/55">Tariff notes</dt>
+          <dd>{showSuggest ? "Read" : "—"}</dd>
+          <dt className="text-foreground/55">Duty</dt>
+          <dd>{showCorrect ? "6%" : showSuggest ? "0%" : "—"}</dd>
+          <dt className="text-foreground/55">Precedent</dt>
+          <dd>{showCorrect ? "#1 this firm" : "None yet"}</dd>
+          <dt className="text-foreground/55">Source</dt>
+          <dd>Scripted · not classified here</dd>
+        </dl>
+        <div
           ref={stampRef}
           className={cn(
-            "inline-flex items-center rounded-sm border-2 border-primary px-2 py-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-primary",
+            "mt-3 inline-block border-2 border-primary px-2.5 py-1 text-[12px] font-extrabold uppercase tracking-[0.12em] text-primary",
             !showStamp && "invisible",
           )}
-          style={{ rotate: "-6deg" }}
         >
           Precedent saved
-        </span>
+        </div>
       </div>
     </div>
   );

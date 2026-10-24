@@ -153,14 +153,23 @@
 
 .landing {
   overflow-x: clip;
+  overflow-y: visible;
 }
 
 .landing-display {
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  font-size: clamp(2.4rem, 6.6vw, 5rem);
-  line-height: 0.85;
-  letter-spacing: -0.07em;
+  font-size: clamp(2.4rem, 6.6vw, 4.75rem);
+  line-height: 1.18;
+  letter-spacing: -0.06em;
   font-weight: 900;
+  padding-bottom: 0.22em;
+  overflow: visible;
+}
+
+/* SplitText wraps glyphs; never let a mask/line-box clip descenders (the g in again.). */
+.landing-display,
+.landing-display * {
+  overflow: visible !important;
 }
 
 .landing-kicker {
