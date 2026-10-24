@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { BookOpen, ShoppingBag, FileSpreadsheet, Landmark, Download, Cpu, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Info } from "@/components/info";
-import { readSse } from "@/lib/sse";
 import { DeclarationPreview, type DeclarationSummary } from "@/components/declaration-preview";
 
 type Batch = { batchId: string; lines: number; createdAt: string };
@@ -71,18 +70,13 @@ const On = ({ children = "Connected" }: { children?: React.ReactNode }) => (
 const Off = ({ children = "Not connected" }: { children?: React.ReactNode }) => <Badge variant="outline">{children}</Badge>;
 
 export function IntegrationsView({ broker }: { broker: string }) {
-  const router = useRouter();
   const search = useSearchParams();
 
   const [tariff, setTariff] = useState<{ codes: number; chapters: number; live: boolean } | null>(null);
   const [lookup, setLookup] = useState("");
   const [lookupResult, setLookupResult] = useState<{ code: string; path: string; dutyRate: string | null }[] | null>(null);
 
-  const [shop, setShop] = useState<{ connected: boolean; oauthReady?: boolean; shop?: string; name?: string; token?: string } | null>(null);
-  const [shopForm, setShopForm] = useState({ shop: "", token: "" });
-  const [shopBusy, setShopBusy] = useState<string | null>(null);
-  const [shopError, setShopError] = useState<string | null>(search.get("shopify") === "error" ? search.get("message") : null);
-  const [showToken, setShowToken] = useState(false);
+  const [storeCount, setStoreCount] = useState(0);
 
   const [hmrc, setHmrc] = useState<Hmrc | null>(null);
   const [hmrcBusy, setHmrcBusy] = useState<string | null>(null);
@@ -94,12 +88,12 @@ export function IntegrationsView({ broker }: { broker: string }) {
   const load = useCallback(async () => {
     const [t, s, h, b] = await Promise.all([
       fetch("/api/tariff/status").then((r) => r.json()),
-      fetch(`/api/${broker}/shopify`).then((r) => r.json()),
+      fetch(`/api/${broker}/clients`).then((r) => r.json()),
       fetch(`/api/${broker}/hmrc`).then((r) => r.json()),
       fetch(`/api/${broker}/batch?list=1`).then((r) => r.json()),
     ]);
     setTariff(t);
-    setShop(s);
+    setStoreCount((s as { store: unknown }[]).filter((c) => c.store).length);
     setHmrc(h);
     setBatches(b);
     setBatchId((cur) => cur ?? b[0]?.batchId ?? null);
@@ -114,48 +108,6 @@ export function IntegrationsView({ broker }: { broker: string }) {
     setLookupResult(null);
     setLookupResult(await (await fetch(`/api/tariff/search?q=${encodeURIComponent(lookup)}`)).json());
     setTariff(await (await fetch("/api/tariff/status")).json());
-  }
-
-  async function shopify(action: string, extra: object = {}) {
-    setShopBusy(action);
-    setShopError(null);
-    try {
-      const res = await fetch(`/api/${broker}/shopify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, ...extra }),
-      });
-      const data = await safeJson(res);
-      if (!res.ok) throw new Error(data.error);
-      return data;
-    } catch (e) {
-      setShopError((e as Error).message);
-      return null;
-    } finally {
-      setShopBusy(null);
-    }
-  }
-
-  // Import products, start classifying them, and go to Classify as soon as the invoice exists.
-  async function importShopify() {
-    const data = await shopify("import");
-    if (!data) return;
-    if (data.lines.length === 0) return setShopError("The store has no products yet.");
-    setShopBusy("classify");
-    // Classification carries on server-side after we stop listening.
-    const ctrl = new AbortController();
-    const res = await fetch(`/api/${broker}/classify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lines: data.lines }),
-      signal: ctrl.signal,
-    });
-    await readSse(res, (event) => {
-      if (event === "batch") {
-        ctrl.abort();
-        router.push(`/${broker}/classify`);
-      }
-    }).catch(() => {});
   }
 
   async function hmrcCall(action: string, extra: object = {}) {
@@ -217,66 +169,14 @@ export function IntegrationsView({ broker }: { broker: string }) {
         )}
       </Card>
 
-      <Card icon={ShoppingBag} title="Shopify" info="shopify" status={shop?.connected ? <On /> : <Off />}>
-        {shop?.connected ? (
-          <>
-            <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">{shop.name}</span> · {shop.shop} · token {shop.token}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={importShopify} disabled={!!shopBusy}>
-                {shopBusy ? <Loader2 className="animate-spin" /> : <ShoppingBag />} Import products and classify
-              </Button>
-              <Button variant="ghost" onClick={async () => setShop(await shopify("disconnect"))} disabled={!!shopBusy}>
-                Disconnect
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">After approving or fixing codes on Classify, use “Push to Shopify” to write them back to each product.</p>
-          </>
-        ) : (
-          <div className="space-y-3">
-            {shop?.oauthReady && (
-              <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                <Input placeholder="your-store.myshopify.com" value={shopForm.shop} onChange={(e) => setShopForm({ ...shopForm, shop: e.target.value })} />
-                <Button
-                  disabled={!shopForm.shop || !!shopBusy}
-                  onClick={async () => {
-                    const d = await shopify("oauth", { shop: shopForm.shop });
-                    if (d?.authorizeUrl) window.location.assign(d.authorizeUrl);
-                  }}
-                >
-                  {shopBusy === "oauth" && <Loader2 className="animate-spin" />} Connect with Shopify
-                </Button>
-              </div>
-            )}
-            {(!shop?.oauthReady || showToken) ? (
-              <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-                <Input placeholder="your-store.myshopify.com" value={shopForm.shop} onChange={(e) => setShopForm({ ...shopForm, shop: e.target.value })} />
-                <Input type="password" placeholder="Admin API access token (shpat_…)" value={shopForm.token} onChange={(e) => setShopForm({ ...shopForm, token: e.target.value })} />
-                <Button
-                  variant={shop?.oauthReady ? "outline" : "default"}
-                  disabled={!shopForm.shop || !shopForm.token || !!shopBusy}
-                  onClick={async () => {
-                    const d = await shopify("connect", shopForm);
-                    if (d) setShop(d);
-                  }}
-                >
-                  {shopBusy === "connect" && <Loader2 className="animate-spin" />} Connect with token
-                </Button>
-              </div>
-            ) : (
-              <button type="button" className="text-xs text-muted-foreground hover:underline" onClick={() => setShowToken(true)}>
-                Or paste a custom-app access token
-              </button>
-            )}
-            {!shop?.oauthReady && (
-              <p className="text-xs text-muted-foreground">
-                For one-click Connect with Shopify, set SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET in .env.local.
-              </p>
-            )}
-          </div>
-        )}
-        {shopError && <p className="text-sm text-destructive">{shopError}</p>}
+      <Card icon={ShoppingBag} title="Shopify · client stores" info="shopify" status={<On>{`${storeCount} connected`}</On>}>
+        <p className="text-sm text-muted-foreground">
+          Each client connects its own store. Its catalogue is imported and classified once, and approved codes are written back to every product
+          (6-digit HS code and the 10-digit GB code), so the client&apos;s parcels carry the right code.
+        </p>
+        <Button variant="outline" asChild>
+          <Link href={`/${broker}/clients`}>Manage client stores</Link>
+        </Button>
       </Card>
 
       <Card icon={FileSpreadsheet} title="Excel and CSV invoices" status={<On>Ready</On>}>
@@ -286,6 +186,8 @@ export function IntegrationsView({ broker }: { broker: string }) {
           description, quantity, value and origin columns are found whatever they&apos;re called.
         </p>
         <Button variant="outline" asChild>
+          {/* A file download, not a page, so a plain link. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a href="/api/sample/xlsx"><Download /> Sample Excel invoice</a>
         </Button>
       </Card>

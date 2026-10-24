@@ -10,6 +10,7 @@ export type DeclarationSummary = {
   procedureLabel: string;
   declarant: string;
   importer: string;
+  importerName?: string | null;
   representation: string;
   goodsLocation: string;
   currency: string;
@@ -55,7 +56,8 @@ export function DeclarationPreview({ summary, xml }: { summary: DeclarationSumma
         <Field de="3/18" label="Declarant EORI">
           <span className="font-mono">{summary.declarant}</span>
         </Field>
-        <Field de="3/16" label="Importer EORI">
+        <Field de="3/16" label="Importer">
+          {summary.importerName && <span className="block">{summary.importerName}</span>}
           <span className="font-mono">{summary.importer}</span>
         </Field>
         <Field de="3/21" label="Representation">{summary.representation}</Field>

@@ -10,6 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Code } from "@/components/code";
 import { Info } from "@/components/info";
+import Link from "next/link";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ClientEmailButton } from "@/components/client-email";
 import {
   DropdownMenu,
@@ -56,12 +58,19 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   const [preparing, setPreparing] = useState(false);
   const [fixing, setFixing] = useState(false);
   const [samples, setSamples] = useState<Sample[]>([]);
+  const [clients, setClients] = useState<{ id: number; name: string; eori: string | null }[]>([]);
+  const [clientId, setClientId] = useState<number | null>(null);
+  const [batchClient, setBatchClient] = useState<string | null>(null);
+  const loadClients = useCallback(() => {
+    fetch(`/api/${broker}/clients`).then((r) => r.json()).then(setClients);
+  }, [broker]);
 
   // Saved state: the latest invoice from the database, and the last rail from this browser.
   const loadBatch = useCallback(async () => {
     const res = await fetch(`/api/${broker}/batch`);
     const data = await res.json();
     setBatchId(data.batchId);
+    setBatchClient(data.client?.name ?? null);
     setRows(data.rows);
     setLoaded(true);
   }, [broker]);
@@ -77,10 +86,18 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
     });
     fetch("/api/never-seen").then((r) => r.json()).then(setItems);
     fetch("/api/sample").then((r) => r.json()).then(setSamples);
-  }, [broker, loadBatch]);
+    loadClients();
+  }, [broker, loadBatch, loadClients]);
 
+  // Each sample invoice belongs to a demo client (importer); make sure it exists, then classify for it.
   async function loadSample(id: string) {
-    classify(await (await fetch(`/api/sample?id=${id}`)).json());
+    const sample = await (await fetch(`/api/sample?id=${id}`)).json();
+    const client = await (
+      await fetch(`/api/${broker}/clients`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sample.client) })
+    ).json();
+    setClientId(client.id);
+    loadClients();
+    run({ lines: sample.lines, clientId: client.id });
   }
 
   // Lines still being classified server-side (e.g. after switching pages): poll until they land.
@@ -120,7 +137,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
     setRows((rs) => rs.map((r) => (r.id === lineId ? { ...r, status: "done", suggestion, error: undefined } : r)));
 
   // New lines replace the table; lineIds re-runs those rows in place.
-  async function run(body: { lines: InLine[] } | { lineIds: number[] }) {
+  async function run(body: { lines: InLine[]; clientId?: number | null } | { lineIds: number[] }) {
     setBusy(true);
     setShowInput(false);
     if ("lines" in body) setRows([]);
@@ -134,6 +151,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
       if (!res.ok) throw new Error(`Server error ${res.status}`);
       await readSse(res, (event, data) => {
         if (event === "batch" && "lines" in body) {
+          setBatchClient(clients.find((c) => c.id === body.clientId)?.name ?? null);
           setBatchId(data.lines[0]?.batchId ?? null);
           setRows(
             data.lines.map((l: { id: number; text: string; source: string | null; existingCode: string | null }) => ({
@@ -159,7 +177,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   }
 
   function classify(lines: InLine[]) {
-    if (lines.length > 0) run({ lines });
+    if (lines.length > 0) run({ lines, clientId });
   }
 
   // .xlsx or .csv: the server finds the header row and the description, qty, value and origin columns.
@@ -280,6 +298,22 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
         </header>
 
         {inputOpen && (
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-muted-foreground">For client</span>
+            <Select value={clientId ? String(clientId) : "none"} onValueChange={(v) => setClientId(v === "none" ? null : Number(v))}>
+              <SelectTrigger className="h-8 w-64"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No client</SelectItem>
+                {clients.map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Link href={`/${broker}/clients`} className="text-xs text-primary hover:underline">Manage clients</Link>
+          </div>
+        )}
+
+        {inputOpen && (
           <Tabs defaultValue="upload">
             <TabsList>
               <TabsTrigger value="upload">Upload invoice</TabsTrigger>
@@ -326,6 +360,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
               <p className="text-sm text-muted-foreground">
                 {done.length} of {rows.length} classified
                 {flaggedCount > 0 && <> · <span className="text-foreground">{flaggedCount} need review</span></>}
+                {batchClient && <span className="ml-2 text-foreground">· {batchClient}</span>}
                 {batchId && <span className="ml-2 font-mono text-xs">#{batchId.slice(0, 8)}</span>}
                 {pushMsg && <span className="ml-2 text-xs text-primary">{pushMsg}</span>}
               </p>

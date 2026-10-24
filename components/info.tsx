@@ -54,6 +54,10 @@ export const INFO = {
     title: "Integrations",
     body: "Precedent plugs into the systems a broker already uses: the live UK Trade Tariff for codes and duty, Shopify for client catalogues (codes are written back), Excel invoices, and HMRC's Customs Declarations API (sandbox) to file the declaration.",
   },
+  clients: {
+    title: "Clients",
+    body: "The importers this broker declares for. Each client's EORI goes on its declarations as the importer, and each can connect its own Shopify store: the whole catalogue is classified once, and approved codes are written back so every parcel the client ships carries them. From 2028 every low-value parcel into the UK needs a full code.",
+  },
   shopify: {
     title: "Shopify",
     body: "Create a custom app in your Shopify admin (Settings → Apps → Develop apps) with read_products, read_inventory and write_inventory, then paste the shop domain and Admin API access token here. Products are imported as lines; approved codes are written back to each product (6-digit HS code + 10-digit GB code).",

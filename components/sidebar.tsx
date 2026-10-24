@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { ChevronsUpDown, ScanLine, BookMarked, History, Download, Check, RotateCcw, Cpu, Plug } from "lucide-react";
+import { ChevronsUpDown, ScanLine, BookMarked, History, Download, Check, RotateCcw, Cpu, Plug, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Info } from "@/components/info";
 import {
@@ -20,6 +20,7 @@ type Broker = { id: string; name: string };
 
 const NAV = [
   { href: "classify", label: "Classify", icon: ScanLine },
+  { href: "clients", label: "Clients", icon: Building2 },
   { href: "precedents", label: "Precedents", icon: BookMarked },
   { href: "retro-scan", label: "Retro-scan", icon: History },
   { href: "export", label: "Export", icon: Download },

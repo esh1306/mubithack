@@ -1,0 +1,219 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ShoppingBag, Loader2, Plus, Trash2, Check, Building2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Info } from "@/components/info";
+import { readSse } from "@/lib/sse";
+
+type Client = {
+  id: number;
+  name: string;
+  eori: string | null;
+  lines: number;
+  invoices: number;
+  store: { shop: string; name: string | null; token: string | null } | null;
+};
+
+async function call(url: string, body?: object) {
+  const res = await fetch(url, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : undefined);
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : {};
+  if (!res.ok) throw new Error(data.error ?? `Server error ${res.status}`);
+  return data;
+}
+
+function StoreConnect({ broker, client, oauthReady, onChange }: { broker: string; client: Client; oauthReady: boolean; onChange: () => void }) {
+  const router = useRouter();
+  const [shop, setShop] = useState("");
+  const [token, setToken] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const base = `/api/${broker}/clients/${client.id}/shopify`;
+
+  async function run(action: string, extra: object = {}) {
+    setBusy(action);
+    setError(null);
+    try {
+      return await call(base, { action, ...extra });
+    } catch (e) {
+      setError((e as Error).message);
+      return null;
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // Import the catalogue, start classifying it for this client, and go to Classify once the invoice exists.
+  async function importAndClassify() {
+    const data = await run("import");
+    if (!data) return;
+    if (data.lines.length === 0) return setError("The store has no products yet.");
+    setBusy("classify");
+    const ctrl = new AbortController();
+    const res = await fetch(`/api/${broker}/classify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lines: data.lines, clientId: client.id }),
+      signal: ctrl.signal,
+    });
+    await readSse(res, (event) => {
+      if (event === "batch") {
+        ctrl.abort();
+        router.push(`/${broker}/classify`);
+      }
+    }).catch(() => {});
+  }
+
+  if (client.store) {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm">
+          <ShoppingBag className="mr-1 inline size-3.5" />
+          {client.store.name ?? client.store.shop} <span className="text-muted-foreground">· {client.store.shop}</span>
+        </span>
+        <Button size="sm" onClick={importAndClassify} disabled={!!busy}>
+          {busy ? <Loader2 className="animate-spin" /> : <ShoppingBag />} Import catalogue and classify
+        </Button>
+        <Button size="sm" variant="ghost" disabled={!!busy} onClick={async () => { if (await run("disconnect")) onChange(); }}>
+          Disconnect
+        </Button>
+        {error && <p className="w-full text-sm text-destructive">{error}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        <Input className="max-w-64" placeholder="client-store.myshopify.com" value={shop} onChange={(e) => setShop(e.target.value)} />
+        {oauthReady ? (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!shop || !!busy}
+            onClick={async () => {
+              const d = await run("oauth", { shop });
+              if (d?.authorizeUrl) window.location.assign(d.authorizeUrl);
+            }}
+          >
+            {busy === "oauth" && <Loader2 className="animate-spin" />} Connect with Shopify
+          </Button>
+        ) : (
+          <>
+            <Input className="max-w-64" type="password" placeholder="Admin API token (shpat_…)" value={token} onChange={(e) => setToken(e.target.value)} />
+            <Button size="sm" variant="outline" disabled={!shop || !token || !!busy} onClick={async () => { if (await run("connect", { shop, token })) onChange(); }}>
+              {busy === "connect" && <Loader2 className="animate-spin" />} Connect store
+            </Button>
+          </>
+        )}
+      </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+export function ClientsView({ broker }: { broker: string }) {
+  const search = useSearchParams();
+  const [clients, setClients] = useState<Client[] | null>(null);
+  const [oauthReady, setOauthReady] = useState(false);
+  const [form, setForm] = useState({ name: "", eori: "" });
+  const [adding, setAdding] = useState(false);
+  const [notice] = useState(
+    search.get("shopify") === "connected" ? "Store connected." : search.get("shopify") === "error" ? search.get("message") : null,
+  );
+
+  const load = useCallback(async () => {
+    const list: Client[] = await call(`/api/${broker}/clients`);
+    setClients(list);
+    if (list[0]) setOauthReady((await call(`/api/${broker}/clients/${list[0].id}/shopify`)).oauthReady);
+  }, [broker]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- state is set after the fetch resolves
+    load();
+  }, [load]);
+
+  async function add() {
+    setAdding(true);
+    try {
+      await call(`/api/${broker}/clients`, form);
+      setForm({ name: "", eori: "" });
+      load();
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function remove(id: number) {
+    await fetch(`/api/${broker}/clients/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-8">
+      <header>
+        <h1 className="flex items-center gap-1.5 text-2xl font-semibold tracking-tight">
+          Clients <Info id="clients" />
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          The importers you declare for. Connect a client&apos;s online store to classify their whole catalogue once and write the codes back to it.
+        </p>
+      </header>
+
+      {notice && <p className="rounded-md border px-3 py-2 text-sm">{notice}</p>}
+
+      <section className="grid gap-2 rounded-lg border p-4 sm:grid-cols-[1fr_1fr_auto]">
+        <Input placeholder="Client name, e.g. Sunrise Homeware Ltd" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        <Input placeholder="Importer EORI (GB + 12 digits)" value={form.eori} onChange={(e) => setForm({ ...form, eori: e.target.value })} />
+        <Button onClick={add} disabled={!form.name.trim() || adding}>
+          <Plus /> Add client
+        </Button>
+      </section>
+
+      {clients?.length === 0 && (
+        <p className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">No clients yet. Add the importers you work for above.</p>
+      )}
+
+      <ul className="space-y-3">
+        {clients?.map((c) => (
+          <li key={c.id} className="space-y-3 rounded-lg border p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="flex size-8 items-center justify-center rounded-md bg-muted">
+                  <Building2 className="size-4" />
+                </span>
+                <div>
+                  <p className="font-medium">{c.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    EORI <span className="font-mono">{c.eori ?? "not set"}</span> · {c.invoices} invoices · {c.lines} lines
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {c.store ? (
+                  <Badge className="bg-emerald-600/10 text-emerald-700 hover:bg-emerald-600/10"><Check /> Store connected</Badge>
+                ) : (
+                  <Badge variant="outline">No store</Badge>
+                )}
+                <Button size="icon" variant="ghost" title="Remove client" onClick={() => remove(c.id)}>
+                  <Trash2 />
+                </Button>
+              </div>
+            </div>
+            <StoreConnect broker={broker} client={c} oauthReady={oauthReady} onChange={load} />
+          </li>
+        ))}
+      </ul>
+
+      <p className="text-xs text-muted-foreground">
+        Invoices are tagged to a client when you classify them (pick the client on{" "}
+        <Link href={`/${broker}/classify`} className="text-primary hover:underline">Classify</Link>). The client&apos;s EORI is the importer on its HMRC declarations.
+      </p>
+    </div>
+  );
+}
