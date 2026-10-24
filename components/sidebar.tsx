@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/sheet";
 import { clearDemoClientState } from "@/lib/demo";
 import { cn } from "@/lib/utils";
+import { MubitPulse } from "@/components/mubit-pulse";
 
 type Broker = { id: string; name: string };
 
@@ -187,6 +188,7 @@ export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker
           <Wordmark size={24} />
         </Link>
         <BrokerSwitch current={current} brokers={brokers} section={section} />
+        <MubitPulse broker={current.id} />
         <NavBody current={current} brokers={brokers} section={section} />
       </aside>
 
@@ -208,6 +210,7 @@ export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker
               <SheetDescription className="sr-only">Broker navigation</SheetDescription>
             </SheetHeader>
             <BrokerSwitch current={current} brokers={brokers} section={section} />
+            <MubitPulse broker={current.id} />
             <NavBody current={current} brokers={brokers} section={section} onNavigate={() => setMobileOpen(false)} />
           </SheetContent>
         </Sheet>

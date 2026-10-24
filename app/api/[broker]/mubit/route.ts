@@ -53,6 +53,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ broker:
       variantsMatched: p.variantsMatched,
       requestIds: p.variantRequestIds ? (JSON.parse(p.variantRequestIds) as string[]) : [],
     })),
+    lastRequestId: rows.flatMap((r) => calls(r))[0] ?? null,
     recent: rows.slice(0, 15).map((r) => ({
       text: r.line.text,
       code: r.code,

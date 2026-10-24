@@ -304,6 +304,9 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   // .xlsx or .csv: the server finds the header row and the description, qty, value and origin columns.
   async function upload(file: File) {
     setUploadError(null);
+    if (/\.pdf$/i.test(file.name)) {
+      return setUploadError("PDF invoices are not parsed yet. Upload a .xlsx or .csv (or a Shopify product CSV).");
+    }
     const form = new FormData();
     form.append("file", file);
     const res = await fetch("/api/parse-invoice", { method: "POST", body: form });

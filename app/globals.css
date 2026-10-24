@@ -210,6 +210,51 @@
   }
 }
 
+.desk {
+  --background: oklch(0.13 0.012 40);
+  --foreground: oklch(0.96 0.016 85);
+  --card: oklch(0.18 0.014 40);
+  --card-foreground: oklch(0.96 0.016 85);
+  --primary: oklch(0.66 0.24 29);
+  --primary-foreground: oklch(0.14 0.02 40);
+  --secondary: oklch(0.82 0.09 75);
+  --secondary-foreground: oklch(0.16 0.02 40);
+  --muted: oklch(0.22 0.012 40);
+  --muted-foreground: oklch(0.78 0.03 80);
+  --accent: oklch(0.22 0.02 40);
+  --accent-foreground: oklch(0.96 0.016 85);
+  --border: oklch(0.32 0.02 40);
+  --input: oklch(0.3 0.02 40);
+  --ring: oklch(0.66 0.24 29);
+  --sidebar: oklch(0.11 0.012 40);
+  --sidebar-foreground: oklch(0.96 0.016 85);
+  --sidebar-border: oklch(0.28 0.016 40);
+  --sidebar-accent: oklch(0.18 0.014 40);
+  --sidebar-accent-foreground: oklch(0.96 0.016 85);
+  --gold: oklch(0.82 0.09 75);
+  color: var(--foreground);
+  background: var(--background);
+}
+
+.desk-display {
+  font-family: var(--font-display-face), var(--font-display), "Arial Narrow", ui-sans-serif, sans-serif;
+  font-size: clamp(1.85rem, 3.6vw, 2.7rem);
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  font-weight: 800;
+  text-transform: uppercase;
+  overflow: visible;
+}
+
+.desk-kicker {
+  font-family: var(--font-display-face), var(--font-display), sans-serif;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.desk .wordmark-type,
 .landing .wordmark-type {
   font-family: var(--font-display-face), var(--font-display), ui-sans-serif, system-ui, sans-serif !important;
   letter-spacing: 0.08em;
