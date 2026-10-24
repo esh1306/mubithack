@@ -16,7 +16,8 @@ type InLine = {
 const CONCURRENCY = 4;
 
 // POST { lines } or { lineIds } (retry existing lines) → SSE stream:
-// "batch" with the saved lines, then one "result" or "error" per line, then "done".
+// "batch" with the saved lines, then per line "start", a "step" per tool call (the live process log),
+// and one "result" or "error", then "done".
 export async function POST(req: Request, { params }: { params: Promise<{ broker: string }> }) {
   const { broker } = await params;
   const body = (await req.json()) as { lines?: InLine[]; lineIds?: number[]; clientId?: number | null };
@@ -51,7 +52,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ broker:
     send("batch", { lines: saved });
     await pool(saved, CONCURRENCY, async (line) => {
       try {
-        const { suggestion } = await classifyWithRetry(broker, line);
+        send("start", { lineId: line.id });
+        const { suggestion } = await classifyWithRetry(broker, line, {
+          onCall: (call) => send("step", { lineId: line.id, call }),
+        });
         send("result", { lineId: line.id, suggestion });
       } catch (e) {
         send("error", { lineId: line.id, message: classifyErrorMessage(e) });

@@ -61,7 +61,7 @@ export const NAV = [
       { href: "mubit", label: "Mubit", icon: Cpu },
     ],
   },
-  { group: "Recover", items: [{ href: "retro-scan", label: "Retro-scan", icon: History }] },
+  { group: "Recover", items: [{ href: "retro-scan", label: "Duty reclaim", icon: History }] },
   {
     group: "Connect",
     items: [
@@ -75,7 +75,7 @@ function BrokerSwitch({ current, brokers, section }: { current: Broker; brokers:
   const router = useRouter();
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex min-w-0 items-center gap-3 rounded-md border border-sidebar-border bg-card px-3 py-2.5 text-left shadow-card outline-none hover:bg-card/80">
+      <DropdownMenuTrigger className="flex min-w-0 items-center gap-3 rounded-md border border-sidebar-border bg-card px-3 py-2.5 text-left outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary font-serif text-lg text-primary-foreground">
           {current.name[0]}
         </span>
@@ -131,15 +131,16 @@ function NavBody({
       <nav className="flex flex-col gap-5">
         {NAV.map((g) => (
           <div key={g.group} className="space-y-0.5">
-            <p className="px-3 pb-1.5 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">{g.group}</p>
+            <p className="px-3 pb-1 text-[13px] font-medium text-muted-foreground">{g.group}</p>
             {g.items.map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}
                 href={`/${current.id}/${href}`}
                 onClick={onNavigate}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-[15px] text-foreground/75 transition-colors hover:bg-sidebar-accent hover:text-foreground",
-                  section === href && "bg-card font-medium text-foreground shadow-card",
+                  "relative flex items-center gap-3 rounded-md px-3 py-2 text-[15px] text-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-foreground",
+                  section === href &&
+                    "bg-sidebar-accent font-medium text-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-primary",
                 )}
               >
                 <Icon className={cn("size-[18px]", section === href ? "text-primary" : "text-muted-foreground")} />

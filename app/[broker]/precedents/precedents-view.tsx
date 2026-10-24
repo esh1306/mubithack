@@ -57,7 +57,7 @@ export function PrecedentsView({ broker }: { broker: string }) {
 
       <ul className="space-y-4">
         {list?.map((p) => (
-          <li key={p.id} className="rounded-xl border border-border/70 bg-card p-6 shadow-card">
+          <li key={p.id} className="rounded-lg border border-border bg-card p-6">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 space-y-3">
                 <p className="text-xs text-muted-foreground">

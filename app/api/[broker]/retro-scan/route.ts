@@ -49,6 +49,12 @@ async function suggestCode(broker: string, text: string, precedents: { id: numbe
   const line = await retroLine(broker, text);
   try {
     const { suggestion } = await classifyWithRetry(broker, line);
+    // An unconfirmed HMRC search hit (model offline) is not evidence for a reclaim or a disclosure.
+    if (suggestion.model === "hmrc-search") {
+      return local
+        ? { code: local.newCode, reason: local.reason, precedentId: local.id }
+        : { code: null as string | null, reason: "AI reasoning unavailable, so this entry was not re-checked.", precedentId: null as number | null };
+    }
     return { code: suggestion.code, reason: suggestion.reason, precedentId: suggestion.precedentId };
   } catch (e) {
     if (local) return { code: local.newCode, reason: `${local.reason} (classify failed; used precedent #${local.id})`, precedentId: local.id };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { History, Loader2, FileText } from "lucide-react";
+import { History, Loader2, FileText, Download, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -11,7 +11,9 @@ import { Code } from "@/components/code";
 import { Empty, PageHeader } from "@/components/page";
 import { DemoCoach } from "@/components/demo-coach";
 import { demoSessionKey } from "@/lib/demo";
+import { cn } from "@/lib/utils";
 import { readSse } from "@/lib/sse";
+import { buildPack, LINKS, MIN_CLAIM, packCsv, type PackEntry } from "@/lib/claim-pack";
 
 type Maths = {
   entryDate: string;
@@ -58,18 +60,158 @@ function SourceBadge({ reason }: { reason: string }) {
 
 const gbp = (n: number) => n.toLocaleString("en-GB", { style: "currency", currency: "GBP" });
 
-function packText(kind: "over" | "under", entries: Entry[]) {
-  const total = entries.reduce((s, e) => s + Math.abs(e.finding!.dutyDelta), 0);
-  const lines = entries
-    .map((e) => {
-      const trail = e.finding?.trail ?? `${e.entryDate}  ${e.text}. Declared ${e.declaredCode}, should be ${e.finding!.suggestedCode}.`;
-      const src = e.finding!.reason.match(/\(precedent #(\d+)\)/) ? `precedent #${e.finding!.reason.match(/\(precedent #(\d+)\)/)![1]}` : "AI suggestion, verify before filing";
-      return `- ${trail} Source: ${src}.`;
-    })
-    .join("\n");
-  return kind === "over"
-    ? `CLAIM FOR REPAYMENT OF IMPORT DUTY (CDS online repayment claim)\n\n${entries.length} entries, total overpaid ${gbp(total)}. Filtered to the last 3 years.\n\n${lines}\n\nEvidence: the receipt for each code (precedent, tariff notes, model run) is attached.`
-    : `VOLUNTARY DISCLOSURE OF UNDERPAID DUTY (form C2001)\n\n${entries.length} entries, total underpaid ${gbp(total)}. Disclosed before any HMRC enquiry, to avoid a civil penalty.\n\n${lines}\n\nCause: these goods were declared under a code the broker has since corrected (see precedent).`;
+function toPackEntry(e: Entry): PackEntry {
+  const f = e.finding!;
+  const m = f.maths;
+  const precedent = f.reason.match(/\(precedent #(\d+)\)/)?.[1];
+  return {
+    entryDate: e.entryDate,
+    text: e.text,
+    declaredCode: e.declaredCode,
+    declaredRate: m?.declaredRate ?? null,
+    correctCode: f.suggestedCode,
+    correctRate: m?.suggestedRate ?? null,
+    customsValue: e.customsValue,
+    dutyPaid: e.dutyPaid,
+    dutyDue: m?.shouldPay ?? null,
+    difference: f.dutyDelta,
+    basis: precedent ? `Your precedent #${precedent}` : "AI classification record; verify before filing",
+  };
+}
+
+function download(name: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: name });
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function ClaimPack({ kind, entries, broker }: { kind: "over" | "under"; entries: Entry[]; broker: string }) {
+  const pack = buildPack(entries.map(toPackEntry), kind);
+  const over = kind === "over";
+  return (
+    <div className="space-y-6">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 border-y border-border py-4 sm:grid-cols-4">
+        <div>
+          <dt className="text-xs text-muted-foreground">{over ? "Overpaid in total" : "Underpaid in total"}</dt>
+          <dd className="font-serif text-2xl tabular-nums">{gbp(pack.total)}</dd>
+        </div>
+        {over && (
+          <div>
+            <dt className="text-xs text-muted-foreground">Claimable (over £{MIN_CLAIM} each)</dt>
+            <dd className="font-serif text-2xl tabular-nums">{gbp(pack.claimable)}</dd>
+          </div>
+        )}
+        <div>
+          <dt className="text-xs text-muted-foreground">Entries</dt>
+          <dd className="font-serif text-2xl tabular-nums">{pack.rows.length}</dd>
+        </div>
+        {pack.earliest && (
+          <div>
+            <dt className="text-xs text-muted-foreground">First deadline</dt>
+            <dd className={cn("font-serif text-2xl tabular-nums", pack.earliest.daysLeft < 90 && "text-bad")}>{pack.earliest.deadline}</dd>
+          </div>
+        )}
+      </dl>
+
+      <section className="space-y-2">
+        <h3 className="font-serif text-lg">How to file it</h3>
+        {over ? (
+          <ol className="list-decimal space-y-1.5 pl-5 text-sm leading-relaxed">
+            <li>
+              Sign in to HMRC&apos;s{" "}
+              <a href={LINKS.claimService} target="_blank" rel="noreferrer" className="text-link hover:underline">
+                Claim back import duty and VAT
+              </a>{" "}
+              service with the importer&apos;s Government Gateway (EORI holders). Use{" "}
+              <a href={LINKS.c285} target="_blank" rel="noreferrer" className="text-link hover:underline">form C285</a> if the importer has no EORI.
+            </li>
+            <li>Make one claim per declaration (MRN). Add the MRN from your CDS records to each row below.</li>
+            <li>
+              Claim within 3 years of the debt being notified (
+              <a href={LINKS.timeLimit} target="_blank" rel="noreferrer" className="text-link hover:underline">reg 59, S.I. 2018/1248</a>
+              ). HMRC only repays claims over £{MIN_CLAIM}. VAT-registered importers recover overpaid import VAT on their VAT return instead.
+            </li>
+          </ol>
+        ) : (
+          <ol className="list-decimal space-y-1.5 pl-5 text-sm leading-relaxed">
+            <li>
+              Tell HMRC by amending each cleared declaration (
+              <a href={LINKS.amend} target="_blank" rel="noreferrer" className="text-link hover:underline">post-clearance amendment, form C2001</a>
+              ). HMRC then issues a C18 demand for the difference.
+            </li>
+            <li>Disclosing before HMRC opens an enquiry is the strongest evidence of reasonable care when penalties are considered.</li>
+          </ol>
+        )}
+      </section>
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[46rem] text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-xs text-muted-foreground">
+              <th className="py-2 pr-3 font-medium">Import date</th>
+              <th className="py-2 pr-3 font-medium">Goods</th>
+              <th className="py-2 pr-3 font-medium">Declared</th>
+              <th className="py-2 pr-3 font-medium">Correct</th>
+              <th className="py-2 pr-3 text-right font-medium">{over ? "Overpaid" : "Underpaid"}</th>
+              <th className="py-2 text-right font-medium">Deadline</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pack.rows.map((r, i) => (
+              <tr key={i} className="border-b border-border align-top last:border-b-0">
+                <td className="py-2.5 pr-3 font-mono text-xs">{r.entryDate}</td>
+                <td className="py-2.5 pr-3">
+                  {r.text}
+                  <span className="block text-xs text-muted-foreground">{r.basis}</span>
+                </td>
+                <td className="py-2.5 pr-3">
+                  <Code code={r.declaredCode} className="text-xs" />
+                  <span className="block text-xs text-muted-foreground">{r.declaredRate ?? "rate unknown"}</span>
+                </td>
+                <td className="py-2.5 pr-3">
+                  <Code code={r.correctCode} className="text-xs" />
+                  <span className="block text-xs text-muted-foreground">{r.correctRate ?? "rate unknown"}</span>
+                </td>
+                <td className="py-2.5 pr-3 text-right tabular-nums">
+                  {gbp(Math.abs(r.difference))}
+                  {r.belowMinimum && <span className="block text-xs text-muted-foreground">under £{MIN_CLAIM}</span>}
+                </td>
+                <td className={cn("py-2.5 text-right tabular-nums", r.daysLeft < 90 && "text-bad")}>
+                  {r.deadline}
+                  <span className="block text-xs text-muted-foreground">{r.daysLeft} days left</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <section className="space-y-2">
+        <h3 className="font-serif text-lg">Evidence to attach</h3>
+        <ul className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+          <li>The MRN and the original declaration</li>
+          <li>The commercial invoice for each entry</li>
+          <li>The classification record for the correct code</li>
+          <li>The duty calculation (in the CSV)</li>
+          <li>Written authority to act for the importer</li>
+          {over && <li>The UK bank account for the repayment</li>}
+        </ul>
+      </section>
+
+      <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
+        <Button onClick={() => download(`${broker}-${over ? "repayment-claim" : "disclosure"}-${new Date().toISOString().slice(0, 10)}.csv`, packCsv(pack))}>
+          <Download /> Download CSV
+        </Button>
+        <Button variant="outline" asChild>
+          <a href={over ? LINKS.claimGuidance : LINKS.amend} target="_blank" rel="noreferrer">
+            HMRC guidance <ExternalLink />
+          </a>
+        </Button>
+        <p className="text-xs text-muted-foreground">A draft for you to check and file. Precedent never submits anything to HMRC.</p>
+      </div>
+    </div>
+  );
 }
 
 export function RetroScanView({ broker }: { broker: string }) {
@@ -123,12 +265,12 @@ export function RetroScanView({ broker }: { broker: string }) {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader
-        title="Retro-scan"
+        title="Duty reclaim"
         info="retroScan"
         description={
           <>
-            Demo history: {list.length} Harbourline entries. Scan uses only the last 3 years ({years || "no dates"}).
-            Reclaim = overpaid (old rate higher). Disclose = underpaid (e.g. 0% → 6%). £0 code-only changes are not findings.
+            Re-checks every import from the last 3 years ({years || "no dates"}) against today&apos;s precedents and the duty rate in force on
+            each import date. Overpaid duty can be reclaimed; underpaid duty should be disclosed.
           </>
         }
         actions={
@@ -158,21 +300,21 @@ export function RetroScanView({ broker }: { broker: string }) {
       )}
 
       {scanned && (
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div className="rounded-xl border border-border/70 bg-card p-6 shadow-card">
-            <p className="text-sm text-muted-foreground">Overpaid · reclaim</p>
-            <p className="mt-2 font-serif text-[44px] leading-none tabular-nums">{gbp(sum(over))}</p>
-            <p className="mt-2 text-sm text-muted-foreground">{over.length} entries · CDS repayment claim, last 3 years</p>
-            <Button size="sm" variant="outline" className="mt-4" disabled={!over.length} onClick={() => setPack("over")}>
-              <FileText /> Claim pack
+        <div className="grid divide-y divide-border rounded-lg border border-border bg-card sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+          <div className="p-6">
+            <p className="text-sm text-muted-foreground">Overpaid duty you can reclaim</p>
+            <p className="mt-1 font-serif text-[40px] leading-tight tabular-nums text-good">{gbp(sum(over))}</p>
+            <p className="text-sm text-muted-foreground">{over.length} {over.length === 1 ? "entry" : "entries"} · CDS repayment claim</p>
+            <Button size="sm" className="mt-4" disabled={!over.length} onClick={() => setPack("over")}>
+              <FileText /> Prepare claim pack
             </Button>
           </div>
-          <div className="rounded-xl border border-border/70 bg-card p-6 shadow-card">
-            <p className="text-sm text-muted-foreground">Underpaid · disclose</p>
-            <p className="mt-2 font-serif text-[44px] leading-none tabular-nums">{gbp(sum(under))}</p>
-            <p className="mt-2 text-sm text-muted-foreground">{under.length} entries · voluntary disclosure avoids the penalty</p>
+          <div className="p-6">
+            <p className="text-sm text-muted-foreground">Underpaid duty to disclose</p>
+            <p className="mt-1 font-serif text-[40px] leading-tight tabular-nums text-bad">{gbp(sum(under))}</p>
+            <p className="text-sm text-muted-foreground">{under.length} {under.length === 1 ? "entry" : "entries"} · post-clearance amendment</p>
             <Button size="sm" variant="outline" className="mt-4" disabled={!under.length} onClick={() => setPack("under")}>
-              <FileText /> Disclosure pack
+              <FileText /> Prepare disclosure pack
             </Button>
           </div>
         </div>
@@ -184,7 +326,7 @@ export function RetroScanView({ broker }: { broker: string }) {
         </p>
       )}
 
-      {list.length > 0 && <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-card">
+      {list.length > 0 && <div className="overflow-hidden rounded-lg border border-border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -282,21 +424,12 @@ export function RetroScanView({ broker }: { broker: string }) {
       </Dialog>
 
       <Dialog open={!!pack} onOpenChange={(o) => !o && setPack(null)}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>{pack === "over" ? "Repayment claim pack" : "Voluntary disclosure pack"}</DialogTitle>
-            <DialogDescription>A draft for the broker to check and submit. Precedent never files anything. £0 rows are omitted.</DialogDescription>
+            <DialogTitle className="font-serif text-2xl">{pack === "over" ? "Repayment claim pack" : "Disclosure pack"}</DialogTitle>
+            <DialogDescription>Everything needed to file by hand, ordered by deadline.</DialogDescription>
           </DialogHeader>
-          {pack && (
-            <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-md bg-muted p-4 font-mono text-xs">
-              {packText(pack, pack === "over" ? over : under)}
-            </pre>
-          )}
-          {pack && (
-            <Button variant="outline" onClick={() => navigator.clipboard.writeText(packText(pack, pack === "over" ? over : under))}>
-              Copy text
-            </Button>
-          )}
+          {pack && <ClaimPack kind={pack} entries={pack === "over" ? over : under} broker={broker} />}
         </DialogContent>
       </Dialog>
     </div>

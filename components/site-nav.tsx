@@ -11,17 +11,20 @@ export function SiteNav({ current, overlay }: { current?: "home" | "how"; overla
   return (
     <header
       className={cn(
-        "flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-10",
+        "flex items-center justify-between gap-3 px-5 py-3 sm:py-4 sm:px-8 lg:px-10",
         overlay && "landing-nav border-b border-white/10 bg-[#0B2466]/55 backdrop-blur-md",
       )}
     >
       <Link href="/" className="w-fit rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <Wordmark size={24} />
       </Link>
-      <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+      <nav className="flex items-center gap-x-3 text-[13px] sm:gap-x-4 sm:text-sm">
         <Link
           href="/#journey"
-          className={current === "how" ? "font-extrabold text-foreground" : "font-medium text-foreground/70 hover:text-foreground"}
+          className={cn(
+            "hidden sm:inline",
+            current === "how" ? "font-extrabold text-foreground" : "font-medium text-foreground/70 hover:text-foreground",
+          )}
         >
           How it works
         </Link>
@@ -31,7 +34,7 @@ export function SiteNav({ current, overlay }: { current?: "home" | "how"; overla
         <ClickSpark>
           <Link
             href={DEMO_HREF}
-            className="inline-flex h-9 items-center rounded-md bg-primary px-3.5 font-extrabold uppercase tracking-[0.08em] text-primary-foreground hover:bg-primary/90"
+            className="inline-flex h-9 items-center whitespace-nowrap rounded-md bg-primary px-3 sm:px-3.5 font-extrabold uppercase tracking-[0.08em] text-primary-foreground hover:bg-primary/90"
             style={{ fontFamily: "var(--font-display-face), var(--font-display), sans-serif" }}
           >
             Try the demo

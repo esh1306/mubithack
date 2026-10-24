@@ -47,7 +47,7 @@ export function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className={cn("overflow-hidden rounded-xl border border-border/70 bg-card shadow-card", className)}>
+    <section className={cn("overflow-hidden rounded-lg border border-border bg-card", className)}>
       {(title || actions) && (
         <div className="flex items-end justify-between gap-3 px-6 pb-3 pt-5">
           <div>
@@ -78,7 +78,7 @@ export function Stat({
   className?: string;
 }) {
   return (
-    <div className={cn("space-y-2 rounded-xl border border-border/70 bg-card px-6 py-5 shadow-card", className)}>
+    <div className={cn("space-y-2 rounded-lg border border-border bg-card px-6 py-5", className)}>
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">{label}</p>
         {status}

@@ -142,14 +142,13 @@ export function MubitShowcase() {
           <div className="mb-4 inline-block border-2 border-primary px-2 py-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-primary">
             Fix · {pretty(DEMO_BAMBOO_CODE)}
           </div>
-          <ul className="relative min-h-[22rem]">
+          <ul className="relative flex flex-col items-start gap-1.5">
             {VARIANTS.map((v, i) => (
               <li
                 key={v}
                 data-chip
                 data-i={i}
-                className="absolute left-0 max-w-[min(100%,28rem)] truncate rounded-md border border-foreground/15 bg-background px-2 py-1 text-[12px] font-medium text-foreground/85"
-                style={{ top: `${i * 17}px` }}
+                className="max-w-full truncate rounded-md border border-foreground/15 bg-background/70 px-2 py-0.5 text-[12px] font-medium leading-5 text-foreground/85"
               >
                 {v}
               </li>

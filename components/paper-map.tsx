@@ -102,7 +102,7 @@ export function PaperMap({
   if (mobile || reduced) {
     return (
       <div className="relative">
-        <svg viewBox="0 0 1000 520" className="mx-auto hidden max-h-48 w-full opacity-90 sm:block" aria-hidden>
+        <svg viewBox="0 0 1000 520" className="mx-auto max-h-48 w-full opacity-90" aria-hidden>
           <rect width="1000" height="520" fill="#F3EAD3" />
           {landD && <path d={landD} fill="#7C6BFF" fillOpacity="0.14" stroke="#1A1A1A" strokeWidth="0.6" />}
           <path d={routeD} fill="none" stroke="#E63B2E" strokeWidth="2" strokeDasharray="7 6" />
@@ -127,7 +127,7 @@ export function PaperMap({
     );
   }
 
-  const sheetPct = 8 + 84 * open;
+  const sheetPct = 20 + 72 * open;
 
   return (
     <div className="paper-stage">

@@ -7,7 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-instrument);
+  --font-sans: var(--font-plex);
   --font-mono: var(--font-jetbrains);
   --font-heading: var(--font-inter), var(--font-serif);
   --font-serif: var(--font-serif-display);
@@ -41,6 +41,9 @@
   --color-good: var(--good);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
+  --color-info: var(--info);
+  --color-link: var(--link);
+  --color-brand: var(--brand);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -55,43 +58,48 @@
 }
 
 :root {
-  /* Paper, ink, one stamp-red accent. Muted ink stays >= 4.5:1 on paper and cards. */
-  --background: oklch(0.968 0.004 95);
-  --foreground: oklch(0.14 0.012 40);
-  --card: oklch(0.99 0.002 95);
-  --card-foreground: oklch(0.14 0.012 40);
-  --popover: oklch(0.994 0.002 95);
-  --popover-foreground: oklch(0.14 0.012 40);
-  --primary: oklch(0.52 0.205 29);
-  --primary-foreground: oklch(0.99 0.004 95);
-  --secondary: oklch(0.94 0.006 95);
-  --secondary-foreground: oklch(0.18 0.012 40);
-  --muted: oklch(0.94 0.006 95);
-  --muted-foreground: oklch(0.44 0.012 50);
-  --accent: oklch(0.93 0.008 95);
-  --accent-foreground: oklch(0.14 0.012 40);
-  --destructive: oklch(0.5 0.18 28);
-  --border: oklch(0.88 0.008 80);
-  --input: oklch(0.86 0.01 80);
-  --ring: oklch(0.52 0.205 29);
-  --chart-1: oklch(0.52 0.205 29);
-  --chart-2: oklch(0.5 0.1 155);
-  --chart-3: oklch(0.62 0.12 70);
-  --chart-4: oklch(0.5 0.18 28);
-  --chart-5: oklch(0.44 0.012 50);
-  --radius: 0.4rem;
-  --sidebar: oklch(0.955 0.005 95);
-  --sidebar-foreground: oklch(0.14 0.012 40);
-  --sidebar-primary: oklch(0.52 0.205 29);
-  --sidebar-primary-foreground: oklch(0.99 0.004 95);
-  --sidebar-accent: oklch(0.92 0.008 90);
-  --sidebar-accent-foreground: oklch(0.14 0.012 40);
-  --sidebar-border: oklch(0.88 0.008 80);
-  --sidebar-ring: oklch(0.52 0.205 29);
-  --good: oklch(0.48 0.11 155);
-  --warn: oklch(0.56 0.13 65);
-  --bad: oklch(0.5 0.18 28);
-  --card-shadow: 0 1px 0 oklch(0.2 0.02 40 / 6%), 0 8px 24px -16px oklch(0.2 0.02 40 / 12%);
+  /* Light workspace: off-white page, white cards, ink text, navy actions.
+     Brand red is an accent only (it fails 4.5:1 as text on white). Muted text stays >= 4.5:1. */
+  --background: #f7f8fa;
+  --foreground: #0e1a2f;
+  --card: #ffffff;
+  --card-foreground: #0d1b33;
+  --popover: #ffffff;
+  --popover-foreground: #0d1b33;
+  --primary: #13306b;
+  --primary-foreground: #ffffff;
+  --secondary: #eef1f6;
+  --secondary-foreground: #0d1b33;
+  --muted: #eef1f6;
+  --muted-foreground: #4a5872;
+  --accent: #e8eef8;
+  --accent-foreground: #0d1b33;
+  --destructive: #b42318;
+  --border: #dde2ea;
+  --input: #c9d0db;
+  --ring: #2563eb;
+  --brand: #c2362b;
+  --link: #1d4ed8;
+  --chart-1: #13306b;
+  --chart-2: #0f7a3d;
+  --chart-3: #a15c07;
+  --chart-4: #b42318;
+  --chart-5: #4a5872;
+  --radius: 0.5rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0d1b33;
+  --sidebar-primary: #13306b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef2fa;
+  --sidebar-accent-foreground: #0d1b33;
+  --sidebar-border: #e3e7ee;
+  --sidebar-ring: #2563eb;
+  /* Status: always shown with a label, never colour alone. */
+  --good: #0f7a3d;
+  --warn: #a15c07;
+  --bad: #b42318;
+  --info: #1d4ed8;
+  --card-shadow: none;
 }
 
 .dark {
@@ -153,7 +161,6 @@
 }
 
 .landing {
-  overflow: visible;
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --paper: #f3ead3;
   --ink: #1a1a1a;
@@ -164,28 +171,64 @@
   --pink: #ff5cad;
   --lime: #8be05a;
   --parcel: #8b5a2b;
-  --background: #2563eb;
-  --foreground: #f4f8ff;
-  --card: rgba(255, 255, 255, 0.1);
-  --card-foreground: #f4f8ff;
+  --background: #dcebff;
+  --foreground: #0b1f4d;
+  --card: rgba(255, 255, 255, 0.62);
+  --card-foreground: #0b1f4d;
   --primary: #ff5a4a;
   --primary-foreground: #ffffff;
-  --secondary: #7cffef;
-  --secondary-foreground: #0b1f5c;
-  --muted: rgba(255, 255, 255, 0.1);
-  --muted-foreground: #eaf2ff;
-  --accent: rgba(255, 255, 255, 0.12);
-  --accent-foreground: #f4f8ff;
-  --border: rgba(255, 255, 255, 0.16);
-  --ring: #ff5a4a;
-  --gold: #fde68a;
+  --secondary: #0e7490;
+  --secondary-foreground: #ffffff;
+  --muted: rgba(255, 255, 255, 0.55);
+  --muted-foreground: #3b4f7a;
+  --accent: rgba(255, 255, 255, 0.7);
+  --accent-foreground: #0b1f4d;
+  --border: rgba(11, 31, 77, 0.14);
+  --ring: #e5483a;
+  --gold: #b45309;
   color: var(--foreground);
-  background-color: #2563eb;
-  background-image:
-    radial-gradient(ellipse 58% 54% at 72% 46%, rgba(56, 189, 248, 0.4), transparent 64%),
-    radial-gradient(ellipse 88% 62% at 82% 4%, rgba(96, 165, 250, 0.55), transparent 60%),
-    radial-gradient(ellipse 46% 38% at 8% 16%, rgba(59, 130, 246, 0.32), transparent 58%),
-    linear-gradient(158deg, #60a5fa 0%, #3b82f6 24%, #2563eb 52%, #1d4ed8 78%, #1e3a8a 100%);
+  background-color: #dcebff;
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
+}
+.landing-bg {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+  display: block;
+}
+.landing-hero-accent {
+  display: inline-block;
+  padding-right: 0.06em;
+  background: linear-gradient(100deg, #1d4ed8 0%, #6d28d9 45%, #e5483a 80%, #d97706 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: landing-shine 6s linear infinite;
+}
+.tilt-card {
+  position: relative;
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transform-style: preserve-3d;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s, background 0.3s;
+}
+.tilt-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), rgba(255, 255, 255, 0.7), transparent 55%);
+  transition: opacity 0.3s;
+}
+.tilt-card:hover::after {
+  opacity: 1;
 }
 
 .landing-nav {
@@ -233,54 +276,60 @@
 }
 
 .desk {
-  --background: oklch(0.13 0.012 40);
-  --foreground: oklch(0.96 0.016 85);
-  --card: oklch(0.18 0.014 40);
-  --card-foreground: oklch(0.96 0.016 85);
-  --primary: oklch(0.66 0.24 29);
-  --primary-foreground: oklch(0.14 0.02 40);
-  --secondary: oklch(0.82 0.09 75);
-  --secondary-foreground: oklch(0.16 0.02 40);
-  --muted: oklch(0.22 0.012 40);
-  --muted-foreground: oklch(0.78 0.03 80);
-  --accent: oklch(0.22 0.02 40);
-  --accent-foreground: oklch(0.96 0.016 85);
-  --border: oklch(0.32 0.02 40);
-  --input: oklch(0.3 0.02 40);
-  --ring: oklch(0.66 0.24 29);
-  --sidebar: oklch(0.11 0.012 40);
-  --sidebar-foreground: oklch(0.96 0.016 85);
-  --sidebar-border: oklch(0.28 0.016 40);
-  --sidebar-accent: oklch(0.18 0.014 40);
-  --sidebar-accent-foreground: oklch(0.96 0.016 85);
-  --gold: oklch(0.82 0.09 75);
+  /* The workspace uses the light :root palette, so portalled dialogs and sheets match it. */
   color: var(--foreground);
   background: var(--background);
 }
 
+/* Workspace type: Source Serif 4 titles, IBM Plex Sans interface, IBM Plex Mono for codes.
+   Set on body so portalled dialogs and sheets match. The landing page sets its own fonts. */
+body {
+  --font-serif-display: var(--font-ruling);
+  font-family: var(--font-plex), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "tnum" 0;
+}
+.desk {
+  font-family: var(--font-plex), ui-sans-serif, system-ui, sans-serif;
+}
+.desk .font-mono,
+[data-slot="sheet-content"] .font-mono,
+[data-slot="dialog-content"] .font-mono {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+}
+.desk .font-serif,
+[data-slot="sheet-content"] .font-serif,
+[data-slot="dialog-content"] .font-serif {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-optical-sizing: auto;
+}
+
 .desk-display {
-  font-family: var(--font-display-face), var(--font-display), "Arial Narrow", ui-sans-serif, sans-serif;
-  font-size: clamp(1.85rem, 3.6vw, 2.7rem);
-  line-height: 0.95;
-  letter-spacing: 0.02em;
-  font-weight: 800;
-  text-transform: uppercase;
+  font-family: var(--font-ruling), Georgia, serif;
+  font-size: clamp(1.7rem, 2.6vw, 2.15rem);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  font-weight: 600;
   overflow: visible;
 }
 
 .desk-kicker {
-  font-family: var(--font-display-face), var(--font-display), sans-serif;
+  font-family: var(--font-ruling), Georgia, serif;
   font-size: 1.15rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
-.desk .wordmark-type,
 .landing .wordmark-type {
   font-family: var(--font-display-face), var(--font-display), ui-sans-serif, system-ui, sans-serif !important;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+.desk .wordmark-type,
+[data-slot="sheet-content"] .wordmark-type {
+  font-family: var(--font-ruling), Georgia, serif !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
 }
 
 .landing-kicker {
@@ -297,10 +346,10 @@
   font-weight: 500;
   letter-spacing: 0;
   line-height: 1.5;
-  color: #eaf2ff;
+  color: #1e3a6e;
   text-shadow: none;
   background: none;
-  -webkit-text-fill-color: #eaf2ff;
+  -webkit-text-fill-color: #1e3a6e;
 }
 .landing-lane {
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
@@ -308,15 +357,19 @@
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #eaf2ff;
+  color: #1e3a6e;
   text-shadow: none;
+}
+.landing-hero-title {
+  font-size: clamp(3.2rem, 7.4vw, 6.75rem);
+  line-height: 0.88;
 }
 .landing-chips {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 0.45rem;
-  margin-top: 1.1rem;
+  margin-top: 1.25rem;
   padding: 0;
   list-style: none;
 }
@@ -325,11 +378,50 @@
   font-size: 0.84rem;
   font-weight: 500;
   line-height: 1.35;
-  color: #eaf2ff;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(234, 242, 255, 0.22);
+  color: #1e3a6e;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(11, 31, 77, 0.14);
   border-radius: 999px;
   padding: 0.38rem 0.75rem;
+}
+
+.landing-cta {
+  display: inline-flex;
+  align-items: center;
+  height: 2.9rem;
+  padding: 0 1.25rem;
+  border-radius: 0.5rem;
+  font-family: var(--font-display-face), var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: background-color 0.2s, border-color 0.2s, transform 0.2s;
+}
+.landing-cta:hover {
+  transform: translateY(-1px);
+}
+.landing-cta:focus-visible {
+  outline: 2px solid #0b1f4d;
+  outline-offset: 2px;
+}
+.landing-cta-primary {
+  background: #e5483a;
+  color: var(--primary-foreground);
+  box-shadow: 0 10px 30px -12px rgba(255, 90, 74, 0.7);
+}
+.landing-cta-primary:hover {
+  background: color-mix(in oklab, var(--primary) 88%, white);
+}
+.landing-cta-ghost {
+  color: #0b1f4d;
+  border: 1px solid rgba(11, 31, 77, 0.22);
+  background: rgba(255, 255, 255, 0.7);
+}
+.landing-cta-ghost:hover {
+  border-color: rgba(11, 31, 77, 0.4);
+  background: #ffffff;
 }
 
 .landing-reveal {
@@ -526,37 +618,60 @@
   position: relative;
   z-index: 10;
   isolation: isolate;
-  flex: 0 0 auto;
-  width: min(68vh, 640px);
-  height: min(68vh, 640px);
-  max-width: 640px;
-  max-height: 640px;
-  align-self: center;
+  aspect-ratio: 1;
+  width: min(92vw, 30rem);
+  margin-inline: auto;
   overflow: visible;
+  transform: perspective(1200px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: globe-float 9s ease-in-out infinite;
 }
-@media (max-width: 1023px) {
+.globe-slot::before {
+  content: "";
+  position: absolute;
+  inset: 14%;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.45), rgba(14, 165, 233, 0.18) 45%, transparent 70%);
+  filter: blur(40px);
+  animation: globe-pulse 6s ease-in-out infinite;
+}
+@keyframes globe-float {
+  0%,
+  100% {
+    translate: 0 -8px;
+  }
+  50% {
+    translate: 0 10px;
+  }
+}
+@keyframes globe-pulse {
+  0%,
+  100% {
+    opacity: 0.75;
+    scale: 1;
+  }
+  50% {
+    opacity: 1;
+    scale: 1.08;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .globe-slot,
+  .globe-slot::before {
+    animation: none;
+  }
+}
+@media (min-width: 1024px) {
   .globe-slot {
-    width: min(80vw, 22rem);
-    height: min(80vw, 22rem);
-    max-width: 22rem;
-    max-height: 22rem;
-    margin-inline: auto;
+    width: min(92vh, 118%);
+    max-width: 860px;
+    margin-inline: -4% -14%;
   }
 }
 .globe-layer {
   position: relative;
   z-index: 10;
-}
-.plane-whoosh-stage[data-orbit="front"] {
-  z-index: 24;
-}
-.plane-whoosh-stage[data-orbit="behind"] {
-  z-index: 2;
-}
-.globe-layer,
-.globe-layer canvas {
-  pointer-events: none !important;
-  touch-action: pan-y;
 }
 .plane-whoosh-stage {
   pointer-events: none;
@@ -594,16 +709,60 @@
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.8), rgba(125, 211, 252, 0.4), transparent);
   filter: blur(5px);
 }
-.landing-journey {
+/* ── Vertical journey timeline ── */
+.journey-timeline {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-left: 3rem;
+}
+.journey-timeline::before {
+  content: "";
+  position: absolute;
+  left: calc(0.9375rem - 1px);
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, var(--primary) 0%, var(--secondary) 55%, rgba(255, 255, 255, 0.06) 100%);
+}
+.journey-step {
   position: relative;
 }
+.journey-marker {
+  position: absolute;
+  left: -3rem;
+  top: 0.75rem;
+  width: 1.875rem;
+  height: 1.875rem;
+  border-radius: 50%;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display-face), var(--font-display), sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--primary-foreground);
+  letter-spacing: 0.04em;
+  box-shadow: 0 0 0 4px rgba(255, 90, 74, 0.18), 0 0 16px rgba(255, 90, 74, 0.12);
+  z-index: 2;
+}
+.journey-card {
+  padding: 1.25rem 1.5rem;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(11, 31, 77, 0.1);
+  box-shadow: 0 24px 48px -28px rgba(11, 31, 77, 0.35);
+  border-radius: 0.75rem;
+  backdrop-filter: blur(12px);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s, background 0.3s;
+}
+.journey-card:hover {
+  border-color: rgba(29, 78, 216, 0.35);
+}
 @media (min-width: 1024px) {
-  .landing-journey {
-    min-height: 280vh;
-  }
-  .landing-journey-stick {
-    position: sticky;
-    top: 5.5rem;
+  .journey-timeline {
+    gap: 1.75rem;
   }
 }
 .paper-pin {

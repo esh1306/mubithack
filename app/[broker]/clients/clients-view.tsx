@@ -252,7 +252,7 @@ export function ClientsView({ broker }: { broker: string }) {
 
       <ul className="space-y-3">
         {clients?.map((c) => (
-          <li key={c.id} className="space-y-3 rounded-xl border border-border/70 bg-card p-6 shadow-card">
+          <li key={c.id} className="space-y-3 rounded-lg border border-border bg-card p-6">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <span className="flex size-8 items-center justify-center rounded-md bg-muted">

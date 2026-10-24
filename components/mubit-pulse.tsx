@@ -44,18 +44,21 @@ export function MubitPulse({ broker }: { broker: string }) {
   return (
     <Link
       href={`/${broker}/mubit`}
-      className="block rounded-md border-2 border-foreground/15 bg-card px-3 py-2.5 hover:border-primary/40"
+      className="block rounded-md border border-sidebar-border bg-card px-3 py-3 hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-primary">Mubit learning</p>
-      <p className="mt-1 font-[family-name:var(--font-display-face)] text-2xl font-extrabold leading-none">
-        {n}
-        <span className="text-sm text-foreground/50">/{of}</span>
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-[13px] font-medium">Learning from your fixes</p>
+        <p className="font-serif text-lg leading-none tabular-nums">
+          {n}
+          <span className="text-xs text-muted-foreground">/{of}</span>
+        </p>
+      </div>
+      <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted">
+        <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${Math.min(100, (n / of) * 100)}%` }} />
+      </div>
+      <p className={cn("mt-1.5 text-xs", !d?.hasKey ? "text-warn" : "text-muted-foreground")}>
+        {status === "Offline / no key" ? "Mubit offline · no API key" : `Mubit ${status.toLowerCase()}`}
       </p>
-      <p className={cn("mt-1 text-[11px] font-semibold", !d?.hasKey ? "text-primary" : "text-foreground/60")}>{status}</p>
-      <p className="mt-0.5 truncate font-mono text-[10px] text-foreground/45">
-        {d?.lastRequestId ?? (d?.hasKey ? "no request yet" : "sample / offline")}
-      </p>
-      <p className="mt-1 text-[10px] text-foreground/40">Adapter not claimed live</p>
     </Link>
   );
 }

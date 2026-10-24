@@ -8,7 +8,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ broker:
   const { broker } = await params;
   const b = await db.broker.findUniqueOrThrow({ where: { id: broker } });
   const rows = await db.suggestion.findMany({
-    where: { line: { brokerId: broker }, model: { notIn: ["broker", "error", "precedent", "seed"] } },
+    where: { line: { brokerId: broker }, model: { notIn: ["broker", "error", "precedent", "seed", "hmrc-search"] } },
     include: { line: { select: { text: true, batchId: true } } },
     orderBy: { id: "desc" },
   });

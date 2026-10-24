@@ -58,7 +58,7 @@ function StepIcon({ state }: { state: RailStep["state"] }) {
 function BeforeAfter({ lesson }: { lesson: Lesson }) {
   return (
     <section className="space-y-3 rounded-xl border border-primary/25 bg-primary/[0.04] p-4">
-      <p className="text-xs font-medium uppercase tracking-[0.06em] text-primary">What changed</p>
+      <p className="text-[13px] font-medium text-primary">What changed</p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <p className="text-xs text-muted-foreground">Before your fix</p>
@@ -211,7 +211,7 @@ export function LearningPanel({
               Similar products this broker has never classified will appear here after a fix.
             </p>
           ) : (
-          <div className="overflow-hidden rounded-xl border border-border/70">
+          <div className="overflow-hidden rounded-lg border border-border">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-xs text-muted-foreground">
                 <tr>

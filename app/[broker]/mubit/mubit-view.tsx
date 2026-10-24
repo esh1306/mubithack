@@ -126,7 +126,7 @@ export function MubitView({ broker }: { broker: string }) {
       {d.precedents.some((p) => p.variantCount > 0) && (
         <section className="space-y-3">
           <h2 className="desk-kicker">Timeline · correction → variants → request ids</h2>
-          <ul className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70 bg-card shadow-card">
+          <ul className="divide-y divide-border/60 overflow-hidden rounded-lg border border-border bg-card">
             {d.precedents.filter((p) => p.variantCount > 0).map((p) => (
               <li key={p.id} className="space-y-1 px-4 py-3 text-sm">
                 <p className="font-medium">#{p.id} · {p.lineText}</p>
@@ -150,7 +150,7 @@ export function MubitView({ broker }: { broker: string }) {
             No classify calls recorded yet for this broker. Play the 3-minute demo from Home to send the first examples.
           </p>
         )}
-        <ul className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70 bg-card shadow-card">
+        <ul className="divide-y divide-border/60 overflow-hidden rounded-lg border border-border bg-card">
           {d.recent.map((r, i) => (
             <li key={i} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 text-sm">
               <div className="min-w-0">

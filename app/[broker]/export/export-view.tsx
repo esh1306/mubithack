@@ -88,7 +88,7 @@ export function ExportView({ broker }: { broker: string }) {
       )}
 
       {rows.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-card">
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
           <Table>
             <TableHeader>
               <TableRow>

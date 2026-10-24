@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { BookOpen, ShoppingBag, FileSpreadsheet, Landmark, Download, Cpu, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Code } from "@/components/code";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -31,10 +32,10 @@ function Card({ icon: Icon, title, info, status, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-4 rounded-xl border border-border/70 bg-card p-6 shadow-card">
+    <section className="space-y-4 rounded-lg border border-border bg-card p-6">
       <header className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <span className="flex size-10 items-center justify-center rounded-full bg-muted">
+          <span className="flex size-9 items-center justify-center rounded-md border border-border bg-muted/60">
             <Icon className="size-[18px]" />
           </span>
           <h2 className="flex items-center gap-1.5 font-serif text-[22px] leading-tight">
@@ -110,7 +111,8 @@ export function IntegrationsView({ broker }: { broker: string }) {
 
   async function lookupLive() {
     setLookupResult(null);
-    setLookupResult(await (await fetch(`/api/tariff/search?q=${encodeURIComponent(lookup)}`)).json());
+    const res = await (await fetch(`/api/tariff/candidates?q=${encodeURIComponent(lookup)}`)).json();
+    setLookupResult((res.candidates ?? []).map((c: { code: string; description: string }) => ({ code: c.code, path: c.description, dutyRate: null })));
     setTariff(await (await fetch("/api/tariff/status")).json());
   }
 
@@ -145,33 +147,68 @@ export function IntegrationsView({ broker }: { broker: string }) {
 
       <Card
         icon={BookOpen}
-        title="UK Trade Tariff (live)"
-        status={tariff ? (tariff.live ? <On>Live</On> : <Off>Offline · using saved copy</Off>) : null}
+        title="UK Trade Tariff · HMRC"
+        status={tariff ? (tariff.live ? <On>Connected</On> : <Off>Not answering · using saved copy</Off>) : null}
       >
-        <p className="text-sm text-muted-foreground">
-          {tariff
-            ? `HMRC's public tariff API. ${tariff.codes} codes and ${tariff.chapters} chapters saved locally.`
-            : "Checking the live tariff…"}
-          {" "}Any heading the agent or a broker needs that isn&apos;t saved yet is fetched live, with its chapter notes and duty rate, and kept.
+        <p className="max-w-3xl text-sm text-muted-foreground">
+          Every code is checked against HMRC&apos;s own tariff through its public API (Open Government Licence, no key needed). These are
+          the same endpoints HMRC&apos;s official Trade Tariff MCP server uses for AI assistants.
         </p>
-        <div className="flex gap-2">
-          <Input placeholder="Try a code or words, e.g. 8471 or laptop" value={lookup} onChange={(e) => setLookup(e.target.value)} onKeyDown={(e) => e.key === "Enter" && lookupLive()} />
-          <Button variant="outline" onClick={lookupLive} disabled={!lookup.trim()}>Look up</Button>
+        <table className="w-full text-sm">
+          <tbody>
+            {[
+              ["Classification search", "Ranked candidate codes for a product description", "Step 2 of every line"],
+              ["Chapter notes", "The legal exclusions and definitions for each chapter", "Rules a heading in or out"],
+              ["Commodity measures", "Hierarchy, duty, VAT, quotas and trade remedies, on any date", "Receipts and the 3-year reclaim"],
+              ["Rules of origin", "Preferential rates and the product-specific rule per agreement", "Duty savings on receipts"],
+            ].map(([name, what, use]) => (
+              <tr key={name} className="border-b border-border last:border-b-0 align-top">
+                <td className="w-48 py-2.5 pr-4 font-medium">{name}</td>
+                <td className="py-2.5 pr-4 text-muted-foreground">{what}</td>
+                <td className="hidden py-2.5 text-right text-muted-foreground sm:table-cell">{use}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Try HMRC&apos;s classification search</p>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Describe a product, e.g. bamboo kids' dinner set"
+              value={lookup}
+              onChange={(e) => setLookup(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && lookupLive()}
+            />
+            <Button variant="outline" onClick={lookupLive} disabled={!lookup.trim()}>
+              Search
+            </Button>
+          </div>
         </div>
         {lookupResult && (
-          <ul className="divide-y rounded-md border text-sm">
-            {lookupResult.length === 0 && <li className="px-3 py-2 text-muted-foreground">No codes found.</li>}
+          <ul className="divide-y divide-border rounded-md border border-border text-sm">
+            {lookupResult.length === 0 && <li className="px-3 py-2 text-muted-foreground">No candidates. Try describing the material and use.</li>}
             {lookupResult.slice(0, 6).map((r) => (
               <li key={r.code} className="flex items-start justify-between gap-3 px-3 py-2">
                 <span className="min-w-0">
-                  <span className="font-mono font-semibold">{r.code}</span>
-                  <span className="block truncate text-xs text-muted-foreground">{r.path}</span>
+                  <Code code={r.code} className="text-[13px]" />
+                  <span className="block text-xs text-muted-foreground">{r.path}</span>
                 </span>
-                <span className="shrink-0 text-xs text-muted-foreground">{r.dutyRate ?? ""}</span>
+                <a
+                  href={`https://www.trade-tariff.service.gov.uk/commodities/${r.code}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 text-xs text-link hover:underline"
+                >
+                  Open on the tariff
+                </a>
               </li>
             ))}
           </ul>
         )}
+        <p className="text-xs text-muted-foreground">
+          Results are a shortlist, not a decision: the top hit is often in the wrong heading, which is why each line is then checked against the
+          chapter notes and signed off by you.
+        </p>
       </Card>
 
       <Card
