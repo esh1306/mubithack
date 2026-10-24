@@ -66,20 +66,20 @@ export function LandingStats() {
   }, []);
 
   return (
-    <section id="stats" ref={root} className="border-t border-[#F3EAD3]/10 px-5 py-16 sm:px-8 lg:px-10">
-      <p className="landing-kicker text-[#C9A227]">From this desk</p>
+    <section id="stats" ref={root} className="border-t border-foreground/10 px-5 py-16 sm:px-8 lg:px-10">
+      <p className="landing-kicker text-secondary">From this desk</p>
       <h2 className="landing-display mt-2 max-w-[14ch] overflow-visible">Numbers we can show.</h2>
-      <p className="mt-3 max-w-xl text-[15px] font-medium text-[#F3EAD3]/70">
+      <p className="mt-3 max-w-xl text-[15px] font-medium text-foreground/70">
         Counted from the seeded tariff, the demo broker&apos;s past entries, and the code constants. No invented market or customer stats.
       </p>
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {STATS.map((s) => (
           <article key={s.id} className="stat-card">
-            <p className="font-[family-name:var(--font-display-face)] text-[2.6rem] font-extrabold uppercase leading-none text-[#F3EAD3]">
+            <p className="font-[family-name:var(--font-display-face)] text-[2.6rem] font-extrabold uppercase leading-none text-foreground">
               <Count to={s.to} prefix={"prefix" in s ? s.prefix : ""} play={play} />
             </p>
-            <p className="mt-2 text-[13px] font-extrabold uppercase tracking-[0.08em] text-[#E63B2E]">{s.label}</p>
-            <p className="mt-1 text-[12px] font-medium text-[#F3EAD3]/50">{s.note}</p>
+            <p className="mt-2 text-[13px] font-extrabold uppercase tracking-[0.08em] text-primary">{s.label}</p>
+            <p className="mt-1 text-[12px] font-medium text-foreground/50">{s.note}</p>
           </article>
         ))}
       </div>

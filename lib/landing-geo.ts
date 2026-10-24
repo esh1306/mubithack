@@ -5,17 +5,43 @@ export type LatLng = { lat: number; lng: number; name: string };
 export const SHENZHEN: LatLng = { lat: 22.5431, lng: 114.0579, name: "Shenzhen" };
 export const NINGBO: LatLng = { lat: 29.8683, lng: 121.544, name: "Ningbo" };
 export const HCMC: LatLng = { lat: 10.7769, lng: 106.7009, name: "Ho Chi Minh" };
+export const MUMBAI: LatLng = { lat: 19.076, lng: 72.8777, name: "Mumbai" };
+export const ISTANBUL: LatLng = { lat: 41.0082, lng: 28.9784, name: "Istanbul" };
+export const NEWYORK: LatLng = { lat: 40.7128, lng: -74.006, name: "New York" };
+export const SINGAPORE: LatLng = { lat: 1.3521, lng: 103.8198, name: "Singapore" };
+export const DUBAI: LatLng = { lat: 25.2048, lng: 55.2708, name: "Dubai" };
 export const FELIXSTOWE: LatLng = { lat: 51.964, lng: 1.3512, name: "Felixstowe" };
 export const HEATHROW: LatLng = { lat: 51.47, lng: -0.4543, name: "Heathrow" };
 export const LONDON: LatLng = { lat: 51.5074, lng: -0.1278, name: "London" };
 
-export const HUBS = [SHENZHEN, NINGBO, HCMC, FELIXSTOWE, HEATHROW, LONDON] as const;
+export const ORIGINS = [SHENZHEN, NINGBO, HCMC, MUMBAI, ISTANBUL, NEWYORK, SINGAPORE, DUBAI] as const;
+export const DESTINATIONS = [LONDON, FELIXSTOWE, HEATHROW] as const;
 
-export const TRADE_ARCS = [
-  { start: SHENZHEN, end: FELIXSTOWE },
-  { start: NINGBO, end: HEATHROW },
-  { start: HCMC, end: LONDON },
+export const ARC_PALETTE = [
+  ["#FF5CAD", "#FF8A3D"],
+  ["#7C6BFF", "#3DDBE8"],
+  ["#8BE05A", "#3DDBE8"],
+  ["#FF8A3D", "#E63B2E"],
+  ["#FF5CAD", "#7C6BFF"],
+  ["#3DDBE8", "#7C6BFF"],
+  ["#8BE05A", "#FF8A3D"],
+  ["#E63B2E", "#FF5CAD"],
 ] as const;
+
+export const TRADE_ARCS = ORIGINS.flatMap((start, i) =>
+  DESTINATIONS.map((end, j) => {
+    const n = i * DESTINATIONS.length + j;
+    return {
+      start,
+      end,
+      colors: ARC_PALETTE[n % ARC_PALETTE.length],
+      dash: 1300 + (n % 8) * 260,
+      main: start === SHENZHEN && end === LONDON,
+    };
+  }),
+);
+
+export const HUBS = [...ORIGINS, ...DESTINATIONS];
 
 export const STORY = {
   heroEnd: 0.08,

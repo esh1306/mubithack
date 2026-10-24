@@ -6,6 +6,7 @@ import Lenis from "lenis";
 import { SiteNav } from "@/components/site-nav";
 import { StaticGlobe } from "@/components/static-globe";
 import { CargoCraftMark } from "@/components/cargo-craft";
+import { PlaneWhoosh } from "@/components/plane-whoosh";
 import { PaperMap } from "@/components/paper-map";
 import { LandingStats } from "@/components/landing-stats";
 import { MubitShowcase } from "@/components/mubit-showcase";
@@ -56,7 +57,7 @@ function Headline({ show }: { show: boolean }) {
         <br />
         Never again.
       </h1>
-      <p className="mt-3 max-w-md text-[15px] font-medium leading-snug text-[#F3EAD3]/75">
+      <p className="mt-3 max-w-md text-[15px] font-medium leading-snug text-foreground/70">
         A desk for UK brokers. Suggestions only — the broker signs every code.
       </p>
     </div>
@@ -65,7 +66,7 @@ function Headline({ show }: { show: boolean }) {
 
 function Credits() {
   return (
-    <footer className="border-t border-[#F3EAD3]/10 px-5 py-8 text-[11px] leading-relaxed text-[#F3EAD3]/40 sm:px-8 lg:px-10">
+    <footer className="border-t border-foreground/10 px-5 py-8 text-[11px] leading-relaxed text-foreground/45 sm:px-8 lg:px-10">
       <p>
         Globe: react-globe.gl / three.js (MIT). Land: Natural Earth via world-atlas (public domain). Plane and parcel are
         procedural low-poly stand-ins — intended swap-ins for Akash Rudra&apos;s Very cute airplane (CC-BY,{" "}
@@ -198,6 +199,7 @@ export function LandingView() {
               }}
             />
           </div>
+          <PlaneWhoosh reduced={reduce} />
           {pinOn && (
             <div
               id="journey"
@@ -205,47 +207,41 @@ export function LandingView() {
               style={{
                 opacity: mapOn ? 1 : 0,
                 pointerEvents: mapOn ? "auto" : "none",
-                background: `rgba(11,31,51,${mapOn ? 0.28 : 0})`,
               }}
             >
-              <p className="landing-kicker text-[#E63B2E]">Store to sandbox</p>
-              <h2 className="landing-display mt-2 max-w-[16ch] overflow-visible text-[#F3EAD3]">The parcel&apos;s journey.</h2>
+              <p className="landing-kicker text-primary">Store to sandbox</p>
+              <h2 className="landing-display mt-2 max-w-[16ch] overflow-visible">The parcel&apos;s journey.</h2>
               <div className="mt-5 max-h-[min(64vh,620px)]">
                 <PaperMap mobile={false} reduced={false} progress={progress} />
               </div>
             </div>
           )}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0B1F33] via-[#0B1F33]/55 to-transparent" aria-hidden />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#0B1F33] to-transparent" aria-hidden />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#f3f6fb] via-[#f3f6fb]/70 to-transparent" aria-hidden />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#f3f6fb] to-transparent" aria-hidden />
           <div className="pointer-events-none relative z-30 flex min-h-[100svh] flex-col">
             <div className="pointer-events-auto">
               <SiteNav current="home" overlay />
             </div>
             <div className="relative flex flex-1 flex-col justify-center px-5 py-8 sm:px-8 lg:px-10">
               <Headline show={showHead} />
-              {showHead && (
-                <div className="pointer-events-none absolute right-[8%] top-[18%] hidden sm:block lg:right-[12%]">
-                  <CargoCraftMark className="w-32 cargo-drift drop-shadow-[0_10px_18px_rgba(11,31,51,0.45)]" />
-                </div>
-              )}
               {mobile && (
                 <div className="mt-8 flex justify-end">
                   <CargoCraftMark className="w-28 cargo-drift" />
                 </div>
               )}
             </div>
-            <p className="px-5 pb-5 text-[11px] font-medium uppercase tracking-[0.16em] text-[#F3EAD3]/40 sm:px-8 lg:px-10">
-              {pinOn ? "Scroll · arrows step the route" : "Shenzhen → London"}
+            <p className="px-5 pb-5 text-[11px] font-medium uppercase tracking-[0.16em] text-foreground/40 sm:px-8 lg:px-10">
+              {pinOn ? "Scroll · the map unrolls" : "Shenzhen → London"}
             </p>
           </div>
         </div>
       </section>
 
       {ready && !pinOn && (
-        <section id="journey" className="relative z-20 border-t border-[#F3EAD3]/10 px-5 py-16 sm:px-8 lg:px-10">
-          <p className="landing-kicker text-[#E63B2E]">Store to sandbox</p>
+        <section id="journey" className="relative z-20 border-t border-foreground/10 px-5 py-16 sm:px-8 lg:px-10">
+          <p className="landing-kicker text-primary">Store to sandbox</p>
           <h2 className="landing-display mt-2 max-w-[16ch] overflow-visible">The parcel&apos;s journey.</h2>
-          <p className="mt-3 max-w-xl text-[15px] font-medium text-[#F3EAD3]/70">
+          <p className="mt-3 max-w-xl text-[15px] font-medium text-foreground/70">
             Pins drop in order from the Shopify store to the HMRC sandbox.
           </p>
           <div className="mt-8">
@@ -257,14 +253,14 @@ export function LandingView() {
       <LandingStats />
       <MubitShowcase />
 
-      <section className="border-t border-[#F3EAD3]/10 px-5 py-12 sm:px-8 lg:px-10">
-        <p className="landing-kicker text-[#F3EAD3]/50">Works with</p>
-        <p className="mt-2 text-[13px] font-medium text-[#F3EAD3]/50">Names for orientation. Not a partnership.</p>
+      <section className="border-t border-foreground/10 px-5 py-12 sm:px-8 lg:px-10">
+        <p className="landing-kicker text-foreground/50">Works with</p>
+        <p className="mt-2 text-[13px] font-medium text-foreground/50">Names for orientation. Not a partnership.</p>
         <div className="mt-5">
           <LogoLoop>
             <ShopifyMark size={26} />
             <span className="text-[15px] font-extrabold tracking-tight">Shopify</span>
-            <MubitMark size={16} className="text-[#F3EAD3] [&_rect]:fill-[#F3EAD3] [&_path]:fill-[#0B1F33]" />
+            <MubitMark size={16} />
             <QwenMark size={24} />
             <span className="text-[15px] font-extrabold tracking-tight">Qwen</span>
             <HmrcMark className="text-[14px]" />
