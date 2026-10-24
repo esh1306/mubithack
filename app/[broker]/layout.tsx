@@ -13,7 +13,7 @@ export default async function BrokerLayout({ children, params }: LayoutProps<"/[
   return (
     <div className="flex min-h-screen">
       <Sidebar current={current} brokers={brokers} />
-      <main className="min-w-0 flex-1 px-12 py-10">{children}</main>
+      <main className="min-w-0 flex-1 px-5 pb-10 pt-20 md:px-12 md:py-10">{children}</main>
     </div>
   );
 }
