@@ -45,3 +45,6 @@ next-env.d.ts
 /dev.db*
 /prisma/dev.db*
 !.env.example
+
+# /brag intermediates (frames, scripts)
+/brag-output/work/
