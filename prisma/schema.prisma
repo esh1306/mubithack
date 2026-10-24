@@ -10,6 +10,7 @@ datasource db {
 model Broker {
   id          String       @id
   name        String
+  integrations Integration[]
   lines       Line[]
   precedents  Precedent[]
   pastEntries PastEntry[]
@@ -25,6 +26,9 @@ model Line {
   qty         Float?
   origin      String?
   neverSeen   Boolean     @default(false)
+  source      String?     // "shopify" when imported from a store
+  externalRef String?     // e.g. the Shopify inventory item id, for writing the code back
+  existingCode String?    // the code the source system already had, if any
   createdAt   DateTime    @default(now())
   suggestions Suggestion[]
 }
@@ -93,4 +97,16 @@ model RetroFinding {
   dutyDelta     Float
   reason        String
   createdAt     DateTime  @default(now())
+}
+
+// Connection settings per broker and system (e.g. Shopify store + token, HMRC sandbox OAuth).
+model Integration {
+  id        Int      @id @default(autoincrement())
+  brokerId  String
+  broker    Broker   @relation(fields: [brokerId], references: [id])
+  kind      String   // shopify | hmrc
+  config    String   // JSON
+  updatedAt DateTime @updatedAt
+
+  @@unique([brokerId, kind])
 }

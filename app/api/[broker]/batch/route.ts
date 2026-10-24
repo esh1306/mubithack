@@ -49,6 +49,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ broker: 
         qty: l.qty,
         value: l.value,
         origin: l.origin,
+        source: l.source,
+        existingCode: l.existingCode,
         status,
         suggestion,
         error: status === "error" ? "No answer came back" : undefined,

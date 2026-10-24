@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FileUp, Sparkles, Flag, Check, Loader2, MessageCircleQuestion, RotateCw, PencilLine, GraduationCap, Plus, ChevronDown } from "lucide-react";
+import { FileUp, Sparkles, Flag, Check, Loader2, MessageCircleQuestion, RotateCw, PencilLine, GraduationCap, Plus, ChevronDown, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +25,15 @@ import { LearningPanel, RAIL_TEMPLATE, type NeverSeenItem, type RailStep } from 
 import { readSse } from "@/lib/sse";
 
 type InLine = { description: string; qty?: number; value?: number; origin?: string };
-type Row = { id: number; text: string; status: "running" | "done" | "error"; suggestion?: Suggestion; error?: string };
+type Row = {
+  id: number;
+  text: string;
+  status: "running" | "done" | "error";
+  suggestion?: Suggestion;
+  error?: string;
+  source?: string | null;
+  existingCode?: string | null;
+};
 type Broker = { id: string; name: string };
 type Sample = { id: string; name: string; supplier: string; about: string };
 
@@ -127,7 +135,15 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
       await readSse(res, (event, data) => {
         if (event === "batch" && "lines" in body) {
           setBatchId(data.lines[0]?.batchId ?? null);
-          setRows(data.lines.map((l: { id: number; text: string }) => ({ id: l.id, text: l.text, status: "running" })));
+          setRows(
+            data.lines.map((l: { id: number; text: string; source: string | null; existingCode: string | null }) => ({
+              id: l.id,
+              text: l.text,
+              source: l.source,
+              existingCode: l.existingCode,
+              status: "running",
+            })),
+          );
         }
         if (event === "result") updateRow(data.lineId, data.suggestion);
         if (event === "error")
@@ -156,6 +172,22 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
     if (!res.ok) return setUploadError(data.error);
     if (data.lines.length === 0) return setUploadError(`No product lines found in ${file.name}.`);
     classify(data.lines);
+  }
+
+  const [pushMsg, setPushMsg] = useState<string | null>(null);
+  async function pushToShopify(lineIds: number[]) {
+    setPushMsg("Writing codes to Shopify…");
+    const res = await fetch(`/api/${broker}/shopify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "push", lineIds }),
+    });
+    const data = await res.json();
+    if (!res.ok) return setPushMsg(data.error);
+    const ok = data.results.filter((r: { ok: boolean }) => r.ok).length;
+    const failed = data.results.find((r: { ok: boolean; message?: string }) => !r.ok);
+    setPushMsg(`${ok} of ${data.results.length} codes written to Shopify${failed ? ` · ${failed.message}` : ""}`);
+    if (ok) loadBatch();
   }
 
   async function approve(ids: number[]) {
@@ -195,6 +227,9 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   const unflaggedPending = done.filter((r) => !r.suggestion!.flagged && r.suggestion!.status === "pending");
   const flaggedCount = done.filter((r) => r.suggestion!.flagged && r.suggestion!.status === "pending").length;
   const failed = rows.filter((r) => r.status === "error");
+  const shopifyReady = done.filter(
+    (r) => r.source === "shopify" && ["approved", "corrected"].includes(r.suggestion!.status) && r.existingCode !== r.suggestion!.code,
+  );
   const allPending = done.filter((r) => r.suggestion!.status === "pending");
   const brokerName = brokers.find((b) => b.id === broker)?.name ?? broker;
   const inputOpen = showInput || (loaded && rows.length === 0);
@@ -292,8 +327,14 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
                 {done.length} of {rows.length} classified
                 {flaggedCount > 0 && <> · <span className="text-foreground">{flaggedCount} need review</span></>}
                 {batchId && <span className="ml-2 font-mono text-xs">#{batchId.slice(0, 8)}</span>}
+                {pushMsg && <span className="ml-2 text-xs text-primary">{pushMsg}</span>}
               </p>
               <div className="flex gap-2">
+                {shopifyReady.length > 0 && (
+                  <Button size="sm" variant="outline" onClick={() => pushToShopify(shopifyReady.map((r) => r.id))}>
+                    <Upload /> Push {shopifyReady.length} to Shopify
+                  </Button>
+                )}
                 {failed.length > 0 && (
                   <Button size="sm" variant="outline" disabled={busy} onClick={() => run({ lineIds: failed.map((r) => r.id) })}>
                     <RotateCw /> Retry {failed.length} failed
@@ -333,7 +374,24 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
                 <TableBody>
                   {rows.map((r) => (
                     <TableRow key={r.id} className={r.suggestion ? "cursor-pointer" : undefined} onClick={() => r.suggestion && setReceipt(r)}>
-                      <TableCell className="font-medium whitespace-normal">{r.text}</TableCell>
+                      <TableCell className="whitespace-normal">
+                        <p className="font-medium">{r.text}</p>
+                        {r.source === "shopify" && (
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            From Shopify
+                            {r.existingCode ? (
+                              <>
+                                {" · store has "}
+                                <span className={r.suggestion && r.suggestion.code.slice(0, 6) !== r.existingCode.slice(0, 6) ? "text-destructive" : undefined}>
+                                  <Code code={r.existingCode} className="text-xs" />
+                                </span>
+                              </>
+                            ) : (
+                              " · no code in store"
+                            )}
+                          </p>
+                        )}
+                      </TableCell>
                       {r.status === "running" && (
                         <TableCell colSpan={4} className="text-muted-foreground">
                           <Loader2 className="mr-2 inline size-4 animate-spin" /> Checking precedents and the tariff…

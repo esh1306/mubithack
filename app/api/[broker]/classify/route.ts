@@ -1,7 +1,16 @@
 import { db } from "@/lib/db";
 import { classifyWithRetry, pool, sseResponse } from "@/lib/run";
 
-type InLine = { description: string; qty?: number; value?: number; origin?: string };
+type InLine = {
+  description: string;
+  qty?: number;
+  value?: number;
+  origin?: string;
+  // Set when lines come from another system, e.g. a Shopify import.
+  source?: string;
+  externalRef?: string;
+  existingCode?: string;
+};
 
 const CONCURRENCY = 4;
 
@@ -20,7 +29,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ broker:
     for (const l of body.lines ?? []) {
       saved.push(
         await db.line.create({
-          data: { brokerId: broker, batchId, text: l.description, qty: l.qty ?? null, value: l.value ?? null, origin: l.origin ?? null },
+          data: {
+            brokerId: broker,
+            batchId,
+            text: l.description,
+            qty: l.qty ?? null,
+            value: l.value ?? null,
+            origin: l.origin ?? null,
+            source: l.source ?? null,
+            externalRef: l.externalRef ?? null,
+            existingCode: l.existingCode ?? null,
+          },
         }),
       );
     }
