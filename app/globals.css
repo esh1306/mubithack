@@ -152,7 +152,8 @@
 }
 
 .landing {
-  overflow: visible;
+  overflow-x: clip;
+  overflow-y: visible;
   --paper: #f3ead3;
   --ink: #1a1a1a;
   --route: #e63b2e;
@@ -483,7 +484,33 @@
   left: 86%;
 }
 .landing-hero {
+  overflow: hidden;
+}
+.globe-slot {
+  position: relative;
+  z-index: 10;
+  isolation: isolate;
+  flex: 0 0 auto;
+  /* 48–55vh disc, capped so 1440×900 stays ~468px and never over ~520px. */
+  width: min(52vh, 520px);
+  height: min(52vh, 520px);
+  max-width: 520px;
+  max-height: 520px;
+  align-self: center;
   overflow: visible;
+}
+@media (max-width: 1023px) {
+  .globe-slot {
+    width: min(80vw, 22rem);
+    height: min(80vw, 22rem);
+    max-width: 22rem;
+    max-height: 22rem;
+    margin-inline: auto;
+  }
+}
+.globe-layer {
+  position: relative;
+  z-index: 10;
 }
 .globe-layer,
 .globe-layer canvas {
@@ -494,14 +521,7 @@
   pointer-events: none;
   position: absolute;
   inset: 0;
-  z-index: 25;
-  overflow: visible;
-}
-.plane-whoosh-svg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  z-index: auto;
   overflow: visible;
 }
 .plane-whoosh-mover {
@@ -509,13 +529,13 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: min(26vw, 240px);
-  opacity: 0;
+  width: 26%;
+  max-width: 128px;
   will-change: transform;
 }
 .plane-whoosh-craft {
   width: 100%;
-  filter: drop-shadow(-22px 0 10px rgba(255, 255, 255, 0.2)) drop-shadow(0 10px 18px rgba(15, 42, 107, 0.35));
+  filter: drop-shadow(-12px 0 8px rgba(255, 255, 255, 0.2)) drop-shadow(0 8px 14px rgba(15, 42, 107, 0.35));
 }
 .plane-whoosh-craft img {
   display: block;
@@ -524,18 +544,25 @@
 }
 .plane-whoosh-trail {
   position: absolute;
-  right: 78%;
-  top: 48%;
-  width: min(28vw, 220px);
-  height: 14px;
-  transform-origin: right center;
+  left: 70%;
+  top: 46%;
+  width: 72%;
+  height: 11px;
+  transform-origin: left center;
   border-radius: 99px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), rgba(125, 211, 252, 0.45), rgba(255, 255, 255, 0.85));
-  filter: blur(6px);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.8), rgba(125, 211, 252, 0.4), transparent);
+  filter: blur(5px);
 }
-@media (max-width: 640px) {
-  .plane-whoosh-mover {
-    width: min(28vw, 148px);
+.landing-journey {
+  position: relative;
+}
+@media (min-width: 1024px) {
+  .landing-journey {
+    min-height: 240vh;
+  }
+  .landing-journey-stick {
+    position: sticky;
+    top: 5.5rem;
   }
 }
 .paper-pin {

@@ -15,11 +15,7 @@ import type { EarthApi } from "@/components/earth-globe";
 
 const EarthGlobe = dynamic(() => import("@/components/earth-globe"), {
   ssr: false,
-  loading: () => (
-    <div className="absolute inset-0 grid place-items-center">
-      <StaticGlobe className="h-[min(64vh,560px)] w-[min(64vh,560px)]" />
-    </div>
-  ),
+  loading: () => <StaticGlobe className="h-full w-full" />,
 });
 
 function Headline() {
@@ -73,10 +69,12 @@ function Credits() {
 }
 
 export function LandingView() {
-  const story = useRef<HTMLElement>(null);
+  const hero = useRef<HTMLElement>(null);
+  const journey = useRef<HTMLElement>(null);
   const earth = useRef<EarthApi | null>(null);
   const [reduce, setReduce] = useState(false);
   const [mobile, setMobile] = useState(false);
+  const [mapT, setMapT] = useState(0);
 
   useEffect(() => {
     const r = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -95,76 +93,91 @@ export function LandingView() {
   }, []);
 
   useEffect(() => {
-    const root = story.current;
-    if (!root) return;
     registerLandingMotion();
-    const st = ScrollTrigger.create({
-      trigger: root,
-      start: "top top",
-      end: "bottom top",
-      scrub: 0.45,
-      onUpdate: (self) => {
-        earth.current?.setProgress(self.progress);
-      },
-    });
     const refresh = () => ScrollTrigger.refresh();
+    const heroEl = hero.current;
+    const journeyEl = journey.current;
+    const triggers: ScrollTrigger[] = [];
+
+    if (heroEl) {
+      triggers.push(
+        ScrollTrigger.create({
+          trigger: heroEl,
+          start: "top top",
+          end: "bottom top",
+          scrub: 0.45,
+          onUpdate: (self) => earth.current?.setProgress(self.progress),
+        }),
+      );
+    }
+
+    if (journeyEl && !reduce && !mobile) {
+      triggers.push(
+        ScrollTrigger.create({
+          trigger: journeyEl,
+          start: "top top",
+          end: "bottom top",
+          scrub: 0.55,
+          onUpdate: (self) => setMapT(self.progress),
+        }),
+      );
+    } else {
+      setMapT(1);
+    }
+
     window.addEventListener("load", refresh);
     requestAnimationFrame(refresh);
     return () => {
       window.removeEventListener("load", refresh);
-      st.kill();
+      for (const st of triggers) st.kill();
     };
-  }, []);
+  }, [reduce, mobile]);
 
   return (
     <div className="landing">
       <SiteNav current="home" overlay />
-      <section ref={story} className="landing-hero relative min-h-[100svh]">
-        <div className="absolute inset-0">
-          <EarthGlobe
-            mobile={mobile}
-            reduced={reduce}
-            onApi={(api) => {
-              earth.current = api;
-            }}
-            onReady={() => {
-              registerLandingMotion();
-              ScrollTrigger.refresh();
-            }}
-          />
-        </div>
-        <PlaneWhoosh
-          reduced={reduce}
-          onFlight={(t) => {
-            earth.current?.setWhoosh(t);
-          }}
-        />
-        <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#1236A8]/80 via-[#1E4FD8]/30 to-transparent"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#0F2A6B] to-transparent"
-          aria-hidden
-        />
-        <div className="pointer-events-none relative z-30 flex min-h-[100svh] flex-col">
-          <div className="relative flex flex-1 flex-col justify-center px-5 pb-8 pt-28 sm:px-8 lg:px-10">
+      <section ref={hero} className="landing-hero relative min-h-[100svh]">
+        <div className="relative mx-auto flex min-h-[100svh] max-w-[88rem] flex-col justify-center gap-8 px-5 pb-10 pt-28 lg:flex-row lg:items-center lg:justify-between lg:gap-12 sm:px-8 lg:px-10">
+          <div className="relative z-30 pointer-events-none lg:max-w-xl">
             <Headline />
+            <p className="mt-8 text-[11px] font-medium uppercase tracking-[0.16em] text-foreground/50">Every lane into the UK</p>
           </div>
-          <p className="px-5 pb-5 text-[11px] font-medium uppercase tracking-[0.16em] text-foreground/50 sm:px-8 lg:px-10">
-            Shenzhen → London
-          </p>
+          <div className="globe-slot">
+            <EarthGlobe
+              mobile={mobile}
+              reduced={reduce}
+              onApi={(api) => {
+                earth.current = api;
+              }}
+              onReady={() => {
+                registerLandingMotion();
+                ScrollTrigger.refresh();
+              }}
+            />
+            <PlaneWhoosh
+              reduced={reduce}
+              onFlight={(t) => {
+                earth.current?.setWhoosh(t);
+              }}
+            />
+          </div>
         </div>
       </section>
 
-      <section id="journey" className="relative z-20 border-t border-white/10 px-5 py-16 sm:px-8 lg:px-10">
-        <p className="landing-kicker text-[#FDE68A]">Store to sandbox</p>
-        <h2 className="landing-display mt-2 max-w-[16ch] overflow-visible">The parcel&apos;s journey.</h2>
-        <p className="mt-3 max-w-xl text-[15px] font-medium text-foreground/75">
-          Pins drop in order from the Shopify store to the HMRC sandbox.
-        </p>
-        <div className="mt-8">
-          <PaperMap mobile={mobile} reduced={reduce} progress={1} />
+      <section
+        id="journey"
+        ref={journey}
+        className={`landing-journey relative z-20 border-t border-white/10 ${mobile ? "px-5 py-16 sm:px-8 lg:px-10" : ""}`}
+      >
+        <div className={mobile ? "" : "landing-journey-stick px-5 py-16 sm:px-8 lg:px-10"}>
+          <p className="landing-kicker text-[#FDE68A]">Store to sandbox</p>
+          <h2 className="landing-display mt-2 max-w-[16ch] overflow-visible">The parcel&apos;s journey.</h2>
+          <p className="mt-3 max-w-xl text-[15px] font-medium text-foreground/75">
+            Pins drop in order from the Shopify store to the HMRC sandbox.
+          </p>
+          <div className="mt-8">
+            <PaperMap mobile={mobile} reduced={reduce} progress={mobile || reduce ? 1 : mapT} />
+          </div>
         </div>
       </section>
 

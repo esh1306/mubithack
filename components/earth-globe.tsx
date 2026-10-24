@@ -3,15 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Globe, { type GlobeMethods } from "react-globe.gl";
 import { feature } from "topojson-client";
-import {
-  alongGreatCircle,
-  DESTINATIONS,
-  diveAmount,
-  flightAmount,
-  LONDON,
-  SHENZHEN,
-  TRADE_ARCS,
-} from "@/lib/landing-geo";
+import { LONDON, ORIGINS, TRADE_ARCS } from "@/lib/landing-geo";
 import { StaticGlobe } from "@/components/static-globe";
 
 export type EarthApi = {
@@ -21,8 +13,8 @@ export type EarthApi = {
   resume: () => void;
 };
 
-type LandFeat = { type: string; geometry?: unknown };
-type HtmlPin = { lat: number; lng: number; name: string; sub: string };
+const UK_VIEW = { lat: 49, lng: 8, altitude: 2.16 } as const;
+const UK_VIEW_MOBILE = { lat: 49, lng: 10, altitude: 2.28 } as const;
 
 function oceanTexture() {
   const c = document.createElement("canvas");
@@ -54,13 +46,6 @@ function oceanTexture() {
   return c.toDataURL("image/png");
 }
 
-function stampEl(title: string, sub: string) {
-  const el = document.createElement("div");
-  el.className = "globe-html-pin globe-html-pin-pop";
-  el.innerHTML = `<i></i><span><b>${title}</b><small>${sub}</small></span>`;
-  return el;
-}
-
 function passWheel(el: HTMLElement) {
   el.style.pointerEvents = "none";
   el.style.touchAction = "pan-y";
@@ -83,14 +68,14 @@ export function EarthGlobe({
 }) {
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const wrap = useRef<HTMLDivElement>(null);
-  const progress = useRef(0);
   const whoosh = useRef(0);
-  const arcShown = useRef(1);
   const [ready, setReady] = useState(false);
-  const [size, setSize] = useState({ w: 800, h: 600 });
+  const [size, setSize] = useState({ w: 480, h: 480 });
   const [tex, setTex] = useState<string | null>(null);
-  const [land, setLand] = useState<LandFeat[]>([]);
-  const [arcN, setArcN] = useState(1);
+  const [land, setLand] = useState<{ type: string; geometry?: unknown }[]>([]);
+  const [lit, setLit] = useState(0);
+
+  const look = mobile ? UK_VIEW_MOBILE : UK_VIEW;
 
   const spin = (t = whoosh.current) => {
     const g = globeRef.current;
@@ -99,14 +84,21 @@ export function EarthGlobe({
     controls.enableZoom = false;
     controls.enablePan = false;
     controls.autoRotate = !reduced;
-    controls.autoRotateSpeed = 0.32 + 0.55 * Math.sin(Math.PI * t);
+    controls.autoRotateSpeed = 0.32 + 0.1 * Math.max(0, Math.sin(t * Math.PI * 2));
+  };
+
+  const settle = () => {
+    const g = globeRef.current;
+    if (!g) return;
+    spin();
+    g.pointOfView(look, 0);
   };
 
   useEffect(() => {
     setTex(oceanTexture());
     void import("world-atlas/countries-110m.json").then((mod) => {
       const topo = mod.default as { objects: { countries: Parameters<typeof feature>[1] } };
-      const fc = feature(topo as never, topo.objects.countries) as { features?: LandFeat[] };
+      const fc = feature(topo as never, topo.objects.countries) as { features?: { type: string; geometry?: unknown }[] };
       setLand(fc.features ?? []);
     });
   }, []);
@@ -139,49 +131,21 @@ export function EarthGlobe({
     return () => io.disconnect();
   }, [ready]);
 
-  const apply = (t: number) => {
-    progress.current = t;
-    const u = flightAmount(t);
-    const d = diveAmount(t);
-    const here = alongGreatCircle(SHENZHEN, LONDON, u);
-    spin();
-    const g = globeRef.current;
-    if (!g) return;
-    if (d <= 0) {
-      g.pointOfView(
-        {
-          lat: 28 + (here.lat - 28) * u * 0.35,
-          lng: 70 + (here.lng - 70) * u,
-          altitude: mobile ? 2.55 : 2.05,
-        },
-        0,
-      );
-    } else {
-      g.pointOfView(
-        {
-          lat: 48 + 6 * d,
-          lng: 8 - 10 * d,
-          altitude: (mobile ? 2.55 : 2.05) - 1.3 * d,
-        },
-        0,
-      );
-    }
-  };
-
-  const setWhoosh = (t: number) => {
-    whoosh.current = t;
-    spin(t);
-    const n = Math.max(1, Math.ceil(t * TRADE_ARCS.length));
-    if (n !== arcShown.current) {
-      arcShown.current = n;
-      setArcN(n);
-    }
-  };
+  useEffect(() => {
+    if (reduced) return;
+    const id = window.setInterval(() => {
+      setLit((n) => (n + 1) % TRADE_ARCS.length);
+    }, 420);
+    return () => window.clearInterval(id);
+  }, [reduced]);
 
   useEffect(() => {
     onApi?.({
-      setProgress: apply,
-      setWhoosh,
+      setProgress: () => settle(),
+      setWhoosh: (t) => {
+        whoosh.current = t;
+        spin(t);
+      },
       pause: () => globeRef.current?.pauseAnimation(),
       resume: () => globeRef.current?.resumeAnimation(),
     });
@@ -189,38 +153,72 @@ export function EarthGlobe({
 
   const arcs = useMemo(
     () =>
-      TRADE_ARCS.slice(0, arcN).map((a) => ({
-        startLat: a.start.lat,
-        startLng: a.start.lng,
-        endLat: a.end.lat,
-        endLng: a.end.lng,
-        colors: a.colors,
-        dash: a.dash,
-        main: a.main,
-      })),
-    [arcN],
+      TRADE_ARCS.flatMap((a) => {
+        const base = {
+          startLat: a.start.lat,
+          startLng: a.start.lng,
+          endLat: LONDON.lat,
+          endLng: LONDON.lng,
+        };
+        return [
+          {
+            ...base,
+            colors: [`${a.color}88`, `${a.color}22`],
+            dash: 0,
+            dashLen: 1,
+            gap: 0,
+            init: 0,
+            stroke: 1.15,
+          },
+          {
+            ...base,
+            colors: a.colors,
+            dash: a.dash,
+            dashLen: 0.3,
+            gap: 0.5,
+            init: a.i * 0.28,
+            stroke: a.i === lit ? 3.4 : a.main ? 2.7 : 2.2,
+          },
+        ];
+      }),
+    [lit],
   );
 
-  const pins = useMemo<HtmlPin[]>(() => DESTINATIONS.map((d) => ({ ...d, sub: "UK" })), []);
+  const points = useMemo(
+    () => [
+      ...ORIGINS.map((o, i) => ({
+        lat: o.lat,
+        lng: o.lng,
+        color: TRADE_ARCS[i]?.color ?? "#E8F4FF",
+        radius: 0.36,
+        alt: 0.014,
+      })),
+      { lat: LONDON.lat, lng: LONDON.lng, color: "#FFFFFF", radius: 0.58, alt: 0.02 },
+    ],
+    [],
+  );
 
   const rings = useMemo(
-    () => DESTINATIONS.map((d, i) => ({ lat: d.lat, lng: d.lng, maxR: 3.2 + i * 0.4, period: 900 + i * 220 })),
+    () => [
+      { lat: LONDON.lat, lng: LONDON.lng, maxR: 4.6, period: 780 },
+      { lat: LONDON.lat, lng: LONDON.lng, maxR: 2.6, period: 1180 },
+    ],
     [],
   );
 
   if (reduced) {
     return (
-      <div ref={wrap} className="globe-layer absolute inset-0 grid place-items-center">
-        <StaticGlobe className={mobile ? "h-[46vw] max-h-[280px] w-[46vw] max-w-[280px]" : "h-[min(72vh,640px)] w-[min(72vh,640px)]"} />
+      <div ref={wrap} className="globe-layer relative h-full w-full">
+        <StaticGlobe className="h-full w-full" />
       </div>
     );
   }
 
   return (
-    <div ref={wrap} className="globe-layer absolute inset-0">
+    <div ref={wrap} className="globe-layer relative h-full w-full">
       {!ready && (
-        <div className="absolute inset-0 grid place-items-center">
-          <StaticGlobe className={mobile ? "h-[46vw] max-h-[280px] w-[46vw] max-w-[280px]" : "h-[min(72vh,640px)] w-[min(72vh,640px)]"} />
+        <div className="absolute inset-0">
+          <StaticGlobe className="h-full w-full" />
         </div>
       )}
       {tex && (
@@ -228,46 +226,47 @@ export function EarthGlobe({
           ref={globeRef}
           width={size.w}
           height={size.h}
+          animateIn={false}
           backgroundColor="rgba(0,0,0,0)"
           globeImageUrl={tex}
           showAtmosphere
           atmosphereColor="#9ED0FF"
-          atmosphereAltitude={0.26}
+          atmosphereAltitude={0.22}
           hexPolygonsData={land}
-          hexPolygonColor={() => "#E8F4FF"}
-          hexPolygonAltitude={0.003}
+          hexPolygonColor={() => "#FFFFFF"}
+          hexPolygonAltitude={0.004}
           hexPolygonResolution={mobile ? 2 : 3}
-          hexPolygonMargin={0.68}
+          hexPolygonMargin={0.58}
           hexPolygonUseDots
           hexPolygonsTransitionDuration={0}
           arcsData={arcs}
           arcColor={(d: object) => (d as { colors: string[] }).colors}
-          arcStroke={(d: object) => ((d as { main?: boolean }).main ? 0.95 : 0.48)}
-          arcDashLength={0.28}
-          arcDashGap={0.55}
+          arcStroke={(d: object) => (d as { stroke: number }).stroke}
+          arcDashLength={(d: object) => (d as { dashLen: number }).dashLen}
+          arcDashGap={(d: object) => (d as { gap: number }).gap}
+          arcDashInitialGap={(d: object) => (d as { init: number }).init}
           arcDashAnimateTime={(d: object) => (d as { dash: number }).dash}
-          arcAltitudeAutoScale={0.42}
-          arcsTransitionDuration={600}
+          arcAltitudeAutoScale={0.44}
+          arcCircularResolution={9}
+          arcsTransitionDuration={0}
+          pointsData={points}
+          pointColor="color"
+          pointAltitude="alt"
+          pointRadius="radius"
+          pointsMerge={false}
+          pointsTransitionDuration={0}
           ringsData={rings}
-          ringColor={() => (t: number) => `rgba(232,244,255,${0.7 * (1 - t)})`}
+          ringColor={() => (t: number) => `rgba(232,244,255,${0.82 * (1 - t)})`}
           ringMaxRadius="maxR"
-          ringPropagationSpeed={2.4}
+          ringPropagationSpeed={2.2}
           ringRepeatPeriod="period"
-          htmlElementsData={pins}
-          htmlLat="lat"
-          htmlLng="lng"
-          htmlAltitude={0.018}
-          htmlElement={(d) => stampEl((d as HtmlPin).name.toUpperCase(), (d as HtmlPin).sub)}
-          htmlTransitionDuration={0}
           enablePointerInteraction={false}
           onGlobeReady={() => {
             const g = globeRef.current;
             if (!g) return;
-            spin(0);
-            g.pointOfView({ lat: 28, lng: 55, altitude: mobile ? 2.55 : 2.05 }, 0);
+            settle();
             if (wrap.current) passWheel(wrap.current);
             setReady(true);
-            apply(progress.current);
             onReady?.();
           }}
         />

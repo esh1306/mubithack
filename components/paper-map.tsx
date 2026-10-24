@@ -7,7 +7,7 @@ import { Wordmark } from "@/components/mark";
 import { HmrcMark, MubitMark, ShopifyMark } from "@/components/partner-marks";
 import { CargoCraft, RouteParcel } from "@/components/cargo-craft";
 import { JOURNEY_STEPS } from "@/lib/landing-steps";
-import { FELIXSTOWE, LONDON, pinAmount, SHENZHEN, unfoldAmount } from "@/lib/landing-geo";
+import { FELIXSTOWE, LONDON, mapOpenAmount, mapPinShow, mapRouteAmount, SHENZHEN } from "@/lib/landing-geo";
 
 export type MapApi = { setProgress: (t: number) => void };
 
@@ -91,9 +91,9 @@ export function PaperMap({
     });
   }, []);
 
-  const open = reduced ? 1 : unfoldAmount(t);
-  const routeDraw = reduced ? 1 : Math.max(0, (open - 0.72) / 0.28);
-  const planeU = reduced ? 1 : Math.max(0, (t - 0.62) / 0.34);
+  const open = reduced ? 1 : mapOpenAmount(t);
+  const routeDraw = reduced ? 1 : mapRouteAmount(t);
+  const planeU = reduced ? 1 : mapRouteAmount(t);
 
   const routeD = useMemo(() => {
     return `M ${ROUTE[0].x * 1000},${ROUTE[0].y * 520} C ${ROUTE[1].x * 1000},${ROUTE[1].y * 520} ${ROUTE[2].x * 1000},${ROUTE[2].y * 520} ${ROUTE[3].x * 1000},${ROUTE[3].y * 520} L ${ROUTE[4].x * 1000},${ROUTE[4].y * 520}`;
@@ -138,7 +138,7 @@ export function PaperMap({
             <MapArt landD={landD} routeD={routeD} routeDraw={Math.max(routeDraw, planeU)} />
             {JOURNEY_STEPS.map((s, i) => {
               const p = ROUTE[i] ?? ROUTE[ROUTE.length - 1];
-              const shown = pinAmount(t, i) > 0.08 || t >= 0.64 + i * 0.07;
+              const shown = mapPinShow(t, i) > 0.12 || t >= 0.4 + i * 0.12;
               return (
                 <article
                   key={s.id}
