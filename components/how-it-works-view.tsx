@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Link from "next/link";
-import { SiteNav, DEMO_HREF } from "@/components/site-nav";
+import { SiteNav } from "@/components/site-nav";
 import { Wordmark } from "@/components/mark";
 import { HmrcMark, MubitMark, ShopifyMark } from "@/components/partner-marks";
 import { gsap, registerLandingMotion } from "@/components/landing-motion";
@@ -122,14 +121,7 @@ export function HowItWorksView() {
           </div>
         </div>
 
-        <div className="mt-10">
-          <Link
-            href={DEMO_HREF}
-            className="inline-flex h-12 items-center rounded-md bg-primary px-7 text-base font-extrabold tracking-tight text-primary-foreground hover:bg-primary/90"
-          >
-            Try the demo
-          </Link>
-        </div>
+        <p className="mt-10 text-[13px] font-medium text-foreground/55">Use Try the demo in the header.</p>
       </main>
     </div>
   );

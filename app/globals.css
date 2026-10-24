@@ -245,6 +245,42 @@
   transform: none;
 }
 
+.spotlight-card {
+  background:
+    radial-gradient(220px circle at var(--sx, 40%) var(--sy, 0%), color-mix(in oklab, var(--primary) 22%, transparent), transparent 52%),
+    var(--card);
+}
+
+.logo-loop-track {
+  display: flex;
+  width: max-content;
+  animation: logo-loop 28s linear infinite;
+}
+
+@keyframes logo-loop {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.click-spark {
+  position: absolute;
+  width: 6px;
+  height: 2px;
+  margin: -1px 0 0 -3px;
+  border-radius: 1px;
+  background: #ff4a32;
+  pointer-events: none;
+  animation: click-spark 0.4s ease-out forwards;
+}
+
+@keyframes click-spark {
+  to {
+    transform: translate(var(--dx), var(--dy));
+    opacity: 0;
+  }
+}
+
 .mascot-bob {
   animation: mascot-bob 3.2s ease-in-out infinite;
 }
@@ -312,7 +348,8 @@
   .mascot-blink,
   .mascot-wave,
   .mascot-shadow,
-  .landing-shine {
+  .landing-shine,
+  .logo-loop-track {
     animation: none;
   }
   .landing-shine {

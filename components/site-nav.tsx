@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Wordmark } from "@/components/mark";
 import { DEMO_SAMPLE_ID } from "@/lib/demo";
 import { cn } from "@/lib/utils";
+import { ClickSpark } from "@/components/bits/click-spark";
 
 export const DEMO_HREF = `/harbourline/classify?sample=${DEMO_SAMPLE_ID}&demo=1`;
 export const DESK_HREF = "/harbourline/home";
@@ -19,7 +20,7 @@ export function SiteNav({ current, overlay }: { current?: "home" | "how"; overla
       </Link>
       <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
         <Link
-          href="/how-it-works"
+          href="/#journey"
           className={current === "how" ? "font-extrabold text-foreground" : "font-medium text-foreground/70 hover:text-foreground"}
         >
           How it works
@@ -27,13 +28,15 @@ export function SiteNav({ current, overlay }: { current?: "home" | "how"; overla
         <Link href={DESK_HREF} className="font-medium text-foreground/70 hover:text-foreground">
           Open the desk
         </Link>
-        <Link
-          href={DEMO_HREF}
-          className="inline-flex h-9 items-center rounded-md bg-primary px-3.5 font-extrabold uppercase tracking-[0.08em] text-primary-foreground hover:bg-primary/90"
-          style={{ fontFamily: "var(--font-display-face), var(--font-display), sans-serif" }}
-        >
-          Try the demo
-        </Link>
+        <ClickSpark>
+          <Link
+            href={DEMO_HREF}
+            className="inline-flex h-9 items-center rounded-md bg-primary px-3.5 font-extrabold uppercase tracking-[0.08em] text-primary-foreground hover:bg-primary/90"
+            style={{ fontFamily: "var(--font-display-face), var(--font-display), sans-serif" }}
+          >
+            Try the demo
+          </Link>
+        </ClickSpark>
       </nav>
     </header>
   );
