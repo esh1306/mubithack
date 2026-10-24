@@ -1,0 +1,227 @@
+1
+00:00:01,200 --> 00:00:04,308
+Hi, I'm Prue. I help customs brokers get one
+
+2
+00:00:04,358 --> 00:00:07,187
+small number right. It turns out that number is
+
+3
+00:00:07,237 --> 00:00:08,977
+worth millions.
+
+4
+00:00:09,527 --> 00:00:12,554
+Every product that enters the UK needs a ten-digit
+
+5
+00:00:12,604 --> 00:00:15,781
+commodity code, picked from a government list of about
+
+6
+00:00:15,831 --> 00:00:19,659
+twenty thousand. The code decides how much import tax
+
+7
+00:00:19,709 --> 00:00:23,386
+is paid. Take a silicone baking mat.
+
+8
+00:00:23,436 --> 00:00:25,838
+Is it rubber, or plastic?
+
+9
+00:00:25,979 --> 00:00:29,170
+In the rules, silicone counts as a plastic.
+
+10
+00:00:29,253 --> 00:00:30,248
+Easy to get wrong,
+
+11
+00:00:30,298 --> 00:00:33,001
+and you pay for it either way.
+
+12
+00:00:33,550 --> 00:00:36,147
+Last year, the tax office sent four hundred and
+
+13
+00:00:36,197 --> 00:00:40,443
+eighteen million pounds in surprise bills for underpaid import
+
+14
+00:00:40,493 --> 00:00:43,811
+tax, often months after the goods arrived.
+
+15
+00:00:44,022 --> 00:00:47,200
+Only thirty percent of firms are highly confident their
+
+16
+00:00:47,250 --> 00:00:50,218
+codes are right. And the best AI tools get
+
+17
+00:00:50,268 --> 00:00:55,073
+under half right, where human experts get ninety-five percent.
+
+18
+00:00:55,623 --> 00:00:57,734
+And it's about to get harder.
+
+19
+00:00:57,875 --> 00:01:02,632
+From 2028, around six hundred million small online parcels
+
+20
+00:01:02,682 --> 00:01:05,267
+a year will need proper codes too.
+
+21
+00:01:05,317 --> 00:01:06,730
+There's no shortcut list,
+
+22
+00:01:06,780 --> 00:01:09,298
+and teams aren't hiring.
+
+23
+00:01:09,848 --> 00:01:13,548
+Meet Sam, a classifier at Harbourline Customs.
+
+24
+00:01:13,598 --> 00:01:15,591
+An invoice lands from a client:
+
+25
+00:01:15,641 --> 00:01:18,054
+kids' dinner sets, bamboo.
+
+26
+00:01:18,138 --> 00:01:19,713
+Sam searches the tariff,
+
+27
+00:01:19,763 --> 00:01:23,057
+picks wood, types the code into the filing software,
+
+28
+00:01:23,107 --> 00:01:25,704
+and moves on. Months later,
+
+29
+00:01:25,754 --> 00:01:28,885
+a bill arrives. The sets were bamboo fibre in
+
+30
+00:01:28,935 --> 00:01:31,625
+melamine, which counts as plastic.
+
+31
+00:01:31,675 --> 00:01:34,051
+And next month, with nobody knowing why,
+
+32
+00:01:34,101 --> 00:01:36,712
+the same mistake happens again.
+
+33
+00:01:37,262 --> 00:01:39,234
+Now the same day with me.
+
+34
+00:01:39,375 --> 00:01:40,985
+Sam drops the invoice in,
+
+35
+00:01:41,035 --> 00:01:43,075
+and every line comes back with a code,
+
+36
+00:01:43,125 --> 00:01:45,201
+a reason, and a receipt.
+
+37
+00:01:45,412 --> 00:01:47,022
+I flag the bamboo set,
+
+38
+00:01:47,072 --> 00:01:48,568
+because I'm not sure.
+
+39
+00:01:48,709 --> 00:01:49,983
+Sam fixes it once,
+
+40
+00:01:50,033 --> 00:01:53,816
+and says why. That reason becomes a precedent.
+
+41
+00:01:53,957 --> 00:01:56,693
+So the next bamboo cups and baby bowls come
+
+42
+00:01:56,743 --> 00:01:59,189
+back right, products I've never seen.
+
+43
+00:01:59,239 --> 00:02:01,525
+Real wooden chopsticks stay wood.
+
+44
+00:02:01,608 --> 00:02:05,704
+And another broker's results don't change at all.
+
+45
+00:02:06,254 --> 00:02:07,783
+I also look back.
+
+46
+00:02:07,833 --> 00:02:10,198
+I re-check three years of past entries,
+
+47
+00:02:10,248 --> 00:02:12,648
+find overpaid duty to claim back,
+
+48
+00:02:12,698 --> 00:02:15,993
+and underpaid duty to disclose before a fine.
+
+49
+00:02:16,204 --> 00:02:19,289
+Then the codes flow straight into the broker's software,
+
+50
+00:02:19,339 --> 00:02:21,007
+the client's online store,
+
+51
+00:02:21,057 --> 00:02:24,155
+or a declaration to HMRC.
+
+52
+00:02:24,705 --> 00:02:27,627
+Under the hood, every call goes through Mubit,
+
+53
+00:02:27,677 --> 00:02:30,646
+which turns each broker's own decisions into a small,
+
+54
+00:02:30,696 --> 00:02:33,782
+cheap model that's theirs alone.
+
+55
+00:02:34,332 --> 00:02:35,385
+So teach me once.
+
+56
+00:02:35,435 --> 00:02:36,941
+I'll remember. I'm Prue,
+
+57
+00:02:36,991 --> 00:02:38,440
+from Precedent.

@@ -48,3 +48,4 @@ next-env.d.ts
 
 # /brag intermediates (frames, scripts)
 /brag-output/work/
+/brag-explainer/work/

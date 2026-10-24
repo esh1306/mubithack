@@ -1,0 +1,50 @@
+{
+  "voice": { "name": "Alice", "id": "Xb7hH8MSUJpSbSDYk0k2", "model": "eleven_multilingual_v2" },
+  "sections": [
+    {
+      "id": "intro",
+      "scene": "Prue appears on warm paper, blinks, waves. Title: Precedent.",
+      "text": "Hi, I'm Prue. I help customs brokers get one small number right. It turns out that number is worth millions."
+    },
+    {
+      "id": "primer",
+      "scene": "Deck slide 02: a silicone baking mat. Rubber 4016 or plastic 3924? Different tax rates.",
+      "text": "Every product that enters the UK needs a ten-digit commodity code, picked from a government list of about twenty thousand. The code decides how much import tax is paid. Take a silicone baking mat. Is it rubber, or plastic? In the rules, silicone counts as a plastic. Easy to get wrong, and you pay for it either way."
+    },
+    {
+      "id": "problem",
+      "scene": "Deck slide 03: £418m, 17,286 bills, 30% confident, 46.8% vs 95%, £250+ fines.",
+      "text": "Last year, the tax office sent four hundred and eighteen million pounds in surprise bills for underpaid import tax, often months after the goods arrived. Only thirty percent of firms are highly confident their codes are right. And the best AI tools get under half right, where human experts get ninety-five percent."
+    },
+    {
+      "id": "worse",
+      "scene": "Deck slide 04: ~600m parcels from 2028, no simpler code list, +8% a year.",
+      "text": "And it's about to get harder. From 2028, around six hundred million small online parcels a year will need proper codes too. There's no shortcut list, and teams aren't hiring."
+    },
+    {
+      "id": "without",
+      "scene": "Scenario, without Precedent: Sam at Harbourline Customs. Email from Sunrise Homeware: 'kids dinner sets, bamboo'. Search the tariff, guess wood 4419, retype it, submit. Months later: a C18 demand, £140 plus a fine. Next month, the same mistake again.",
+      "text": "Meet Sam, a classifier at Harbourline Customs. An invoice lands from a client: kids' dinner sets, bamboo. Sam searches the tariff, picks wood, types the code into the filing software, and moves on. Months later, a bill arrives. The sets were bamboo fibre in melamine, which counts as plastic. And next month, with nobody knowing why, the same mistake happens again."
+    },
+    {
+      "id": "with",
+      "scene": "Scenario, with Precedent: drop the invoice; every line gets a code, a reason and a receipt; the bamboo set is flagged; Sam fixes it once with a reason; never-seen cups and bowls flip to 3924, chopsticks stay wood, Northgate untouched.",
+      "text": "Now the same day with me. Sam drops the invoice in, and every line comes back with a code, a reason, and a receipt. I flag the bamboo set, because I'm not sure. Sam fixes it once, and says why. That reason becomes a precedent. So the next bamboo cups and baby bowls come back right, products I've never seen. Real wooden chopsticks stay wood. And another broker's results don't change at all."
+    },
+    {
+      "id": "more",
+      "scene": "Retro-scan: £384 to reclaim, £1,130 to disclose. Then integrations: UK Trade Tariff live, Shopify client stores, HMRC Customs Declarations, export CSV.",
+      "text": "I also look back. I re-check three years of past entries, find overpaid duty to claim back, and underpaid duty to disclose before a fine. Then the codes flow straight into the broker's software, the client's online store, or a declaration to HMRC."
+    },
+    {
+      "id": "mubit",
+      "scene": "How it works: each fix goes through Mubit, which trains a small model for this broker only.",
+      "text": "Under the hood, every call goes through Mubit, which turns each broker's own decisions into a small, cheap model that's theirs alone."
+    },
+    {
+      "id": "outro",
+      "scene": "Prue stamps: APPROVED. Teach it once. It remembers. Precedent.",
+      "text": "So teach me once. I'll remember. I'm Prue, from Precedent."
+    }
+  ]
+}
