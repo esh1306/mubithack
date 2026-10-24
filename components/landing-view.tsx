@@ -128,8 +128,8 @@ export function LandingView() {
     <div className="landing">
       <SiteNav current="home" overlay />
       <section className="landing-hero relative min-h-[100svh]">
-        <div className="relative mx-auto flex min-h-[100svh] max-w-[86rem] flex-col justify-center gap-8 px-5 pb-10 pt-28 lg:flex-row lg:items-center lg:justify-center lg:gap-10 sm:px-8 lg:px-10">
-          <div className="relative z-30 pointer-events-none lg:max-w-lg">
+        <div className="landing-hero-row">
+          <div className="landing-hero-copy">
             <Headline />
             <p className="landing-lane mt-7">Every lane into the UK</p>
           </div>
