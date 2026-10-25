@@ -6,8 +6,7 @@ import { AlertTriangle, ArrowRight, Check, MessageCircleQuestion, PlayCircle, Up
 import { Button } from "@/components/ui/button";
 import { Code } from "@/components/code";
 import { Panel } from "@/components/page";
-import { CustomsScene } from "@/components/customs-scene";
-import { CONNECTORS, ConnectorLogo, type ConnectorId, type ConnectorStatus } from "@/components/connector-logos";
+import { ConnectorLogo, type ConnectorId } from "@/components/connector-logos";
 import { cn } from "@/lib/utils";
 
 type Home = {
@@ -121,10 +120,6 @@ function figures(d: Home | null, broker: string): { heading: string; tour: boole
 function Hero({ d, broker }: { d: Home | null; broker: string }) {
   const copy = heroCopy(d, broker);
   const fig = figures(d, broker);
-  const first = d?.needsYou[0];
-  const ticket = first
-    ? { text: first.text, code: first.code, who: first.client ?? "Pasted lines", tag: "Waiting for you", tone: "warn" as const }
-    : { text: "LED bulb, E27, 9W, warm white", code: "8539520000", who: "Tour example", tag: "Duty 0%", tone: "good" as const };
 
   return (
     <section
@@ -134,60 +129,28 @@ function Hero({ d, broker }: { d: Home | null; broker: string }) {
       {/* thin brand rule along the top edge */}
       <span aria-hidden className="absolute inset-x-0 top-0 z-10 h-[3px] bg-[linear-gradient(90deg,#13306b_0%,#13306b_70%,#c2362b_70%,#c2362b_100%)]" />
 
-      <div className="grid lg:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)]">
-        <div className="flex flex-col justify-center gap-6 px-6 pb-8 pt-9 sm:px-10 sm:pb-10 sm:pt-12">
-          <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="relative flex size-2">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-good/50 motion-reduce:hidden" />
-              <span className="relative inline-flex size-2 rounded-full bg-good" />
-            </span>
-            Checking against HMRC’s live UK Trade Tariff
-          </p>
-          <h1 id="home-title" className="max-w-[20ch] text-balance font-serif text-[34px] font-semibold leading-[1.06] tracking-[-0.02em] text-foreground sm:text-[46px]">
-            {copy.title}
-          </h1>
-          <p className="max-w-xl text-pretty text-[17px] leading-relaxed text-foreground/75">{copy.lead}</p>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button size="lg" asChild>
-              <Link href={copy.primary.href}>
-                {copy.primary.icon === "play" && <PlayCircle />}
-                {copy.primary.label}
-                {copy.primary.icon === "arrow" && <ArrowRight />}
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" asChild>
-              <Link href={copy.secondary.href}>
-                <Upload /> {copy.secondary.label}
-              </Link>
-            </Button>
-          </div>
-        </div>
-
-        {/* The visual: a crate going through the tariff gate, and the line it stands for. */}
-        <div className="relative flex flex-col justify-center gap-5 border-t border-border bg-[linear-gradient(180deg,#eef4ff_0%,#f5f8fd_100%)] px-5 py-8 sm:px-8 lg:border-l lg:border-t-0">
-          <div className="overflow-hidden rounded-xl border border-[#d8e2f3] bg-white/60">
-            <CustomsScene code={formatCode(ticket.code)} className="aspect-[520/150] w-full" />
-          </div>
-          <div className="mx-auto w-full max-w-md rounded-xl border border-border bg-card px-5 py-4 shadow-[0_18px_40px_-28px_rgba(19,48,107,0.6)]">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate font-medium">{ticket.text}</p>
-                <p className="text-sm text-muted-foreground">{ticket.who}</p>
-              </div>
-              <span
-                className={cn(
-                  "shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium",
-                  ticket.tone === "warn" ? "bg-warn/15 text-warn" : "bg-good/12 text-good",
-                )}
-              >
-                {ticket.tag}
-              </span>
-            </div>
-            <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-dashed border-border pt-3">
-              <span className="text-sm text-muted-foreground">UK commodity code</span>
-              <Code code={ticket.code} className="text-[17px]" />
-            </div>
-          </div>
+      <div className="flex flex-col gap-6 px-6 pb-8 pt-9 sm:px-10 sm:pb-10 sm:pt-12">
+        <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="size-2 rounded-full bg-good" />
+          Checking against HMRC’s live UK Trade Tariff
+        </p>
+        <h1 id="home-title" className="max-w-[20ch] text-balance font-serif text-[34px] font-semibold leading-[1.06] tracking-[-0.02em] text-foreground sm:text-[46px]">
+          {copy.title}
+        </h1>
+        <p className="max-w-xl text-pretty text-[17px] leading-relaxed text-foreground/75">{copy.lead}</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button size="lg" asChild>
+            <Link href={copy.primary.href}>
+              {copy.primary.icon === "play" && <PlayCircle />}
+              {copy.primary.label}
+              {copy.primary.icon === "arrow" && <ArrowRight />}
+            </Link>
+          </Button>
+          <Button size="lg" variant="outline" asChild>
+            <Link href={copy.secondary.href}>
+              <Upload /> {copy.secondary.label}
+            </Link>
+          </Button>
         </div>
       </div>
 
@@ -209,11 +172,6 @@ function Hero({ d, broker }: { d: Home | null; broker: string }) {
       </div>
     </section>
   );
-}
-
-function formatCode(c: string) {
-  const s = c.replace(/\D/g, "");
-  return s.length === 10 ? `${s.slice(0, 4)} ${s.slice(4, 6)} ${s.slice(6, 8)} ${s.slice(8)}` : s;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -425,84 +383,6 @@ function Work({ d, broker }: { d: Home; broker: string }) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// The systems it plugs into, in the order goods travel.
-
-const PILL: Record<ConnectorStatus, string> = {
-  on: "bg-good/12 text-good",
-  ready: "bg-good/12 text-good",
-  off: "bg-muted text-muted-foreground",
-  warn: "bg-warn/15 text-warn",
-};
-
-function Connections({ d, broker }: { d: Home; broker: string }) {
-  const c = d.connected;
-  const mubitOk = c.mubit && !d.aiOffline;
-  const cols: { title: string; items: { id: ConnectorId; status: ConnectorStatus; label: string }[] }[] = [
-    {
-      title: "Goods come in from",
-      items: [
-        { id: "shopify", status: c.stores ? "on" : "off", label: c.stores ? `${c.stores} connected` : "Not connected" },
-        { id: "excel", status: "ready", label: "Ready" },
-        { id: "csv", status: "ready", label: "Ready" },
-      ],
-    },
-    {
-      title: "Codes are checked against",
-      items: [
-        { id: "tariff", status: "on", label: "Live" },
-        { id: "mubit", status: mubitOk ? "on" : "warn", label: mubitOk ? "Learning" : "Key rejected" },
-      ],
-    },
-    {
-      title: "Signed codes go out to",
-      items: [
-        { id: "cds", status: c.hmrc ? "on" : "off", label: c.hmrc ? "Signed in" : "Sandbox" },
-        { id: "software", status: "ready", label: "CSV ready" },
-      ],
-    },
-  ];
-  return (
-    <section aria-labelledby="conn-title" className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 id="conn-title" className="font-serif text-[26px] font-semibold leading-tight tracking-[-0.01em]">
-            Works with what you already use
-          </h2>
-          <p className="mt-1 text-[15px] text-muted-foreground">No new systems to learn. Invoices come in, codes go out.</p>
-        </div>
-        <Link href={`/${broker}/integrations`} className={cn("text-sm text-link underline-offset-4 hover:underline", focusRing)}>
-          Manage connections
-        </Link>
-      </div>
-      <div className="grid grid-cols-1 gap-x-10 gap-y-6 md:grid-cols-3">
-        {cols.map((col) => (
-          <div key={col.title} className="min-w-0">
-            <p className="pb-2 text-sm text-muted-foreground">{col.title}</p>
-            <ul className="divide-y divide-border/70 border-y border-border/70">
-              {col.items.map((i) => (
-                <li key={i.id} className="flex items-center gap-3 py-3">
-                  <ConnectorLogo id={i.id} size={32} />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium leading-tight">{CONNECTORS[i.id].name}</p>
-                    <p className="text-[13px] leading-snug text-muted-foreground">
-                      {CONNECTORS[i.id].what}
-                    </p>
-                  </div>
-                  <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium", PILL[i.status])}>{i.label}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------------------------
-
-// brokerName is kept for the route's API; the sidebar already shows the firm, so the page doesn't repeat it.
-// ---------------------------------------------------------------------------------------------
 // The learning layer: every correction is applied at once and sent to this firm's own Mubit task.
 
 function Learning({ d, broker }: { d: Home; broker: string }) {
@@ -556,6 +436,7 @@ function Learning({ d, broker }: { d: Home; broker: string }) {
   );
 }
 
+// brokerName is kept for the route's API; the sidebar already shows the firm, so the page doesn't repeat it.
 export function HomeView({ broker }: { broker: string; brokerName: string }) {
   const [d, setD] = useState<Home | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -591,7 +472,6 @@ export function HomeView({ broker }: { broker: string; brokerName: string }) {
       {d && hasWork && <Work d={d} broker={broker} />}
       {d && <Learning d={d} broker={broker} />}
       {d && <Flow d={d} broker={broker} />}
-      {d && <Connections d={d} broker={broker} />}
     </div>
   );
 }
