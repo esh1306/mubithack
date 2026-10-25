@@ -94,6 +94,12 @@ Helper calls opt out of recording, so only real classification work ends up in a
 
 - **Adapters trained:** three, all on Qwen3-4B-Instruct-2507, now in Mubit's testing stage. The learning you see in the demo comes from the precedent loop in steps 1–3.
 
+  | Adapter | Matched Claude's answers | Test cases |
+  |---|---|---|
+  | Classifier 3, v1 | 64.3% | 14 |
+  | Classifier 2, v1 | 57.1% | 14 |
+  | Classifier, v2 | 27.8% | 18 |
+
 **Numbers inside the app:**
 - **App database:** the app counts recorded classify calls in its own database: 142 for Harbourline and 14 for Northgate today. The video's "45 examples" is that counter at the time of recording. The Mubit console above is the source of truth.
 - **The landing page's "20 of 25" counter** illustrates the loop. The live counts are in the tour and on the Learning page, which read the app's database.
