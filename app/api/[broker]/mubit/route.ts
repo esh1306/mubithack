@@ -8,7 +8,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ broker:
   const { broker } = await params;
   const b = await db.broker.findUniqueOrThrow({ where: { id: broker } });
   const rows = await db.suggestion.findMany({
-    where: { line: { brokerId: broker }, model: { notIn: ["broker", "error", "precedent", "seed"] } },
+    where: { line: { brokerId: broker }, model: { notIn: ["broker", "error", "precedent", "seed", "hmrc-search"] } },
     include: { line: { select: { text: true, batchId: true } } },
     orderBy: { id: "desc" },
   });
@@ -53,6 +53,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ broker:
       variantsMatched: p.variantsMatched,
       requestIds: p.variantRequestIds ? (JSON.parse(p.variantRequestIds) as string[]) : [],
     })),
+    lastRequestId: rows.flatMap((r) => calls(r))[0] ?? null,
     recent: rows.slice(0, 15).map((r) => ({
       text: r.line.text,
       code: r.code,

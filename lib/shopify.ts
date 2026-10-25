@@ -37,10 +37,14 @@ export type ShopifyProduct = {
   price: number | null;
 };
 
-// One line per product (first variant): title + type + a short description, which is what classification needs.
-export async function listProducts(cfg: ShopifyConfig, first = 50): Promise<ShopifyProduct[]> {
-  const d = await gql<{
+// One line per product (first variant). Pages until `limit` or the catalogue ends.
+export async function listProducts(cfg: ShopifyConfig, limit = 50): Promise<ShopifyProduct[]> {
+  const cap = Math.min(Math.max(limit, 1), 250);
+  const out: ShopifyProduct[] = [];
+  let after: string | null = null;
+  type ProductPage = {
     products: {
+      pageInfo: { hasNextPage: boolean; endCursor: string | null };
       nodes: {
         title: string;
         productType: string;
@@ -49,31 +53,39 @@ export async function listProducts(cfg: ShopifyConfig, first = 50): Promise<Shop
         variants: { nodes: { price: string; inventoryItem: { id: string; harmonizedSystemCode: string | null; countryCodeOfOrigin: string | null } | null }[] };
       }[];
     };
-  }>(
-    cfg,
-    `query Products($first: Int!) {
-      products(first: $first, sortKey: UPDATED_AT, reverse: true) {
-        nodes {
-          title productType vendor description(truncateAt: 200)
-          variants(first: 1) { nodes { price inventoryItem { id harmonizedSystemCode countryCodeOfOrigin } } }
+  };
+  while (out.length < cap) {
+    const pageSize = Math.min(50, cap - out.length);
+    const d: ProductPage = await gql<ProductPage>(
+      cfg,
+      `query Products($first: Int!, $after: String) {
+        products(first: $first, after: $after, sortKey: UPDATED_AT, reverse: true) {
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            title productType vendor description(truncateAt: 200)
+            variants(first: 1) { nodes { price inventoryItem { id harmonizedSystemCode countryCodeOfOrigin } } }
+          }
         }
-      }
-    }`,
-    { first },
-  );
-  return d.products.nodes.map((p) => {
-    const v = p.variants.nodes[0];
-    return {
-      title: p.title,
-      productType: p.productType,
-      vendor: p.vendor,
-      description: p.description,
-      inventoryItemId: v?.inventoryItem?.id ?? null,
-      hsCode: v?.inventoryItem?.harmonizedSystemCode ?? null,
-      origin: v?.inventoryItem?.countryCodeOfOrigin ?? null,
-      price: v ? Number(v.price) : null,
-    };
-  });
+      }`,
+      { first: pageSize, after },
+    );
+    for (const p of d.products.nodes) {
+      const v = p.variants.nodes[0];
+      out.push({
+        title: p.title,
+        productType: p.productType,
+        vendor: p.vendor,
+        description: p.description,
+        inventoryItemId: v?.inventoryItem?.id ?? null,
+        hsCode: v?.inventoryItem?.harmonizedSystemCode ?? null,
+        origin: v?.inventoryItem?.countryCodeOfOrigin ?? null,
+        price: v ? Number(v.price) : null,
+      });
+    }
+    if (!d.products.pageInfo.hasNextPage || !d.products.pageInfo.endCursor) break;
+    after = d.products.pageInfo.endCursor;
+  }
+  return out;
 }
 
 // Writes the code back: 6-digit HS code for everywhere, plus the full 10-digit UK code.

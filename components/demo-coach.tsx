@@ -43,10 +43,10 @@ export function DemoCoach({
   const pathname = usePathname();
   const onRetro = pathname?.includes("/retro-scan");
   return (
-    <div className="rounded-xl border border-primary/30 bg-primary/[0.04] px-5 py-4 shadow-card">
+    <div className="rounded-lg border border-border bg-card px-5 py-4 shadow-[inset_3px_0_0_var(--brand)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
-          <p className="text-xs font-medium uppercase tracking-[0.06em] text-primary">{c.title}</p>
+          <p className="text-[13px] font-medium text-primary">{c.title}</p>
           <p className="text-[15px] leading-relaxed">{c.body}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">

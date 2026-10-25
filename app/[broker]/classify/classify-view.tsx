@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   FileUp,
-  Flag,
   Check,
   Loader2,
   MessageCircleQuestion,
@@ -18,16 +17,19 @@ import {
   FileText,
   ClipboardPaste,
   Sparkles,
+  ChevronDown,
+  ChevronRight,
+  ReceiptText,
 } from "lucide-react";
+import { ProcessLog } from "@/components/process-log";
+import { parseCalls, type ToolCall } from "@/lib/steps";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Kbd } from "@/components/ui/kbd";
-import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Code } from "@/components/code";
 import { Info } from "@/components/info";
-import { Status } from "@/components/page";
 import { ClientEmailButton } from "@/components/client-email";
 import { FixForm } from "@/components/fix-form";
 import { ReceiptSheet, type Suggestion } from "@/components/receipt-sheet";
@@ -63,6 +65,11 @@ type Row = {
   error?: string;
   source?: string | null;
   existingCode?: string | null;
+  origin?: string | null;
+  value?: number | null;
+  qty?: number | null;
+  // Live tool calls while the line is being classified (the stored ones live on the suggestion).
+  calls?: ToolCall[];
 };
 type Broker = { id: string; name: string };
 type Sample = { id: string; name: string; supplier: string; about: string };
@@ -77,6 +84,91 @@ function statusOf(r: Row) {
   if (r.suggestion.status === "corrected") return "fixed";
   if (r.suggestion.status === "approved") return "approved";
   return r.suggestion.flagged ? "review" : "ready";
+}
+
+type Tone = "good" | "warn" | "info" | "bad" | "muted";
+const TAG: Record<Tone, string> = {
+  good: "bg-[#e7f4ec] text-good ring-good/25",
+  warn: "bg-[#fdf3e3] text-warn ring-warn/25",
+  info: "bg-[#e8effc] text-info ring-info/25",
+  bad: "bg-[#fdecea] text-bad ring-bad/25",
+  muted: "bg-muted text-muted-foreground ring-border",
+};
+
+function Tag({ tone, children }: { tone: Tone; children: React.ReactNode }) {
+  return <span className={cn("inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset", TAG[tone])}>{children}</span>;
+}
+
+// Plain-words status for one line.
+function StatusTag({ row }: { row: Row }) {
+  const s = statusOf(row);
+  if (s === "running") return <Tag tone="info"><Loader2 className="size-3 animate-spin" /> Working</Tag>;
+  if (s === "error") return <Tag tone="bad">Couldn&apos;t classify</Tag>;
+  if (s === "approved") return <Tag tone="good"><Check className="size-3" /> Approved</Tag>;
+  if (s === "fixed") return <Tag tone="good"><Check className="size-3" /> Corrected</Tag>;
+  if (row.suggestion?.model === "hmrc-search") return <Tag tone="warn">Unconfirmed</Tag>;
+  if (s === "review") return <Tag tone="warn">Needs your review</Tag>;
+  return <Tag tone="info">Ready to approve</Tag>;
+}
+
+// Where this invoice is in the real procedure: classify against the UK tariff, broker signs off,
+// declaration on CDS, then the 3-year post-clearance check (Customs (Import Duty) Regs 2018, reg 59).
+function ProcedureBar({
+  broker,
+  total,
+  back,
+  waiting,
+  done,
+}: {
+  broker: string;
+  total: number;
+  back: number;
+  waiting: number;
+  done: number;
+}) {
+  const steps: { title: string; note: string; state: "done" | "now" | "next"; href?: string }[] = [
+    { title: "Invoice received", note: `${total} product line${total === 1 ? "" : "s"}`, state: total ? "done" : "now" },
+    { title: "Checked against the UK tariff", note: `${back} of ${total} back`, state: back === total && total ? "done" : total ? "now" : "next" },
+    { title: "Your review", note: waiting ? `${waiting} waiting for you` : "Nothing waiting", state: back === total && total ? (waiting ? "now" : "done") : "next" },
+    { title: "Signed off", note: `${done} of ${total}`, state: total && done === total ? "done" : done ? "now" : "next" },
+    { title: "Declaration on CDS", note: "You submit; we draft", state: "next", href: `/${broker}/integrations` },
+    { title: "3-year duty check", note: "Overpaid duty to reclaim", state: "next", href: `/${broker}/retro-scan` },
+  ];
+  return (
+    <ol className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3 xl:grid-cols-6">
+      {steps.map((st, i) => {
+        const body = (
+          <>
+            <span
+              className={cn(
+                "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+                st.state === "done" && "bg-good text-white",
+                st.state === "now" && "bg-primary text-primary-foreground",
+                st.state === "next" && "border border-input bg-card text-muted-foreground",
+              )}
+            >
+              {st.state === "done" ? <Check className="size-3.5" /> : i + 1}
+            </span>
+            <span className="min-w-0">
+              <span className={cn("block text-[13px] font-medium leading-tight", st.state === "next" && "text-muted-foreground")}>{st.title}</span>
+              <span className="block truncate text-xs text-muted-foreground">{st.note}</span>
+            </span>
+          </>
+        );
+        return (
+          <li key={st.title} className={cn("bg-card", st.state === "now" && "bg-[#f3f6fd]")}>
+            {st.href ? (
+              <Link href={st.href} className="flex h-full items-start gap-2.5 px-3.5 py-3 hover:bg-accent">
+                {body}
+              </Link>
+            ) : (
+              <div className="flex h-full items-start gap-2.5 px-3.5 py-3">{body}</div>
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
 }
 
 function storeCodeLabel(code: string) {
@@ -107,6 +199,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState(0);
   const [receipt, setReceipt] = useState<Row | null>(null);
+  const [open, setOpen] = useState<number | null>(null);
   const [inlineFix, setInlineFix] = useState<Row | null>(null);
   const [pushMsg, setPushMsg] = useState<string | null>(null);
 
@@ -209,7 +302,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   }, [lesson, variants, teach, broker]);
 
   const updateRow = (lineId: number, suggestion: Suggestion) =>
-    setRows((rs) => rs.map((r) => (r.id === lineId ? { ...r, status: "done", suggestion, error: undefined } : r)));
+    setRows((rs) => rs.map((r) => (r.id === lineId ? { ...r, status: "done", suggestion, error: undefined, calls: undefined } : r)));
 
   // New lines replace the queue; lineIds re-runs those rows in place.
   async function run(body: { lines: InLine[]; clientId?: number | null } | { lineIds: number[] }) {
@@ -219,7 +312,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
       setRows([]);
       setFilter("all");
       bambooPicked.current = false;
-    } else setRows((rs) => rs.map((r) => (body.lineIds.includes(r.id) ? { ...r, status: "running", error: undefined } : r)));
+    } else setRows((rs) => rs.map((r) => (body.lineIds.includes(r.id) ? { ...r, status: "running", error: undefined, calls: [] } : r)));
     try {
       const res = await fetch(`/api/${broker}/classify`, {
         method: "POST",
@@ -232,16 +325,22 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
           setBatchClient(clients.find((c) => c.id === body.clientId)?.name ?? null);
           setBatchId(data.lines[0]?.batchId ?? null);
           setRows(
-            data.lines.map((l: { id: number; text: string; source: string | null; existingCode: string | null }) => ({
+            data.lines.map((l: { id: number; text: string; source: string | null; existingCode: string | null; origin: string | null; value: number | null; qty: number | null }) => ({
               id: l.id,
               text: l.text,
               source: l.source,
               existingCode: l.existingCode,
+              origin: l.origin,
+              value: l.value,
+              qty: l.qty,
               status: "running",
             })),
           );
           loadBatches();
         }
+        if (event === "start") setRows((rs) => rs.map((r) => (r.id === data.lineId ? { ...r, calls: [] } : r)));
+        if (event === "step")
+          setRows((rs) => rs.map((r) => (r.id === data.lineId ? { ...r, calls: [...(r.calls ?? []), data.call] } : r)));
         if (event === "result") updateRow(data.lineId, data.suggestion);
         if (event === "error") setRows((rs) => rs.map((r) => (r.id === data.lineId ? { ...r, status: "error", error: data.message } : r)));
       });
@@ -264,11 +363,21 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
       ).json();
       setClientId(client.id);
       loadClients();
+      // Reopen this client's latest invoice instead of classifying the same sample again;
+      // only lines that failed are re-run. "New" or "Reset demo" starts fresh.
+      const list: Batch[] = await (await fetch(`/api/${broker}/batch?list=1`)).json();
+      const existing = list.find((b) => b.client === client.name && b.lines === sample.lines.length);
+      if (existing) {
+        const loadedRows = await loadBatch(existing.batchId);
+        const failed = loadedRows.filter((r) => r.status === "error").map((r) => r.id);
+        if (failed.length) run({ lineIds: failed });
+        return;
+      }
       run({ lines: sample.lines, clientId: client.id });
     },
     // run is recreated each render; the sample only needs the broker.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [broker, loadClients],
+    [broker, loadClients, loadBatch],
   );
 
   function startDemo() {
@@ -304,6 +413,9 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   // .xlsx or .csv: the server finds the header row and the description, qty, value and origin columns.
   async function upload(file: File) {
     setUploadError(null);
+    if (/\.pdf$/i.test(file.name)) {
+      return setUploadError("PDF invoices are not parsed yet. Upload a .xlsx or .csv (or a Shopify product CSV).");
+    }
     const form = new FormData();
     form.append("file", file);
     const res = await fetch("/api/parse-invoice", { method: "POST", body: form });
@@ -416,14 +528,12 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
 
   const sel = visible[Math.min(selected, Math.max(visible.length - 1, 0))];
   const readyIds = rows.filter((r) => statusOf(r) === "ready").map((r) => r.suggestion!.id);
-  const pendingIds = rows.filter((r) => ["ready", "review"].includes(statusOf(r))).map((r) => r.suggestion!.id);
   const failedIds = rows.filter((r) => r.status === "error").map((r) => r.id);
   const shopifyReady = rows.filter(
     (r) => r.source === "shopify" && r.suggestion && ["approved", "corrected"].includes(r.suggestion.status) && r.existingCode !== r.suggestion.code,
   );
   const showCompose = composing || (loaded && rows.length === 0 && !busy);
   const classifying = busy || counts.running > 0;
-  const classifyPct = rows.length ? ((rows.length - counts.running) / rows.length) * 100 : 8;
   const bambooRow = rows.find((r) => isDemoBambooLine(r.text));
 
   useEffect(() => {
@@ -480,56 +590,46 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   });
 
   return (
-    <div className={cn("-mx-12 -my-10 flex min-h-screen", panelOpen && "lg:pr-[34rem]")}>
-      {/* Invoices */}
-      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-border/70">
-        <div className="flex items-end justify-between px-5 pb-4 pt-10">
-          <h2 className="font-serif text-[28px] leading-none">Invoices</h2>
-          <Button size="sm" onClick={() => setComposing(true)} disabled={busy}>
-            <Plus /> New
-          </Button>
-        </div>
-        <ul className="flex-1 space-y-1 overflow-y-auto px-3 pb-6">
-          {batches.length === 0 && <li className="px-3 py-8 text-center text-sm text-muted-foreground">No invoices yet. Play the 3-minute demo or drop one in.</li>}
-          {batches.map((b) => (
-            <li key={b.batchId}>
-              <button
-                type="button"
-                onClick={() => {
-                  setComposing(false);
-                  setSelected(0);
-                  router.replace(`/${broker}/classify?batch=${b.batchId}`);
-                }}
-                className={cn(
-                  "w-full rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-accent/60",
-                  b.batchId === batchId && !composing && "bg-card shadow-card hover:bg-card",
-                )}
-              >
-                <p className={cn("truncate text-[15px]", b.client ? "font-medium" : "italic text-muted-foreground")}>{b.client ?? "Unassigned invoice"}</p>
-                <p className="text-sm text-muted-foreground">
-                  {b.lines} lines · {when(b.createdAt)}
-                </p>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </aside>
-
+    <div className={cn("-mx-5 -mb-10 -mt-20 min-h-screen md:-mx-12 md:-my-10", panelOpen && "lg:pr-[34rem]")}>
       {/* Main */}
-      <section className="flex min-w-0 flex-1 flex-col gap-6 px-8 pb-12 pt-10">
+      <section className="mx-auto flex w-full max-w-[84rem] min-w-0 flex-col gap-5 px-5 pb-12 pt-20 md:px-10 md:pt-10">
         {demo && <DemoCoach step={coachStep} broker={broker} onSkip={exitGuide} />}
 
         <header className="flex flex-wrap items-end justify-between gap-4">
-          <div className="min-w-0 space-y-2">
-            <p className="text-sm text-muted-foreground">Inbox</p>
-            <h1 className="flex items-center gap-2 font-serif text-[40px] leading-[1.05]">
-              {showCompose ? "New invoice" : batchClient ?? "Unassigned invoice"} <Info id="classify" className="mt-2" />
+          <div className="min-w-0 space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <span>Inbox</span>
+              <ChevronRight className="size-3.5" />
+              <Select
+                value={!showCompose && batchId ? batchId : "new"}
+                onValueChange={(v) => {
+                  if (v === "new") return setComposing(true);
+                  setComposing(false);
+                  setSelected(0);
+                  setOpen(null);
+                  router.replace(`/${broker}/classify?batch=${v}`);
+                }}
+              >
+                <SelectTrigger className="h-8 w-auto max-w-[22rem] gap-2 bg-card text-foreground">
+                  <SelectValue placeholder="Choose an invoice" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="new">+ New invoice</SelectItem>
+                  {batches.map((b) => (
+                    <SelectItem key={b.batchId} value={b.batchId}>
+                      {b.client ?? "Unassigned invoice"} · {b.lines} lines · {when(b.createdAt)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <h1 className="flex items-center gap-2 font-serif text-[30px] leading-tight">
+              {showCompose ? "New invoice" : batchClient ?? "Unassigned invoice"} <Info id="classify" className="mt-1" />
             </h1>
             {!showCompose && batchId && (
               <p className="text-sm text-muted-foreground">
-                <span className="font-mono">#{batchId.slice(0, 8)}</span> · {rows.length} lines · {counts.done} signed off
-                {counts.running > 0 && <> · {counts.running} classifying</>}
-                {pushMsg && <span className="ml-2 text-primary">{pushMsg}</span>}
+                Invoice <span className="font-mono">#{batchId.slice(0, 8)}</span> · {rows.length} lines · {counts.done} signed off
+                {pushMsg && <span className="ml-2 text-info">{pushMsg}</span>}
               </p>
             )}
           </div>
@@ -545,37 +645,26 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
               </Button>
             )}
             {!showCompose && readyIds.length > 0 && (
-              <Button size="sm" variant="outline" onClick={() => approve(readyIds)}>
-                <Check /> Approve {readyIds.length} confident
-              </Button>
-            )}
-            {!showCompose && counts.review > 0 && (
-              <Button size="sm" variant="ghost" onClick={() => approve(pendingIds)}>
-                Approve all {pendingIds.length}
+              <Button size="sm" onClick={() => approve(readyIds)}>
+                <Check /> Approve {readyIds.length} ready
               </Button>
             )}
             <Button size="sm" variant="outline" onClick={openPanel}>
               <GraduationCap /> Learning
             </Button>
+            <Button size="sm" variant="outline" onClick={() => setComposing(true)} disabled={busy}>
+              <Plus /> New invoice
+            </Button>
           </div>
         </header>
 
-        {classifying && (
-          <div className="space-y-2 rounded-xl border border-border/70 bg-card px-5 py-3 shadow-card">
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <p className="flex items-center gap-2">
-                <Loader2 className="size-3.5 animate-spin" />
-                {rows.length === 0 ? "Starting the invoice…" : `Checking precedents and the tariff · ${rows.length - counts.running} of ${rows.length} lines back`}
-              </p>
-              <span className="tabular-nums text-muted-foreground">{Math.round(classifyPct)}%</span>
-            </div>
-            <Progress value={classifyPct} />
-          </div>
+        {!showCompose && rows.length > 0 && (
+          <ProcedureBar broker={broker} total={rows.length} back={rows.length - counts.running} waiting={counts.review + counts.ready} done={counts.done} />
         )}
 
         {lesson && !showCompose && (
-          <div className="rounded-xl border border-primary/30 bg-primary/[0.04] px-5 py-4 shadow-card">
-            <p className="text-xs font-medium uppercase tracking-[0.06em] text-primary">Before / after your fix</p>
+          <div className="rounded-xl border border-primary/30 bg-primary/[0.04] px-5 py-4">
+            <p className="text-[13px] font-medium text-primary">Before / after your fix</p>
             <p className="mt-2 text-[15px] leading-relaxed">
               Before your fix: <Code code={lesson.oldCode} className="line-through opacity-60" /> at {prettyRate(lesson.oldRate)}
               {"  ·  "}
@@ -590,7 +679,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
               type="button"
               disabled={busy}
               onClick={startDemo}
-              className="flex w-full items-start gap-3 rounded-xl border border-primary/30 bg-primary/[0.04] px-4 py-4 text-left shadow-card transition-colors hover:border-primary/50"
+              className="flex w-full items-start gap-3 rounded-xl border border-primary/30 bg-primary/[0.04] px-4 py-4 text-left transition-colors hover:border-primary/50"
             >
               <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
               <span>
@@ -616,7 +705,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
             </div>
 
             <label
-              className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-card px-6 py-14 text-center shadow-card transition-colors hover:border-primary/50"
+              className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-card px-6 py-14 text-center transition-colors hover:border-primary/50"
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();
@@ -657,7 +746,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
                     type="button"
                     disabled={busy}
                     onClick={() => (s.id === DEMO_SAMPLE_ID ? startDemo() : loadSample(s.id))}
-                    className="flex items-start gap-3 rounded-xl border border-border/70 bg-card px-4 py-3.5 text-left shadow-card transition-colors hover:border-primary/40"
+                    className="flex items-start gap-3 rounded-lg border border-border bg-card px-4 py-3.5 text-left transition-colors hover:border-primary/40"
                   >
                     <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                     <span className="min-w-0">
@@ -671,7 +760,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
             </div>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-card">
+          <div className="overflow-hidden rounded-lg border border-border bg-card">
             <div className="flex items-center justify-between gap-3 border-b border-border/70 px-6">
               <div className="flex gap-4">
                 {(
@@ -702,20 +791,20 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
               </p>
             </div>
 
-            <div className="grid grid-cols-[minmax(0,1.5fr)_9.5rem_minmax(0,2fr)_3.5rem_6.5rem] gap-x-5 border-b border-border/70 bg-muted/50 px-6 py-2.5 text-xs font-medium uppercase tracking-[0.06em] text-muted-foreground">
+            <div className="hidden grid-cols-[1.25rem_minmax(0,1.4fr)_9rem_minmax(0,2fr)_9.5rem] gap-x-4 border-b border-border bg-muted/60 px-5 py-2.5 text-xs font-medium text-muted-foreground md:grid">
+              <span />
               <span>Product</span>
-              <span className="flex items-center gap-1">Code <Info id="code" /></span>
-              <span>Why</span>
-              <span className="flex items-center justify-end gap-1">Sure <Info id="confidence" /></span>
+              <span className="flex items-center gap-1">Commodity code <Info id="code" /></span>
+              <span>Reason</span>
               <span className="text-right">Status</span>
             </div>
 
             {visible.length === 0 && (
               <p className="px-6 py-16 text-center text-muted-foreground">
                 {classifying
-                  ? "Lines will appear here as each one comes back. Nothing is frozen."
+                  ? "Lines will appear here as each one comes back."
                   : filter === "review"
-                    ? "Nothing needs review. Switch to All to see every line, including the bamboo dinner set."
+                    ? "Nothing needs review. Switch to All to see every line."
                     : filter === "done"
                       ? "Nothing signed off yet. Approve or fix a line first."
                       : "No lines here."}
@@ -726,121 +815,145 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
               {visible.map((r, i) => {
                 const s = statusOf(r);
                 const sug = r.suggestion;
-                const bamboo = isDemoBambooLine(r.text);
+                const bamboo = demo && isDemoBambooLine(r.text);
+                const expanded = open === r.id;
+                const calls = s === "running" ? r.calls ?? [] : parseCalls(sug?.toolCalls);
                 return (
                   <li
                     key={r.id}
-                    onMouseEnter={() => setSelected(i)}
-                    onClick={() => sug && openReceipt(r)}
-                    className={cn(
-                      "grid cursor-pointer grid-cols-[minmax(0,1.5fr)_9.5rem_minmax(0,2fr)_3.5rem_6.5rem] items-start gap-x-5 border-b border-border/60 px-6 py-4 last:border-b-0",
-                      i === selected && "bg-accent/40",
-                      bamboo && "bg-primary/[0.05] ring-1 ring-inset ring-primary/20",
-                    )}
+                    className={cn("border-b border-border last:border-b-0", i === selected && !expanded && "bg-accent/40", expanded && "bg-[#fafbfd]")}
                   >
-                    <div className="min-w-0">
-                      <p className="font-medium leading-snug">{r.text}</p>
-                      {bamboo && <p className="mt-1 text-xs text-primary">{s === "fixed" ? "Fixed · the demo line" : "The line to fix"}</p>}
-                      {r.source === "shopify" && (
-                        <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                          <ShoppingBag className="size-3" /> Shopify
-                          {r.existingCode ? (
-                            <>
-                              {" · store has "}
-                              <span className={sug && sug.code.slice(0, 6) !== r.existingCode.replace(/\D/g, "").slice(0, 6) ? "text-bad" : undefined}>
-                                {storeCodeLabel(r.existingCode)}
-                              </span>
-                            </>
-                          ) : (
-                            " · no code in store"
-                          )}
-                        </p>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={expanded}
+                      onMouseEnter={() => setSelected(i)}
+                      onClick={() => setOpen(expanded ? null : r.id)}
+                      onKeyDown={(e) => e.key === " " && (e.preventDefault(), setOpen(expanded ? null : r.id))}
+                      className={cn(
+                        "grid cursor-pointer grid-cols-[1.25rem_minmax(0,1fr)_auto] items-start gap-x-4 gap-y-2 px-5 py-4 md:grid-cols-[1.25rem_minmax(0,1.4fr)_9rem_minmax(0,2fr)_9.5rem]",
+                        bamboo && "shadow-[inset_3px_0_0_var(--brand)]",
                       )}
-                    </div>
-
-                    {s === "running" ? (
-                      <p className="col-span-4 flex items-center gap-2 text-muted-foreground">
-                        <Loader2 className="size-3.5 animate-spin" /> Checking precedents and the tariff…
-                      </p>
-                    ) : s === "error" ? (
-                      <div className="col-span-4 flex items-center justify-between gap-3">
-                        <span className="truncate text-bad">Couldn&apos;t classify: {r.error}</span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={busy}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            run({ lineIds: [r.id] });
-                          }}
-                        >
-                          <RotateCw /> Retry
-                        </Button>
+                    >
+                      <ChevronDown className={cn("mt-1 size-4 text-muted-foreground transition-transform", !expanded && "-rotate-90")} />
+                      <div className="min-w-0">
+                        <p className="font-medium leading-snug">{r.text}</p>
+                        {bamboo && <p className="mt-1 text-xs font-medium text-brand">{s === "fixed" ? "Demo line · corrected" : "Demo line · the one to fix"}</p>}
+                        {r.source === "shopify" && (
+                          <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                            <ShoppingBag className="size-3" /> Shopify
+                            {r.existingCode ? (
+                              <>
+                                {" · store has "}
+                                <span className={sug && sug.code.slice(0, 6) !== r.existingCode.replace(/\D/g, "").slice(0, 6) ? "text-bad" : undefined}>
+                                  {storeCodeLabel(r.existingCode)}
+                                </span>
+                              </>
+                            ) : (
+                              " · no code in store"
+                            )}
+                          </p>
+                        )}
                       </div>
-                    ) : (
-                      sug && (
-                        <>
-                          <button
-                            type="button"
-                            title="Fix this code (F)"
-                            className="group -mx-1.5 flex items-center gap-1.5 justify-self-start rounded px-1.5 py-0.5 hover:bg-accent"
+
+                      <div className="md:hidden">
+                        <StatusTag row={r} />
+                      </div>
+
+                      {s === "running" ? (
+                        <div className="col-span-2 col-start-2 md:col-span-2 md:col-start-auto">
+                          <ProcessLog calls={calls} live compact />
+                        </div>
+                      ) : s === "error" ? (
+                        <p className="col-span-2 col-start-2 text-sm text-bad md:col-span-2 md:col-start-auto">{r.error}</p>
+                      ) : (
+                        sug && (
+                          <>
+                            <div className="col-start-2 md:col-start-auto">
+                              <Code code={sug.code} className={cn("text-[15px]", s === "fixed" && "text-good")} />
+                            </div>
+                            <div className="col-span-2 col-start-2 min-w-0 text-sm leading-relaxed text-muted-foreground md:col-span-1 md:col-start-auto">
+                              <p className={cn(!expanded && "line-clamp-2")}>{sug.reason}</p>
+                              {sug.question && sug.status === "pending" && (
+                                <p className="mt-1 flex items-start gap-1.5 text-xs font-medium text-warn">
+                                  <MessageCircleQuestion className="mt-0.5 size-3 shrink-0" />
+                                  <span className="line-clamp-1">Ask the importer: {sug.question}</span>
+                                </p>
+                              )}
+                              {sug.precedentId && s !== "fixed" && <p className="mt-0.5 text-xs font-medium text-info">Followed your precedent #{sug.precedentId}</p>}
+                            </div>
+                          </>
+                        )
+                      )}
+
+                      <div className="hidden justify-end md:flex">
+                        {s === "running" ? <StatusTag row={r} /> : s === "error" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={busy}
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (s !== "fixed") setInlineFix(r);
+                              run({ lineIds: [r.id] });
                             }}
                           >
-                            <Code code={sug.code} className={s === "fixed" ? "text-primary" : undefined} />
-                            {s !== "fixed" && <PencilLine className="size-3 text-muted-foreground opacity-0 group-hover:opacity-100" />}
-                          </button>
-                          <div className="min-w-0 text-sm leading-relaxed text-muted-foreground">
-                            <p className="line-clamp-2">{sug.reason}</p>
-                            {sug.question && sug.status === "pending" && (
-                              <div className="mt-1 space-y-0.5">
-                                <p className="flex items-start gap-1.5 text-xs text-warn">
-                                  <MessageCircleQuestion className="mt-0.5 size-3 shrink-0" />
-                                  <span className="line-clamp-1">{sug.question}</span>
-                                </p>
+                            <RotateCw /> Retry
+                          </Button>
+                        ) : (
+                          <StatusTag row={r} />
+                        )}
+                      </div>
+                    </div>
+
+                    {expanded && s !== "running" && sug && (
+                      <div className="grid gap-6 border-t border-border px-5 pb-6 pt-5 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] md:pl-14">
+                        <div>
+                          <p className="mb-3 font-serif text-[17px] text-foreground">How this code was reached</p>
+                          <ProcessLog calls={calls} />
+                        </div>
+                        <aside className="space-y-4 rounded-lg border border-border bg-card p-4 self-start">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Proposed code</p>
+                            <Code code={sug.code} className="text-lg" />
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {sug.model === "hmrc-search"
+                                ? "From HMRC's search only · not reviewed by the AI"
+                                : sug.model === "broker"
+                                  ? "Set by your team"
+                                  : sug.model === "precedent"
+                                    ? "From your precedent"
+                                    : `AI confidence ${Math.round(sug.confidence * 100)}%`}
+                            </p>
+                          </div>
+                          {sug.question && sug.status === "pending" && (
+                            <div className="rounded-md bg-[#fdf3e3] p-3 text-sm">
+                              <p className="font-medium text-warn">Question for the importer</p>
+                              <p className="mt-1">{sug.question}</p>
+                              <div className="mt-2">
                                 <ClientEmailButton brokerName={brokerName} product={r.text} question={sug.question} />
                               </div>
-                            )}
-                            {sug.precedentId && s !== "fixed" && <p className="mt-0.5 text-xs text-primary">Followed precedent #{sug.precedentId}</p>}
-                          </div>
-                          <p className="text-right tabular-nums">{Math.round(sug.confidence * 100)}%</p>
-                          <div className="flex items-center justify-end gap-1">
-                            {s === "fixed" && <Status tone="good">Fixed</Status>}
-                            {s === "approved" && <Status tone="good">Approved</Status>}
+                            </div>
+                          )}
+                          <div className="flex flex-wrap gap-2">
                             {(s === "review" || s === "ready") && (
-                              <>
-                                {s === "review" ? <Flag className="mr-1 size-3.5 text-warn" aria-label="Needs review" /> : null}
-                                <Button
-                                  size="icon"
-                                  variant="outline"
-                                  className="size-7"
-                                  title="Approve as it is (A)"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    approve([sug.id]);
-                                  }}
-                                >
-                                  <Check />
-                                </Button>
-                                <Button
-                                  size="icon"
-                                  variant="outline"
-                                  className="size-7"
-                                  title="Fix the code (F)"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setInlineFix(r);
-                                  }}
-                                >
-                                  <PencilLine />
-                                </Button>
-                              </>
+                              <Button size="sm" onClick={() => approve([sug.id])}>
+                                <Check /> Approve this code
+                              </Button>
                             )}
+                            {s !== "fixed" && (
+                              <Button size="sm" variant="outline" onClick={() => setInlineFix(r)}>
+                                <PencilLine /> Correct it
+                              </Button>
+                            )}
+                            <Button size="sm" variant="ghost" onClick={() => openReceipt(r)}>
+                              <ReceiptText /> Full receipt
+                            </Button>
                           </div>
-                        </>
-                      )
+                          <p className="text-xs leading-relaxed text-muted-foreground">
+                            You sign every code. Precedent never files for you; the declaration is yours to submit on CDS.
+                          </p>
+                        </aside>
+                      </div>
                     )}
                   </li>
                 );

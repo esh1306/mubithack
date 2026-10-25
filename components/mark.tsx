@@ -30,7 +30,7 @@ export function Wordmark({
 }) {
   return (
     <span className={cn("inline-flex items-center gap-[0.5em] text-foreground", className)}>
-      <Mark size={size} className={cn("text-primary", markClassName)} />
+      <Mark size={size} className={cn("text-brand", markClassName)} />
       <span
         className="wordmark-type font-[800] tracking-[-0.06em]"
         style={{

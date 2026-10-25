@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // App pages under /[broker] read live SQLite. The landing page at / is static.
+  transpilePackages: ["react-globe.gl", "globe.gl", "three-globe"],
   turbopack: {
     rules: {
       "*.css": {

@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { db } from "@/lib/db";
-import { classifyLine } from "@/lib/agent";
+import { classifyLine, classifyWithoutModel } from "@/lib/agent";
+import type { ToolCall } from "@/lib/steps";
 import { parseCsv } from "@/lib/csv";
 import { classifyErrorMessage, hasMubitKey, TRAIN_AFTER } from "@/lib/mubit";
-import { isSimilar } from "@/lib/retrieve";
+import { isSimilar, tokens } from "@/lib/retrieve";
 import { generateVariants } from "@/lib/variants";
 
 export const NEVER_SEEN_BATCH = "never-seen";
@@ -13,6 +14,19 @@ export const VARIANT_BATCH = "variants";
 export const SYSTEM_BATCHES = [NEVER_SEEN_BATCH, RETRO_BATCH, VARIANT_BATCH];
 
 export { isSimilar };
+
+// Stricter than isSimilar: a precedent may override the model only when the products share
+// at least two meaningful words (so "bamboo chopsticks" doesn't inherit a "bamboo dinner set" fix).
+export function isSameProduct(a: string, b: string) {
+  const wa = new Set(tokens(a));
+  return new Set(tokens(b).filter((w) => wa.has(w))).size >= 2;
+}
+
+// The model can't run at all (no key, or the key is rejected): retrying won't help.
+function isAuthFailure(e: unknown) {
+  const m = e instanceof Error ? e.message : String(e);
+  return /api key|unauthori[sz]ed|401|invalid x-api-key|authentication/i.test(m);
+}
 
 async function persistError(lineId: number, e: unknown) {
   return db.suggestion.create({
@@ -30,7 +44,7 @@ async function persistError(lineId: number, e: unknown) {
 
 export async function mubitExampleCount(brokerId: string) {
   return db.suggestion.count({
-    where: { line: { brokerId }, model: { notIn: ["broker", "error", "precedent", "seed"] } },
+    where: { line: { brokerId }, model: { notIn: ["broker", "error", "precedent", "seed", "hmrc-search"] } },
   });
 }
 
@@ -44,7 +58,7 @@ export async function bindingPrecedent(brokerId: string, text: string) {
   const stay = neverSeenItems().find((i) => i.text === text && !i.shouldChange);
   if (stay) return null;
   const all = await db.precedent.findMany({ where: { brokerId }, orderBy: { id: "desc" } });
-  return all.find((p) => isSimilar(p.lineText, text) || isSimilar(p.reason, text)) ?? null;
+  return all.find((p) => isSameProduct(p.lineText, text)) ?? null;
 }
 
 async function followPrecedent<T extends { id: number; code: string }>(
@@ -72,9 +86,17 @@ async function followPrecedent<T extends { id: number; code: string }>(
 export async function classifyAndSave(
   brokerId: string,
   line: { id: number; text: string },
-  opts?: { maxSteps?: number; applyPrecedent?: boolean },
+  opts?: { maxSteps?: number; applyPrecedent?: boolean; onCall?: (call: ToolCall) => void },
 ) {
-  const r = await classifyLine(brokerId, line.text, opts);
+  let r: Awaited<ReturnType<typeof classifyLine>>;
+  try {
+    r = hasMubitKey()
+      ? await classifyLine(brokerId, line.text, opts)
+      : await classifyWithoutModel(line.text, "No Mubit API key is set.", opts?.onCall);
+  } catch (e) {
+    if (!isAuthFailure(e)) throw e;
+    r = await classifyWithoutModel(line.text, "The Mubit API key was rejected.", opts?.onCall);
+  }
   const recorded = await db.suggestion.create({
     data: {
       lineId: line.id,
@@ -99,7 +121,7 @@ const ATTEMPTS = 3;
 export async function classifyWithRetry(
   brokerId: string,
   line: { id: number; text: string },
-  opts?: { maxSteps?: number; applyPrecedent?: boolean },
+  opts?: { maxSteps?: number; applyPrecedent?: boolean; onCall?: (call: ToolCall) => void },
 ) {
   let last: unknown;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {

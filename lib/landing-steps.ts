@@ -1,0 +1,48 @@
+// The real procedure a UK broker follows, as Precedent supports it, from invoice to the 3-year duty check.
+export const JOURNEY_STEPS = [
+  {
+    id: "invoice",
+    n: "01",
+    place: "Ningbo · Shenzhen · Ho Chi Minh City",
+    title: "The invoice comes in",
+    label: "Shopify, Excel or CSV",
+    body: "Each product arrives as a line with its description, origin and customs value, straight from the supplier's invoice or the client's store.",
+    icon: "invoice" as const,
+  },
+  {
+    id: "tariff",
+    n: "02",
+    place: "UK Trade Tariff",
+    title: "Checked against HMRC's tariff",
+    label: "Shortlist, legal notes, interpretative rules",
+    body: "HMRC's classification search gives the candidates. The chapter notes rule headings in or out, and the General Interpretative Rules settle the rest. Every step is logged with its source.",
+    icon: "tariff" as const,
+  },
+  {
+    id: "signoff",
+    n: "03",
+    place: "Your desk",
+    title: "The broker signs off",
+    label: "Approve or correct",
+    body: "Nothing is declared until a person signs it. A correction becomes a precedent for your firm only, and the next similar product follows it.",
+    icon: "signoff" as const,
+  },
+  {
+    id: "declare",
+    n: "04",
+    place: "CDS · Felixstowe · Heathrow",
+    title: "The declaration goes to CDS",
+    label: "You submit, we draft",
+    body: "Signed codes go into the import declaration you file on HMRC's Customs Declaration Service. The demo uses HMRC's sandbox.",
+    icon: "declare" as const,
+  },
+  {
+    id: "reclaim",
+    n: "05",
+    place: "The last three years",
+    title: "The 3-year duty check",
+    label: "Reclaim or disclose",
+    body: "Past entries are re-checked at the duty rate in force on each import date. Overpaid duty becomes a claim pack with its deadline; underpaid duty becomes a disclosure.",
+    icon: "reclaim" as const,
+  },
+] as const;

@@ -21,7 +21,7 @@ export function PageHeader({
     <header className="flex flex-wrap items-end justify-between gap-6 pb-8">
       <div className="min-w-0 space-y-2">
         {eyebrow && <p className="text-sm text-muted-foreground">{eyebrow}</p>}
-        <h1 className="flex items-center gap-2 font-serif text-[40px] leading-[1.05] tracking-[-0.01em]">
+        <h1 className="desk-display flex items-center gap-2 overflow-visible">
           {title} {info && <Info id={info} className="mt-2" />}
         </h1>
         {description && <p className="max-w-2xl text-[15px] text-muted-foreground">{description}</p>}
@@ -47,11 +47,11 @@ export function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className={cn("overflow-hidden rounded-xl border border-border/70 bg-card shadow-card", className)}>
+    <section className={cn("overflow-hidden rounded-lg border border-border bg-card", className)}>
       {(title || actions) && (
         <div className="flex items-end justify-between gap-3 px-6 pb-3 pt-5">
           <div>
-            {title && <h2 className="font-serif text-[22px] leading-tight">{title}</h2>}
+            {title && <h2 className="desk-kicker text-foreground">{title}</h2>}
             {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
           </div>
           {actions && <div className="flex items-center gap-2">{actions}</div>}
@@ -78,7 +78,7 @@ export function Stat({
   className?: string;
 }) {
   return (
-    <div className={cn("space-y-2 rounded-xl border border-border/70 bg-card px-6 py-5 shadow-card", className)}>
+    <div className={cn("space-y-2 rounded-lg border border-border bg-card px-6 py-5", className)}>
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">{label}</p>
         {status}

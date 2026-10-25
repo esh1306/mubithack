@@ -1,8 +1,21 @@
 import { db } from "@/lib/db";
 import { getConfig } from "@/lib/integrations";
-import { shopifyKey, writeCode, type ShopifyConfig } from "@/lib/shopify";
+import { shopifyApp, shopifyKey, writeCode, type ShopifyConfig } from "@/lib/shopify";
 
 type Params = { params: Promise<{ broker: string }> };
+
+export async function GET(req: Request) {
+  const origin = new URL(req.url).origin;
+  const app = shopifyApp(origin);
+  return Response.json({
+    oauthReady: !!app,
+    redirectUri: app?.redirectUri ?? `${origin}/api/shopify/callback`,
+    scopes: "read_products,read_inventory,write_inventory",
+    setup: app
+      ? null
+      : "Set SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET in .env.local. You can still paste a custom-app token or import a Shopify product CSV. See docs/SHOPIFY.md.",
+  });
+}
 
 // POST { action: "push", lineIds } → writes approved or fixed codes back to each line's client store.
 // Connecting stores and importing products is per client: /api/[broker]/clients/[id]/shopify.

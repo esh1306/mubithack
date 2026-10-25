@@ -5,7 +5,6 @@ import Link from "next/link";
 import { ArrowRight, Sparkles, Flag, MessageCircleQuestion, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Code } from "@/components/code";
-import { Mark } from "@/components/mark";
 import { Panel, Stat, Empty, Status } from "@/components/page";
 import { DEMO_SAMPLE_ID } from "@/lib/demo";
 
@@ -94,7 +93,6 @@ export function HomeView({ broker, brokerName }: { broker: string; brokerName: s
     <div className="mx-auto max-w-6xl space-y-10">
       <header className="flex flex-wrap items-end justify-between gap-6">
         <div className="flex max-w-4xl items-end gap-6">
-          <Mark size={56} className="mb-1 shrink-0 text-primary" />
           <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
             {brokerName}

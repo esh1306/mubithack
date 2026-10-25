@@ -7,6 +7,8 @@ import { compareDuty, formatDutyTrail, isMoneyFinding, withinThreeYears } from "
 import { buildIndex, diversifyByHs6, isSimilar, rankLeaves } from "../lib/retrieve";
 import { searchTariff } from "../lib/tariff";
 import { templateVariants } from "../lib/variants";
+import { parseShopifyProductCsv } from "../lib/shopify-csv";
+import { readFileSync } from "node:fs";
 
 function dutyCase() {
   const under = compareDuty({
@@ -121,7 +123,17 @@ function demoCase() {
   assert.ok(isSimilar("Bamboo kids' dinner set, plate bowl cup", "Bamboo cups set, 4 pack, kids"));
 }
 
+function shopifyCsvCase() {
+  const { lines, skipped } = parseShopifyProductCsv(readFileSync("data/samples/shopify-products.csv", "utf8"));
+  assert.equal(lines.length, 10);
+  assert.equal(skipped, 0);
+  assert.ok(lines.some((l) => /bamboo/i.test(l.description)));
+  assert.ok(lines.some((l) => l.source === "shopify-csv"));
+  assert.equal(lines.find((l) => /LED/i.test(l.description))?.existingCode, "8539520000");
+}
+
 dutyCase();
+shopifyCsvCase();
 windowCase();
 codeCase();
 variantCase();
@@ -129,4 +141,4 @@ errorCase();
 retrieveCase();
 demoCase();
 await liveSearchCase();
-console.log("smoke ok: duty, window, codes, variants, Mubit error wording, demo bamboo pin, bamboo → 3924100019");
+console.log("smoke ok: duty, window, codes, variants, Shopify CSV, Mubit error wording, demo bamboo pin, bamboo → 3924100019");

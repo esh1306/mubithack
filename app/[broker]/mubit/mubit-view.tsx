@@ -25,6 +25,7 @@ type Data = {
   bySource: Record<string, { lines: number; calls: number }>;
   note: string;
   precedents: { id: number; lineText: string; newCode: string; variantCount: number; variantsMatched: number; requestIds: string[] }[];
+  lastRequestId: string | null;
   recent: { text: string; code: string; at: string; source: string; requestIds: string[] }[];
 };
 
@@ -68,16 +69,38 @@ export function MubitView({ broker }: { broker: string }) {
       </div>
 
       <section className="space-y-3">
-        <h2 className="font-serif text-[22px]">Progress toward first train</h2>
+        <h2 className="desk-kicker">Progress toward first train</h2>
         <p className="text-sm text-muted-foreground">
           {d.examplesTowardTrain} of {d.trainAfter} examples sent. Mubit&apos;s default is to train after {d.trainAfter} kept examples.
-          This app does not observe keep/train/test/live.
+          This app does not observe keep/train/test/live. We do not claim an adapter is live.
         </p>
-        <Progress value={d.progress * 100} />
+        <div className="flex flex-wrap items-center gap-6">
+          <div className="relative h-24 w-24">
+            <svg viewBox="0 0 100 100" className="-rotate-90">
+              <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" strokeWidth="8" className="text-foreground/10" />
+              <circle
+                cx="50"
+                cy="50"
+                r="40"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="8"
+                strokeLinecap="round"
+                className="text-primary"
+                strokeDasharray={`${2 * Math.PI * 40}`}
+                strokeDashoffset={`${2 * Math.PI * 40 * (1 - d.progress)}`}
+              />
+            </svg>
+            <p className="absolute inset-0 flex items-center justify-center font-[family-name:var(--font-display-face)] text-xl font-extrabold">
+              {d.examplesTowardTrain}
+            </p>
+          </div>
+          <Progress value={d.progress * 100} className="max-w-sm flex-1" />
+        </div>
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-serif text-[22px]">Why this is one task</h2>
+        <h2 className="desk-kicker">Why this is one task</h2>
         <p className="text-sm text-muted-foreground">
           Mubit groups calls with the same model, instructions, tools and output format. Only the broker&apos;s name changes in the
           instructions, so each broker is its own task. Changing the prompt, tools or model would start a new task.
@@ -92,7 +115,7 @@ export function MubitView({ broker }: { broker: string }) {
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-serif text-[22px]">Examples sent per source</h2>
+        <h2 className="desk-kicker">Examples sent per source</h2>
         <div className="grid gap-3 sm:grid-cols-4">
           {Object.entries(d.bySource).map(([k, v]) => (
             <Stat key={k} label={k} value={v.lines} context={`${v.calls} calls`} />
@@ -102,8 +125,8 @@ export function MubitView({ broker }: { broker: string }) {
 
       {d.precedents.some((p) => p.variantCount > 0) && (
         <section className="space-y-3">
-          <h2 className="font-serif text-[22px]">Teaching after a fix</h2>
-          <ul className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70 bg-card shadow-card">
+          <h2 className="desk-kicker">Timeline · correction → variants → request ids</h2>
+          <ul className="divide-y divide-border/60 overflow-hidden rounded-lg border border-border bg-card">
             {d.precedents.filter((p) => p.variantCount > 0).map((p) => (
               <li key={p.id} className="space-y-1 px-4 py-3 text-sm">
                 <p className="font-medium">#{p.id} · {p.lineText}</p>
@@ -121,13 +144,13 @@ export function MubitView({ broker }: { broker: string }) {
       )}
 
       <section className="space-y-3">
-        <h2 className="font-serif text-[22px]">Latest examples</h2>
+        <h2 className="desk-kicker">Latest examples</h2>
         {d.recent.length === 0 && (
           <p className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
             No classify calls recorded yet for this broker. Play the 3-minute demo from Home to send the first examples.
           </p>
         )}
-        <ul className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70 bg-card shadow-card">
+        <ul className="divide-y divide-border/60 overflow-hidden rounded-lg border border-border bg-card">
           {d.recent.map((r, i) => (
             <li key={i} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 text-sm">
               <div className="min-w-0">

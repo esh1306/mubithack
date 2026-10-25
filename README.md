@@ -19,7 +19,7 @@ Built for the Mubit × Night Shift hackathon, London.
 All on the **Integrations** page:
 
 - **UK Trade Tariff (live):** HMRC's public API. Headings missing from the local seed are fetched live (codes, chapter notes, duty) and kept.
-- **Shopify (Admin GraphQL API 2026-10):** connect with a custom-app token (`read_products`, `read_inventory`, `write_inventory`), import products as invoice lines along with their existing HS code, and push approved codes back (6-digit HS code plus the 10-digit GB code).
+- **Shopify (Admin GraphQL API 2026-10):** OAuth (`SHOPIFY_CLIENT_ID` / `SECRET`) or a custom-app token (`read_products`, `read_inventory`, `write_inventory`). Import the catalogue and push approved codes back (6-digit HS + 10-digit GB). No credentials: import a Shopify product CSV. See `docs/SHOPIFY.md`. HMRC is sandbox — see `docs/HMRC.md`.
 - **Excel / CSV invoices:** upload a supplier's `.xlsx` commercial invoice. Header and column detection is automatic, and totals rows are skipped.
 - **HMRC Customs Declarations API (sandbox):** OAuth 2.0 sign-in (`write:customs-declaration`), then submit a classified invoice as a WCO DEC-DMS H1 import declaration. Register an app on the HMRC Developer Hub, subscribe it to Customs Declarations, add the redirect URI shown in the app, and sign in with a test user that has `customs-services`.
 - **Declaration software:** a CSV export with DE 6/14 and DE 6/15, plus an audit log.

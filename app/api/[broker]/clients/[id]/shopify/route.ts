@@ -10,6 +10,7 @@ import {
   validShop,
   type ShopifyConfig,
 } from "@/lib/shopify";
+import { parseShopifyProductCsv } from "@/lib/shopify-csv";
 
 type Params = { params: Promise<{ broker: string; id: string }> };
 
@@ -60,9 +61,9 @@ export async function POST(req: Request, { params }: Params) {
     }
     if (body.action === "import") {
       const cfg = await getConfig<ShopifyConfig>(key);
-      if (!cfg) return Response.json({ error: "Connect this client's store first" }, { status: 400 });
+      if (!cfg) return Response.json({ error: "Connect this client's store first, or import a Shopify product CSV" }, { status: 400 });
       // Products become invoice lines; the store's existing HS code is kept to compare against.
-      const products = await listProducts(cfg, Math.min(Number(body.first) || 50, 100));
+      const products = await listProducts(cfg, Math.min(Number(body.first) || 100, 250));
       return Response.json({
         lines: products.map((p) => ({
           description: [p.title, p.productType, p.description].filter(Boolean).join(" · ").slice(0, 300),
@@ -74,6 +75,15 @@ export async function POST(req: Request, { params }: Params) {
         })),
         clientId: c.id,
       });
+    }
+    if (body.action === "import-csv") {
+      const csv = String(body.csv ?? "");
+      if (!csv.trim()) return Response.json({ error: "Paste or upload a Shopify product CSV" }, { status: 400 });
+      const { lines, skipped } = parseShopifyProductCsv(csv);
+      if (lines.length === 0) {
+        return Response.json({ error: "No product rows with a Title column. Export Products as CSV from Shopify Admin." }, { status: 400 });
+      }
+      return Response.json({ lines, skipped, clientId: c.id });
     }
     return Response.json({ error: "Unknown action" }, { status: 400 });
   } catch (e) {

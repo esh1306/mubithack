@@ -58,5 +58,15 @@
       "name": "Dales Home Goods Ltd",
       "eori": "GB683471029006"
     }
+  },
+  {
+    "id": "07-bulk-mixed",
+    "name": "Bulk mixed desk",
+    "supplier": "Several suppliers · mixed",
+    "about": "30 lines across apparel, kitchen, electronics, sport and home — for a fuller inbox",
+    "client": {
+      "name": "Harbourline Mixed Ltd",
+      "eori": "GB683471029007"
+    }
   }
 ]
