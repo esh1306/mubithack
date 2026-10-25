@@ -41,18 +41,11 @@ const MAX_STEPS = 10;
 
 export type ToolCallLog = ToolCall;
 
-export async function classifyLine(
-  brokerId: string,
-  lineText: string,
-  opts?: { maxSteps?: number; onCall?: (call: ToolCall) => void },
-) {
-  if (!hasMubitKey()) throw new Error(classifyErrorMessage(new Error("Mubit API key is missing")));
-
-  const broker = await db.broker.findUniqueOrThrow({ where: { id: brokerId } });
-  let question: string | null = null;
-  const maxSteps = opts?.maxSteps ?? MAX_STEPS;
-
-  const tools = {
+// The read-only tools, shared by classifyLine and Prue's chat. `lineText` is the product being
+// discussed: it pulls in overlapping precedents and ranks chapter notes. Don't change these
+// definitions lightly: they are part of each broker's Mubit task.
+export function readTools(brokerId: string, lineText: string) {
+  return {
     search_precedents: tool({
       description: "Search this broker's past corrections (precedents) by keywords, e.g. 'silicone' or 'knitted shirt'.",
       inputSchema: z.object({ query: z.string() }),
@@ -107,6 +100,22 @@ export async function classifyLine(
       inputSchema: z.object({ code: z.string() }),
       execute: async ({ code }) => (await lookupCommodity(code.replace(/\D/g, "").padEnd(10, "0").slice(0, 10))) ?? { code: null, note: "Not found in the tariff." },
     }),
+  };
+}
+
+export async function classifyLine(
+  brokerId: string,
+  lineText: string,
+  opts?: { maxSteps?: number; onCall?: (call: ToolCall) => void },
+) {
+  if (!hasMubitKey()) throw new Error(classifyErrorMessage(new Error("Mubit API key is missing")));
+
+  const broker = await db.broker.findUniqueOrThrow({ where: { id: brokerId } });
+  let question: string | null = null;
+  const maxSteps = opts?.maxSteps ?? MAX_STEPS;
+
+  const tools = {
+    ...readTools(brokerId, lineText),
     ask_client: tool({
       description: "Record the one question for the importer that would decide the code. Use only when the deciding fact is missing.",
       inputSchema: z.object({ question: z.string() }),
