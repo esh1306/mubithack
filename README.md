@@ -92,7 +92,113 @@ Helper calls opt out of recording, so only real classification work ends up in a
 | CSV export for declaration software | **Working.** The code is split into DE 6/14 and 6/15, with an audit log. Live push to ASM, CargoWise or Descartes is **not done**. |
 | Shopify | **Partial.** Product CSV import works. Admin API OAuth (import the catalogue, write codes back) is built but wasn't shown in the demo. |
 
-Stack: Next.js 16 (App Router), React 19, TypeScript, Tailwind and shadcn/ui, Prisma 7 with SQLite, and the Vercel AI SDK.
+## Technical details
+
+### Architecture
+
+```
+ Browser (Next.js client)                 Next.js server (route handlers)                    Outside
+ ────────────────────────                 ───────────────────────────────                    ───────
+ Desk, Tour, Classify ──SSE stream──▶  /api/[broker]/classify ─▶ lib/agent.ts ──AI SDK──▶  Mubit proxy ─▶ Claude Haiku 4.5
+ Prue chat drawer ───────────────────▶  /api/prue-chat (read-only tools)                    (api.mubit.ai/anthropic/v1)
+ Fix a code ─────────────────────────▶  /api/[broker]/fix ─▶ Precedent + teachVariants
+                                          lib/gov-tariff.ts, lib/tariff-live.ts ─────────▶  UK Trade Tariff API (public)
+ Declare ────────────────────────────▶  /api/[broker]/hmrc ─▶ lib/cds.ts ──OAuth 2.0──▶   HMRC CDS sandbox
+ Shopify connect / import ───────────▶  /api/[broker]/shopify ─▶ lib/shopify.ts ────────▶  Shopify Admin GraphQL
+                                          Prisma 7 ─▶ SQLite (dev.db)
+```
+
+Everything runs in one Next.js app. All Mubit, HMRC and Shopify calls are made from the server, so keys never reach the browser.
+
+### Classifying a line
+
+1. **Calling the agent:** `POST /api/[broker]/classify` saves the lines, then classifies 4 at a time and streams each result back as server-sent events (`lib/sse.ts`).
+2. **Inside the agent:** `classifyLine` (`lib/agent.ts`) calls `generateText` from the AI SDK with five tools, a 10-step limit, and structured output (`Output.object`, a Zod schema). The output holds the code, reason, GIR rule, note references, rejected codes, confidence, the precedent followed and an optional client question.
+3. **The tools:**
+   - `search_precedents`: this firm's corrections.
+   - `hmrc_classification_search`: HMRC's ranked shortlist.
+   - `read_chapter_notes`: legal exclusions and definitions.
+   - `lookup_commodity`: whether the code is declarable, its duty, VAT, and any remedy or quota flags.
+   - `ask_client`: records the one deciding question for the importer.
+4. **Saving:** every tool call, the reasoning and the Mubit request IDs are stored on the `Suggestion`, so the broker sees a receipt for each code.
+5. **Fallbacks:**
+   - If a call fails, `classifyWithRetry` tries it again, with a back-off between attempts. If every attempt fails, the line is saved as an error.
+   - With no Mubit key, `classifyWithoutModel` returns HMRC's top search hit, marked `hmrc-search`, so the desk still works.
+6. **Tariff data:** the public trade-tariff endpoints (`www.trade-tariff.service.gov.uk/uk/api/v2`) supply this. Whatever is fetched is cached in the `Tariff` and `Chapter` tables. The retro-scan uses `?as_of=<entry date>` to price past entries at the rate in force on that day.
+
+### Declaring to HMRC
+
+`lib/cds.ts` handles the HMRC sandbox:
+- **Sign-in:** an OAuth 2.0 authorisation-code flow against HMRC's sandbox with scope `write:customs-declaration`, with `/api/hmrc/callback` as the redirect.
+- **Building the declaration:** a WCO DEC-DMS H1 declaration (XML), built from the signed-off lines. The importer is the client's EORI and the declarant is the signed-in firm.
+- **Sending it:** `POST /api/[broker]/hmrc` with `action: "preview"` returns the XML and a summary. `action: "submit"` posts it to the Customs Declarations API and returns the LRN, the HTTP status and the conversation ID.
+- **Tokens:** they're stored in the `Credential` table and refreshed automatically.
+
+### Data model (`prisma/schema.prisma`)
+
+| Model | Holds |
+|---|---|
+| `Broker` | A broker firm: the tenant boundary, and so the Mubit task boundary. |
+| `Client` | An importer the firm declares for, with name and EORI. |
+| `Line` | An invoice line: text, value, quantity, origin, batch (invoice), source. |
+| `Suggestion` | A code for a line: reason, confidence, status (pending, approved, corrected), tool calls, Mubit request IDs, model. |
+| `Precedent` | A correction: line text, old code → new code, reason, paraphrases sent and matched, and their request IDs. |
+| `Tariff`, `Chapter` | Cached UK Trade Tariff codes with duty rates, and chapter notes. |
+| `PastEntry`, `RetroFinding` | Past imports and the over- or under-paid duty found on them, with the calculation. |
+| `Credential` | Saved sign-ins for HMRC and Shopify, one per system. |
+
+### API routes (`app/api`)
+
+| Route | What it does |
+|---|---|
+| `POST [broker]/classify` | Classify lines; results stream back as SSE. |
+| `POST [broker]/fix` | Correct a code, which creates a precedent and teaches the paraphrases. |
+| `PATCH suggestions/[id]` | Approve or update one suggestion. |
+| `GET [broker]/batch` | List invoices, or get one with its lines. |
+| `GET [broker]/home`, `learning`, `mubit` | Desk overview, savings, learning stats. |
+| `GET, DELETE [broker]/precedents` | List or remove corrections. |
+| `GET, POST [broker]/retro-scan` | 3-year duty check. |
+| `GET, POST [broker]/hmrc` | HMRC status; preview or submit a declaration. |
+| `GET [broker]/export` | Declaration CSV (DE 6/14, 6/15), or `&audit=1` for the evidence file. |
+| `[broker]/shopify`, `[broker]/clients/...` | Shopify import and write-back; importers. |
+| `POST parse-invoice` | Read an uploaded invoice into lines. |
+| `POST prue-chat` | Prue's chat, using read-only tools. |
+| `tariff/*` | Tariff search, candidates, a single code, cache status. |
+| `POST demo/reset` | Reset the demo data. |
+
+### Project layout
+
+```
+app/
+  page.tsx, how-it-works/     public landing page and explainer
+  start/                      choose a firm
+  [broker]/                   the desk: home, classify, clients, precedents, retro-scan,
+                              export, integrations, mubit (learning), tour
+  api/                        route handlers (above)
+components/                   UI: Prue (prue.tsx, generated), prue-guide/prue-chat, declare-button,
+                              landing-*, sidebar, shadcn/ui primitives in ui/
+lib/                          agent, mubit, run (classify, retry, teach), gov-tariff, tariff-live,
+                              cds, shopify, invoice-file, duty, savings, variants, claim-pack
+mascot/                       Prue's source (core.ts); `node mascot/build.mjs` writes components/prue.tsx
+prisma/                       schema and migrations
+scripts/                      seed, smoke test, warm-up, tariff pull, tricky-item tests
+data/samples/                 sample invoices (CSV, XLSX, Shopify CSV)
+docs/                         HMRC.md, SHOPIFY.md, DEMO.md, PLAN.md, tricky-items.md
+```
+
+### Scripts
+
+Scripts run on Node through `bun run script scripts/<name>.mts`, because better-sqlite3 doesn't load under Bun.
+
+| Command | What it does |
+|---|---|
+| `bun run seed` | Firms, tariff cache, chapter notes, past entries. |
+| `bun run smoke` | No-key checks: tariff search, duty maths, paraphrases, the missing-key message. |
+| `bun run demo` | Production build and start, for recording demos. |
+| `scripts/ping-mubit.mts` | One test call through Mubit. |
+| `scripts/warm-up.mts [broker]` | Send every sample line through a firm's Mubit task, adding more examples. |
+| `scripts/test-tricky.mts` | Run the tricky items in `docs/tricky-items.md` through the agent. |
+| `scripts/pull-tariff.mts` | Re-pull the tariff cache from the UK Trade Tariff API. |
 
 ## Run it
 
@@ -131,3 +237,20 @@ Main open-source libraries:
 - **Data:** Prisma with better-sqlite3, Zod and ExcelJS.
 - **Landing page:** GSAP, three.js, globe.gl and react-globe.gl, d3-geo, topojson-client, world-atlas and Lenis.
 - **UI extras:** lucide-react, cmdk and Sonner.
+
+## Troubleshooting
+
+- **"Mubit API key is missing"**
+  - Set `MUBIT_API_KEY` in `.env.local` and restart `bun run dev`.
+  - Haiku 4.5 runs on Mubit's starter credit only while no Anthropic key is saved under Provider keys in Mubit.
+- **HMRC sign-in or submission fails**
+  - The HMRC Developer Hub app must be subscribed to Customs Declarations.
+  - The redirect URI must match `http://localhost:3000/api/hmrc/callback`.
+  - The test user needs the `customs-services` service. See `docs/HMRC.md`.
+- **Types missing from Prisma after a pull:** run `bunx prisma generate`.
+- **The sidebar or styles look stale after a pull:** hard-refresh the page. Turbopack sometimes misses a CSS change.
+- **Changing the classifier's system prompt or tools starts a new Mubit task**, which resets the example count. Keep `systemPrompt()` and `readTools()` in `lib/agent.ts` stable.
+
+## License
+
+No license has been chosen yet. All rights reserved by the authors until one is added.
