@@ -1,12 +1,30 @@
-# Precedent
+<h1 align="center">Precedent</h1>
 
-**Teach a commodity code once. Prue remembers it, for your firm only.**
+<p align="center"><b>Teach a commodity code once. Prue remembers it, for your firm only.</b><br/>
+A UK customs desk where an AI agent codes every invoice line against HMRC's live tariff, shows its working, and learns from each broker correction through Mubit.</p>
+
+<p align="center">
+  <a href="precedent-launch-A.mp4">Demo video (1:55)</a> ·
+  <a href="#how-we-use-mubit">How we use Mubit</a> ·
+  <a href="#run-it">Run it locally</a> ·
+  <a href="https://github.com/esh1306/mubithack">Repo</a>
+</p>
+
+<p align="center">Built for the Mubit × Night Shift hackathon, London, from 23 October 2026. There's no public deployment; it runs locally.</p>
+
+<p align="center">
+  <img src="docs/img/landing.jpg" width="80%" alt="Precedent landing page: Stop coding invoices by hand. Just sign them." />
+</p>
+
+## Contents
+
+[The problem](#the-problem) · [The demo video](#the-demo-video) · [How we use Mubit](#how-we-use-mubit) · [How it works](#how-it-works) · [Technical details](#technical-details) · [Run it](#run-it) · [Honest notes](#honest-notes) · [Team](#team)
+
+## The problem
 
 UK customs brokers have to give every line on an importer's invoice a 10-digit UK Trade Tariff commodity code. The work is done by hand, and a wrong code is a legal problem for the broker: duty is overpaid or underpaid, HMRC can send a demand, and the broker shares liability as the importer's indirect representative. Precedent is a desk where an AI agent, Prue, codes each line against HMRC's live tariff and shows its working. A broker signs off each line or corrects it, and every correction becomes a precedent that the firm's later invoices follow.
 
 It's for customs brokers and freight forwarders filing UK import declarations. Our working estimate is that coding a line by hand takes about 6 minutes and reviewing Prue's suggestion about 1 (`lib/savings.ts`). On a 40-line invoice that's roughly 4 hours down to 40 minutes. These are estimates, not measured figures.
-
-Built for the Mubit × Night Shift hackathon, London.
 
 ## The demo video
 
@@ -22,6 +40,21 @@ Built for the Mubit × Night Shift hackathon, London.
 8. **Declare:** the broker approves the other five lines and Precedent drafts an H1 import declaration. It's submitted straight to HMRC's CDS sandbox, which returns **HTTP 202 Accepted**.
 9. **Look back 3 years:** past imports are re-checked at the duty rate in force on each date. That finds £655.27 of duty to disclose before HMRC finds it, and £597.39 to reclaim.
 10. **Learning:** every agent call runs through the firm's own Mubit task. The app's counter showed 45 recorded examples at the time.
+
+<p align="center">
+  <img src="docs/img/hmrc-check.jpg" width="49%" alt="Step 5: Prue checks every line against the UK Trade Tariff, with a reason and source for each code" />
+  <img src="docs/img/correction.jpg" width="49%" alt="Step 6: the broker corrects the bamboo kids' dinner set to melamine, chapter 39, 6% duty" />
+</p>
+<p align="center">
+  <img src="docs/img/precedent-flip.jpg" width="49%" alt="Step 7: never-coded products flip to the corrected code, while real bamboo stays put" />
+  <img src="docs/img/hmrc-202.jpg" width="49%" alt="Step 8: the H1 declaration is submitted to HMRC's CDS sandbox and returns HTTP 202 Accepted" />
+</p>
+<p align="center">
+  <img src="docs/img/retro-scan.jpg" width="49%" alt="Step 9: the 3-year look-back finds £597.39 to reclaim and £655.27 to disclose" />
+  <img src="docs/img/learning.jpg" width="49%" alt="Step 10: the Learning page, with 45 examples in the firm's Mubit task at the time of recording" />
+</p>
+
+<p align="center"><sub>Stills from the demo video, steps 5 to 10.</sub></p>
 
 ## How we use Mubit
 
@@ -197,6 +230,7 @@ Scripts run on Node through `bun run script scripts/<name>.mts`, because better-
 | `bun run demo` | Production build and start, for recording demos. |
 | `scripts/ping-mubit.mts` | One test call through Mubit. |
 | `scripts/warm-up.mts [broker]` | Send every sample line through a firm's Mubit task, adding more examples. |
+| `scripts/train-adapter.mts [broker]` | Send the 153 varied lines in `data/training/lines.csv` through a firm's classify task, as more adapter training examples. They go to a hidden `training` batch, and re-running resumes. |
 | `scripts/test-tricky.mts` | Run the tricky items in `docs/tricky-items.md` through the agent. |
 | `scripts/pull-tariff.mts` | Re-pull the tariff cache from the UK Trade Tariff API. |
 
@@ -250,6 +284,20 @@ Main open-source libraries:
 - **Types missing from Prisma after a pull:** run `bunx prisma generate`.
 - **The sidebar or styles look stale after a pull:** hard-refresh the page. Turbopack sometimes misses a CSS change.
 - **Changing the classifier's system prompt or tools starts a new Mubit task**, which resets the example count. Keep `systemPrompt()` and `readTools()` in `lib/agent.ts` stable.
+
+## Honest notes
+
+- **No adapter is serving yet.** Three are trained, none has passed Mubit's tests, and 0% of requests are routed to one. The learning in the demo comes from the precedent loop.
+- **Time savings are estimates** (`lib/savings.ts`), not measurements.
+- **HMRC submission is sandbox only**, with an HMRC test user.
+- **The landing page's "20 of 25" counter is a scripted animation**, not live data.
+- **Not done:** live push to ASM, CargoWise or Descartes. Shopify OAuth is built but wasn't shown in the demo.
+- **Retro-scan data is seeded** demo data (40 past entries).
+
+## Team
+
+- Sahid Munjavar ([Sahid-m](https://github.com/Sahid-m))
+- Eshita Agarwal ([esh1306](https://github.com/esh1306))
 
 ## License
 
