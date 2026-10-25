@@ -9,7 +9,8 @@ import { MubitShowcase } from "@/components/mubit-showcase";
 import { CustomsScene } from "@/components/customs-scene";
 import { AuroraField } from "@/components/bits/aurora-field";
 import { TiltCard } from "@/components/bits/tilt-card";
-import { ConnectorLogo, CONNECTORS, type ConnectorId } from "@/components/connector-logos";
+import { ConnectorLogo, type ConnectorId } from "@/components/connector-logos";
+import { EndToEndFlow } from "@/components/landing-flow";
 import { gsap, registerLandingMotion, ScrollTrigger, SplitText } from "@/components/landing-motion";
 import { ProblemBand, RoiBlock } from "@/components/landing-stats";
 import { JOURNEY_STEPS } from "@/lib/landing-steps";
@@ -43,6 +44,16 @@ function BrandBar() {
         Open the desk
       </Link>
     </div>
+  );
+}
+
+function HeroLogos({ ids }: { ids: ConnectorId[] }) {
+  return (
+    <span className="flex -space-x-1.5" aria-hidden>
+      {ids.map((id) => (
+        <ConnectorLogo key={id} id={id} size={26} className="ring-2 ring-white" />
+      ))}
+    </span>
   );
 }
 
@@ -99,6 +110,14 @@ function Headline() {
           See the cost
         </Link>
       </div>
+      <Link href="#end-to-end" className="hero-e2e" aria-label="Shopify in, HMRC out, one desk: see how it connects">
+        <HeroLogos ids={["shopify", "excel", "csv"]} />
+        <span className="hero-e2e-arrow" aria-hidden>→</span>
+        <HeroLogos ids={["tariff", "mubit"]} />
+        <span className="hero-e2e-arrow" aria-hidden>→</span>
+        <HeroLogos ids={["cds", "software"]} />
+        <span className="text-[13px] font-semibold text-[#0b1f4d]">Shopify in, HMRC out. One desk.</span>
+      </Link>
     </div>
   );
 }
@@ -140,12 +159,6 @@ function RecordCard() {
     </figure>
   );
 }
-
-const CONNECTOR_FLOW: { title: string; items: ConnectorId[] }[] = [
-  { title: "Goods come in from", items: ["shopify", "excel", "csv"] },
-  { title: "Every code is checked against", items: ["tariff", "mubit"] },
-  { title: "Signed codes go out to", items: ["cds", "software"] },
-];
 
 function Footer() {
   return (
@@ -331,41 +344,14 @@ export function LandingView() {
         </div>
       </section>
 
+      {/* ─── Everything, end to end ─── */}
+      <EndToEndFlow />
+
       {/* ─── Proof: it gets better every week ─── */}
       <MubitShowcase />
 
       {/* ─── Value for the firm ─── */}
       <RoiBlock />
-
-      {/* ─── Built on ─── */}
-      <section className="relative z-20 border-t border-[#0b1f4d]/10">
-        <div className="mx-auto max-w-[86rem] px-5 py-20 sm:px-8 lg:px-10">
-          <h2 className="landing-display landing-section-title overflow-visible" data-reveal>
-            Plugs into what you use.
-          </h2>
-          <p className="mt-3 max-w-2xl text-[16px] font-medium leading-relaxed text-[#1e3a6e]" data-reveal>
-            Goods in from your clients&apos; systems, codes checked against HMRC&apos;s tariff and your firm&apos;s memory, signed codes out to
-            the declaration. Names are for orientation, not a partnership.
-          </p>
-          <div className="mt-10 grid gap-6 lg:grid-cols-3">
-            {CONNECTOR_FLOW.map((col, i) => (
-              <div key={col.title} className="relative space-y-3" data-reveal>
-                <p className="text-[13px] font-semibold text-[#4338ca]">{col.title}</p>
-                {col.items.map((id) => (
-                  <div key={id} className="flex items-start gap-3.5 rounded-xl border border-[#0b1f4d]/10 bg-white/80 p-4 backdrop-blur-md">
-                    <ConnectorLogo id={id} size={44} />
-                    <div className="min-w-0">
-                      <p className="font-[family-name:var(--font-ruling)] text-[18px] font-semibold leading-tight text-[#0b1f4d]">{CONNECTORS[id].name}</p>
-                      <p className="mt-1 text-[13px] leading-snug text-[#1e3a6e]">{CONNECTORS[id].what}</p>
-                    </div>
-                  </div>
-                ))}
-                {i < CONNECTOR_FLOW.length - 1 && <span className="connector-arrow" aria-hidden />}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* ─── Final call ─── */}
       <section className="relative z-20 border-t border-[#0b1f4d]/10">
@@ -377,7 +363,7 @@ export function LandingView() {
             Code your first invoice in <span className="landing-hero-accent">60 seconds.</span>
           </h2>
           <p className="mt-5 max-w-lg text-[17px] font-medium leading-relaxed text-[#1e3a6e]" data-reveal>
-            Pick a demo firm and watch Prue code a real invoice against HMRC&apos;s live tariff. No sign-up, no card.
+            From Shopify to HMRC in one desk. Pick a demo firm and watch Prue code a real invoice against HMRC&apos;s live tariff. No sign-up, no card.
           </p>
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3" data-reveal>
             <Link href={DEMO_HREF} className="landing-cta landing-cta-primary">
