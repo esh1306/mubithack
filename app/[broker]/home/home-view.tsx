@@ -8,6 +8,7 @@ import { Code } from "@/components/code";
 import { Panel } from "@/components/page";
 import { Info } from "@/components/info";
 import { ConnectorLogo, type ConnectorId } from "@/components/connector-logos";
+import { DeclareButton } from "@/components/declare-button";
 import { cn } from "@/lib/utils";
 import { BROKER_GBP_PER_HOUR, MANUAL_MIN_PER_LINE, REVIEW_MIN_PER_LINE, savings, TOUR_LINES_PER_WEEK } from "@/lib/savings";
 
@@ -215,10 +216,14 @@ function Savings({ d, broker, brokerName }: { d: Home; broker: string; brokerNam
 // ---------------------------------------------------------------------------------------------
 // The job, as one flow. Each step ticks itself off from what this firm has actually done.
 
-type Step = { title: string; body: string; done: boolean; doneText: string; action: string; href: string; logos: ConnectorId[] };
+// `declare` is the invoice the step can file right here.
+type Step = { title: string; body: string; done: boolean; doneText: string; action: string; href: string; logos: ConnectorId[]; declare?: string };
 
 function steps(d: Home, broker: string): Step[] {
   const t = d.totals;
+  // The newest invoice with every line signed off is the one to declare; else the one to finish.
+  const ready = d.invoices.find((i) => i.lines > 0 && i.signedOff === i.lines);
+  const unsigned = d.invoices.find((i) => i.signedOff < i.lines);
   return [
     {
       title: "Bring in the invoice",
@@ -249,12 +254,15 @@ function steps(d: Home, broker: string): Step[] {
     },
     {
       title: "File the declaration",
-      body: "Signed codes go to your declaration software as a CSV, or to HMRC’s CDS.",
+      body: ready
+        ? `${ready.client ?? "Invoice"} #${ready.batchId.slice(0, 8)} is signed off: file it to HMRC’s CDS, or as a CSV for your declaration software.`
+        : "Signed codes go to your declaration software as a CSV, or to HMRC’s CDS.",
       done: d.connected.hmrc,
       doneText: "Signed in to HMRC",
-      action: "Choose how to file",
-      href: `/${broker}/integrations`,
+      action: ready ? "Declare" : unsigned ? "Sign off an invoice first" : "Choose how to file",
+      href: ready ? `/${broker}/export` : unsigned ? `/${broker}/classify?batch=${unsigned.batchId}` : `/${broker}/integrations`,
       logos: ["software", "cds"],
+      declare: ready?.batchId,
     },
     {
       title: "Check 3 years back",
@@ -325,10 +333,11 @@ function Flow({ d, broker }: { d: Home; broker: string }) {
                 <p className="font-medium leading-snug">{s.title}</p>
                 <p className="text-sm leading-relaxed text-muted-foreground">{s.body}</p>
               </div>
-              <div className="mt-auto pt-1">
-                {s.done ? (
-                  <p className="text-sm font-medium text-good">{s.doneText}</p>
-                ) : isNext ? (
+              <div className="mt-auto space-y-2 pt-1">
+                {s.done && <p className="text-sm font-medium text-good">{s.doneText}</p>}
+                {s.declare ? (
+                  <DeclareButton key={s.declare} broker={broker} batchId={s.declare} size="sm" inline />
+                ) : s.done ? null : isNext ? (
                   <Button size="sm" asChild>
                     <Link href={s.href}>{s.action}</Link>
                   </Button>

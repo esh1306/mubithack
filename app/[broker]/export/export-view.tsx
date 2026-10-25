@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Code } from "@/components/code";
 import { PageHeader } from "@/components/page";
+import { DeclareButton } from "@/components/declare-button";
 
 type Batch = { batchId: string; lines: number; createdAt: string };
 type Row = { id: number; text: string; qty: number | null; value: number | null; origin: string | null; suggestion?: { code: string; status: string } };
@@ -44,17 +45,18 @@ export function ExportView({ broker }: { broker: string }) {
         info="export"
         description="Codes as a CSV for your declaration software: DE 6/14 (8 digits) and DE 6/15 (TARIC) split out. No retyping."
         actions={batchId && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-start gap-2">
             <Button variant="outline" asChild title="Every code with its reason, precedent, agent steps and Mubit request IDs">
               <a href={`/api/${broker}/export?batch=${batchId}&audit=1`}>
                 <FileCheck /> Audit log
               </a>
             </Button>
-            <Button asChild>
+            <Button variant="outline" asChild>
               <a href={`/api/${broker}/export?batch=${batchId}`}>
                 <Download /> Download CSV
               </a>
             </Button>
+            <DeclareButton key={batchId} broker={broker} batchId={batchId} label="Declare to HMRC" />
           </div>
         )}
       />

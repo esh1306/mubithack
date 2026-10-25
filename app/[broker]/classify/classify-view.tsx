@@ -28,6 +28,7 @@ import { Code } from "@/components/code";
 import { Info } from "@/components/info";
 import { ClientEmailButton } from "@/components/client-email";
 import { FixForm } from "@/components/fix-form";
+import { DeclareButton } from "@/components/declare-button";
 import { ReceiptSheet, type Suggestion } from "@/components/receipt-sheet";
 import {
   LearningPanel,
@@ -111,23 +112,28 @@ function StatusTag({ row }: { row: Row }) {
 // declaration on CDS, then the 3-year post-clearance check (Customs (Import Duty) Regs 2018, reg 59).
 function ProcedureBar({
   broker,
+  batchId,
   total,
   back,
   waiting,
   done,
 }: {
   broker: string;
+  batchId: string;
   total: number;
   back: number;
   waiting: number;
   done: number;
 }) {
-  const steps: { title: string; note: string; state: "done" | "now" | "next"; href?: string }[] = [
+  const signed = total > 0 && done === total;
+  const steps: { title: string; note: string; state: "done" | "now" | "next"; href?: string; declare?: boolean }[] = [
     { title: "Invoice received", note: `${total} product line${total === 1 ? "" : "s"}`, state: total ? "done" : "now" },
     { title: "Checked against the UK tariff", note: `${back} of ${total} back`, state: back === total && total ? "done" : total ? "now" : "next" },
     { title: "Your review", note: waiting ? `${waiting} waiting for you` : "Nothing waiting", state: back === total && total ? (waiting ? "now" : "done") : "next" },
     { title: "Signed off", note: `${done} of ${total}`, state: total && done === total ? "done" : done ? "now" : "next" },
-    { title: "Declaration on CDS", note: "You submit; we draft", state: "next", href: `/${broker}/integrations` },
+    signed
+      ? { title: "Declaration on CDS", note: "Ready to file", state: "now", declare: true }
+      : { title: "Declaration on CDS", note: "You submit; we draft", state: "next", href: `/${broker}/integrations` },
     { title: "3-year duty check", note: "Overpaid duty to reclaim", state: "next", href: `/${broker}/retro-scan` },
   ];
   return (
@@ -153,7 +159,12 @@ function ProcedureBar({
         );
         return (
           <li key={st.title} className={cn("bg-card", st.state === "now" && "bg-[#f3f6fd]")}>
-            {st.href ? (
+            {st.declare ? (
+              <div className="flex h-full flex-col items-start gap-2 px-3.5 py-3">
+                <div className="flex items-start gap-2.5">{body}</div>
+                <DeclareButton key={batchId} broker={broker} batchId={batchId} size="sm" inline />
+              </div>
+            ) : st.href ? (
               <Link href={st.href} className="flex h-full items-start gap-2.5 px-3.5 py-3 hover:bg-accent">
                 {body}
               </Link>
@@ -658,8 +669,8 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
           </div>
         </header>}
 
-        {!showCompose && rows.length > 0 && (
-          <ProcedureBar broker={broker} total={rows.length} back={rows.length - counts.running} waiting={counts.review + counts.ready} done={counts.done} />
+        {!showCompose && batchId && rows.length > 0 && (
+          <ProcedureBar broker={broker} batchId={batchId} total={rows.length} back={rows.length - counts.running} waiting={counts.review + counts.ready} done={counts.done} />
         )}
 
         {!showCompose && rows.length > 0 && !demo && (
