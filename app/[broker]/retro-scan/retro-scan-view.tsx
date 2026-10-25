@@ -271,6 +271,7 @@ export function RetroScanView({ broker }: { broker: string }) {
     <div className="mx-auto max-w-6xl space-y-6">
       <PageHeader
         title="Duty reclaim"
+        prue="retro-scan"
         info="retroScan"
         description={
           <>

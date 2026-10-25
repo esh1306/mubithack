@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getConfig } from "@/lib/integrations";
-import { SYSTEM_BATCHES } from "@/lib/run";
+import { mubitExampleCount, SYSTEM_BATCHES } from "@/lib/run";
+import { TRAIN_AFTER } from "@/lib/mubit";
 
 // Everything Home shows, in one call: what needs the broker, recent invoices, what was learned,
 // money to recover, and which systems are connected.
@@ -77,9 +78,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ broker:
   const pastEntries = await db.pastEntry.count({ where: { brokerId: broker } });
 
   const sampleHistory = !!(await getConfig(`sample-history:${broker}`));
+  const mubitExamples = await mubitExampleCount(broker);
 
   return Response.json({
     sampleHistory,
+    learning: { examples: mubitExamples, trainAfter: TRAIN_AFTER },
     aiOffline: lastAi?.model === "hmrc-search",
     pastEntries,
     totals: {

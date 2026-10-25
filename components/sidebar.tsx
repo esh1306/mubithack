@@ -14,6 +14,7 @@ import {
   Check,
   RotateCcw,
   Search,
+  Brain,
   Menu,
   Plus,
 } from "lucide-react";
@@ -30,8 +31,9 @@ import { Wordmark } from "@/components/mark";
 import { CommandMenu, openCommandMenu } from "@/components/command-menu";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { clearDemoClientState } from "@/lib/demo";
-import { rememberFirm } from "@/components/firm-gate";
+import { forgetFirm, rememberFirm } from "@/components/firm-gate";
 import { PrueGuide } from "@/components/prue-guide";
+import { MubitPulse } from "@/components/mubit-pulse";
 import { cn } from "@/lib/utils";
 
 type Broker = { id: string; name: string };
@@ -52,6 +54,7 @@ export const NAV = [
     group: "Your firm",
     items: [
       { href: "precedents", label: "Corrections", icon: BookMarked },
+      { href: "mubit", label: "Learning", icon: Brain },
       { href: "integrations", label: "Connections", icon: Plug },
     ],
   },
@@ -119,7 +122,8 @@ function FirmSwitch({ current, brokers, section }: { current: Broker; brokers: B
             }
             await fetch("/api/demo/reset", { method: "POST" });
             clearDemoClientState(brokers.map((b) => b.id));
-            window.location.assign(`/${current.id}/home`);
+            forgetFirm();
+            window.location.assign("/start?reset=1");
           }}
         >
           <RotateCcw className="size-4" /> {confirm ? "Click again: clears all demo work" : "Reset demo data"}
@@ -143,7 +147,10 @@ function NavBody({ current, brokers, section, onNavigate }: { current: Broker; b
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
-      <FirmSwitch current={current} brokers={brokers} section={section} />
+      <div className="space-y-2">
+        <FirmSwitch current={current} brokers={brokers} section={section} />
+        <MubitPulse broker={current.id} active={section === "mubit"} />
+      </div>
 
       <nav className="flex flex-col gap-6" aria-label="Main">
         {NAV.map((g, i) => (
@@ -173,7 +180,6 @@ function NavBody({ current, brokers, section, onNavigate }: { current: Broker; b
         ))}
       </nav>
 
-      {section !== "tour" && <PrueGuide broker={current.id} section={section} />}
     </div>
   );
 }
@@ -181,7 +187,7 @@ function NavBody({ current, brokers, section, onNavigate }: { current: Broker; b
 export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker[] }) {
   const pathname = usePathname();
   const raw = pathname.split("/")[2] ?? "home";
-  const section = raw === "export" || raw === "mubit" ? "integrations" : raw;
+  const section = raw === "export" ? "integrations" : raw;
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -220,6 +226,8 @@ export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker
         </div>
       </div>
 
+      {/* Outside the sticky rail so Prue sits above the page, not under it. */}
+      {section !== "tour" && <PrueGuide broker={current.id} section={raw} />}
       <CommandMenu broker={current.id} brokers={brokers} />
     </>
   );

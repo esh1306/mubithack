@@ -3,13 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ShoppingBag, Loader2, Plus, Trash2, Check, Building2 } from "lucide-react";
+import { ShoppingBag, Loader2, Plus, Trash2, Check, ChevronRight, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ConnectorLogo } from "@/components/connector-logos";
+import { PrueSpot } from "@/components/prue-spot";
+import { PRUE } from "@/lib/prue-tips";
 import { ClientToolbar, sortClients, useClientSort } from "@/components/client-sort";
 import { readSse } from "@/lib/sse";
 
@@ -260,9 +262,12 @@ export function ClientsView({ broker }: { broker: string }) {
           <h1 className="desk-display">Clients</h1>
           <p className="max-w-2xl text-[15px] text-muted-foreground">The importers you declare for. Each one&apos;s EORI goes on its declarations.</p>
         </div>
-        <Button onClick={() => setAddOpen(true)}>
-          <Plus /> Add client
-        </Button>
+        <div className="flex items-end gap-4">
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus /> Add client
+          </Button>
+          <PrueSpot state={PRUE.clients.pose} say={PRUE.clients.say} side="right" className="-mb-8" />
+        </div>
       </header>
 
       {notice && <p className="rounded-md border px-3 py-2 text-sm">{notice}</p>}
@@ -289,7 +294,7 @@ export function ClientsView({ broker }: { broker: string }) {
         {clients === null && <p className="px-5 py-8 text-sm text-muted-foreground">Loading clients…</p>}
         {clients?.length === 0 && (
           <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
-            <Building2 className="size-8 text-muted-foreground" />
+            <Users className="size-8 text-muted-foreground" />
             <p className="font-serif text-xl">No clients yet</p>
             <p className="max-w-sm text-sm text-muted-foreground">Add the importers you work for. You&apos;ll pick one each time you bring in an invoice.</p>
             <Button onClick={() => setAddOpen(true)}>
@@ -344,14 +349,7 @@ export function ClientsView({ broker }: { broker: string }) {
                       )}
                     </td>
                     <td className="px-5 py-3 text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        asChild
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Link href={`/${broker}/classify?new=1&client=${c.id}`}>New invoice</Link>
-                      </Button>
+                      <ChevronRight className="ml-auto size-4 text-muted-foreground" aria-hidden />
                     </td>
                   </tr>
                 ))}

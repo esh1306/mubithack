@@ -8,7 +8,6 @@ import { DEMO_HREF, DESK_HREF } from "@/components/site-nav";
 import { MubitShowcase } from "@/components/mubit-showcase";
 import { AuroraField } from "@/components/bits/aurora-field";
 import { TiltCard } from "@/components/bits/tilt-card";
-import { Mark } from "@/components/mark";
 import { ConnectorLogo, CONNECTORS, type ConnectorId } from "@/components/connector-logos";
 import { gsap, registerLandingMotion, ScrollTrigger, SplitText } from "@/components/landing-motion";
 import { JOURNEY_STEPS } from "@/lib/landing-steps";
@@ -33,9 +32,8 @@ function BrandBar() {
   return (
     <div className="relative z-40 mx-auto flex w-full max-w-[86rem] items-center justify-between gap-4 px-5 pt-6 sm:px-8 lg:px-10">
       <Link href="/" className="flex items-center gap-3 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0b1f4d]">
-        <Mark size={30} className="text-brand" />
         <span className="leading-none">
-          <span className="block font-[family-name:var(--font-ruling)] text-[22px] font-semibold tracking-[-0.01em] text-[#0b1f4d]">Precedent</span>
+          <span className="block font-[family-name:var(--font-ruling)] text-[26px] font-bold tracking-[-0.015em] text-[#0b1f4d]">Precedent</span>
           <span className="mt-1 block text-[12px] font-medium text-[#1e3a6e]">Customs classification for UK brokers</span>
         </span>
       </Link>
@@ -188,7 +186,6 @@ function Footer() {
     <footer className="border-t border-[#0b1f4d]/10 px-5 py-10 sm:px-8 lg:px-10">
       <div className="mx-auto flex max-w-[86rem] flex-wrap items-start justify-between gap-8">
         <div className="flex items-center gap-3">
-          <Mark size={24} className="text-brand" />
           <span className="font-[family-name:var(--font-ruling)] text-[18px] font-semibold text-[#0b1f4d]">Precedent</span>
         </div>
         <div className="max-w-2xl space-y-2 text-[12px] leading-relaxed text-[#3b4f7a]">

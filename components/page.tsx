@@ -1,6 +1,8 @@
 import { cn } from "@/lib/utils";
 import { Info, INFO } from "@/components/info";
 import { Mark } from "@/components/mark";
+import { PrueSpot } from "@/components/prue-spot";
+import { prueFor } from "@/lib/prue-tips";
 
 // Shared page parts, so every screen has the same rhythm: a serif headline, then soft cards on paper.
 
@@ -10,13 +12,17 @@ export function PageHeader({
   info,
   actions,
   eyebrow,
+  prue,
 }: {
   title: React.ReactNode;
   description?: React.ReactNode;
   info?: keyof typeof INFO;
   actions?: React.ReactNode;
   eyebrow?: React.ReactNode;
+  /** The section whose Prue stands beside the title (only for sections placed "page"). */
+  prue?: string;
 }) {
+  const p = prue ? prueFor(prue) : null;
   return (
     <header className="flex flex-wrap items-end justify-between gap-6 pb-8">
       <div className="min-w-0 space-y-2">
@@ -26,7 +32,12 @@ export function PageHeader({
         </h1>
         {description && <p className="max-w-2xl text-[15px] text-muted-foreground">{description}</p>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {(actions || p) && (
+        <div className="flex flex-wrap items-end gap-4">
+          {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+          {p?.place === "page" && <PrueSpot state={p.pose} say={p.say} side="right" className="-mb-8" />}
+        </div>
+      )}
     </header>
   );
 }

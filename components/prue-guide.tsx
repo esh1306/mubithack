@@ -1,39 +1,50 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowRight, X } from "lucide-react";
 import { Prue, type PrueState } from "@/components/prue";
+import { prueFor } from "@/lib/prue-tips";
 import { cn } from "@/lib/utils";
 
-type Tip = { state: PrueState; text: string; cta?: { label: string; href: string } };
+// The sidebar and corner Prue. Pages that place her themselves (see lib/prue-tips) render their own,
+// so there is never more than one on screen.
+type Override = { state?: PrueState; text: string } | null;
+let override: Override = null;
+const listeners = new Set<() => void>();
+const set = (o: Override) => {
+  override = o;
+  listeners.forEach((l) => l());
+};
 
-// What Prue says on each page: one plain sentence about what to do here, and the next step.
-function tipFor(section: string, broker: string): Tip {
-  const at = (p: string) => `/${broker}/${p}`;
-  switch (section) {
-    case "classify":
-      return { state: "idle", text: "Open a line to see my receipt: HMRC's sources, the legal note, the duty. Approve it, or correct me and I'll remember." };
-    case "clients":
-      return { state: "idle", text: "Each client is an importer. Click one to bring in their Shopify catalogue or start an invoice for them." };
-    case "retro-scan":
-      return { state: "thinking", text: "I can re-check 3 years of imports at the rate on each date. Overpaid duty becomes a claim pack for HMRC." };
-    case "precedents":
-      return { state: "learned", text: "Every correction you make, I apply to similar products, and teach to your firm's own Mubit model." };
-    case "integrations":
-    case "export":
-    case "mubit":
-      return { state: "idle", text: "Goods come in from Shopify or Excel, I check them against HMRC's tariff, and signed codes go out to your declaration." };
-    default:
-      return { state: "hello", text: "Hi, I'm Prue. I find the UK commodity code for every product and print a receipt for it.", cta: { label: "Show me one shipment", href: at("tour") } };
-  }
+export function usePrueSays(text: string, state?: PrueState) {
+  useEffect(() => {
+    set({ text, state });
+    return () => set(null);
+  }, [text, state]);
 }
 
-// Prue, bottom-left, with a speech bubble. Hide her per page; she comes back when the page changes.
-export function PrueGuide({ broker, section }: { broker: string; section: string }) {
+function useOverride() {
+  return useSyncExternalStore(
+    (l) => {
+      listeners.add(l);
+      return () => listeners.delete(l);
+    },
+    () => override,
+    () => null,
+  );
+}
+
+export function PrueGuide({ broker, section: page }: { broker: string; section: string }) {
+  const q = useSearchParams();
+  const section = page !== "classify" ? page : q.get("new") === "1" ? "classify:new" : q.get("batch") || q.get("sample") ? "classify:invoice" : "classify";
+  const said = useOverride();
   const [closed, setClosed] = useState<string | null>(null);
-  const tip = tipFor(section, broker);
-  const cta = tip.cta ?? { label: "Take the product tour", href: `/${broker}/tour` };
+  const conf = prueFor(section);
+  const state = said?.state ?? conf.pose;
+  const text = said?.text ?? conf.say;
+  const cta = section === "home" ? { label: "Show me one shipment", href: `/${broker}/tour` } : { label: "Take the product tour", href: `/${broker}/tour` };
   const open = closed !== section;
 
   useEffect(() => {
@@ -52,29 +63,44 @@ export function PrueGuide({ broker, section }: { broker: string; section: string
     } catch {}
   };
 
+  if (conf.place !== "sidebar" && conf.place !== "corner") return null;
+  const corner = conf.place === "corner";
+
   return (
-    <div className="mt-auto">
-      {open && (
-        <div key={section} className="guide-bubble relative mb-2 rounded-2xl border border-primary/20 bg-card p-3.5 pr-8 text-[13.5px] leading-snug shadow-[0_10px_28px_-16px_rgba(19,48,107,0.55)]">
+    // sidebar: inside the rail's foot (15rem wide), the bubble may spill a little into the page.
+    // corner: bottom-right of the page, clear of the navigation.
+    <div
+      className={cn(
+        "pointer-events-none fixed bottom-3 z-40 hidden w-[17.5rem] flex-col md:flex",
+        corner ? "right-4 items-end" : "left-3 items-start",
+      )}
+    >
+      {open ? (
+        <div
+          key={text}
+          className="guide-bubble pointer-events-auto relative mb-1 w-full rounded-2xl border border-primary/20 bg-card p-4 pr-8 text-[14px] leading-snug shadow-[0_14px_36px_-18px_rgba(19,48,107,0.6)]"
+        >
           <button type="button" onClick={toggle} aria-label="Hide Prue's tip" className="absolute right-2 top-2 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
             <X className="size-3.5" />
           </button>
-          <p className="text-foreground/85">{tip.text}</p>
+          <p className="text-[12px] font-semibold text-primary">Prue</p>
+          <p className="mt-0.5 text-foreground/85">{text}</p>
           <Link href={cta.href} className="mt-2 inline-flex items-center gap-1 text-[13px] font-medium text-primary hover:underline">
             {cta.label} <ArrowRight className="size-3.5" />
           </Link>
-          <span className="absolute -bottom-[7px] left-9 size-3.5 rotate-45 border-b border-r border-primary/20 bg-card" />
+          <span className={cn("absolute -bottom-[7px] size-3.5 rotate-45 border-b border-r border-primary/20 bg-card", corner ? "right-14" : "left-14")} />
         </div>
-      )}
-      <button
-        type="button"
-        onClick={toggle}
-        className={cn("flex items-end gap-2 rounded-lg px-1 text-left text-[12.5px] text-muted-foreground hover:text-foreground")}
-        aria-label={open ? "Hide Prue's tip" : "Ask Prue"}
-      >
-        <Prue state={tip.state} size={76} />
-        {!open && <span className="mb-3">Ask Prue</span>}
-      </button>
+      ) : null}
+      <div className={cn("pointer-events-auto flex items-end gap-2", corner && "flex-row-reverse")}>
+        <button type="button" onClick={toggle} className="rounded-2xl outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-ring" aria-label={open ? "Hide Prue's tip" : "Ask Prue"}>
+          <Prue state={state} size={104} />
+        </button>
+        {!open && (
+          <button type="button" onClick={toggle} className="mb-4 rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-muted-foreground shadow-sm hover:text-foreground">
+            Ask Prue
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -8,26 +8,17 @@ export function Mark({ className, size = 28, state }: { className?: string; size
 
 export function Wordmark({
   className,
-  markClassName,
   size = 22,
 }: {
   className?: string;
-  markClassName?: string;
   size?: number;
 }) {
   return (
-    <span className={cn("inline-flex items-center gap-[0.5em] text-foreground", className)}>
-      <Mark size={size} className={cn("text-brand", markClassName)} />
-      <span
-        className="wordmark-type font-[800] tracking-[-0.06em]"
-        style={{
-          fontFamily: "var(--font-inter), ui-sans-serif, system-ui, sans-serif",
-          fontSize: Math.round(size * 0.72),
-          lineHeight: 1,
-        }}
-      >
-        Precedent
-      </span>
+    <span
+      className={cn("wordmark-type inline-flex items-baseline font-bold tracking-[-0.03em] text-foreground", className)}
+      style={{ fontFamily: "var(--font-ruling), Georgia, serif", fontSize: Math.round(size * 1.3), lineHeight: 1 }}
+    >
+      Precedent<span className="text-brand">.</span>
     </span>
   );
 }
