@@ -846,12 +846,6 @@ body {
 .paper-card-float {
   background: color-mix(in oklab, #f3ead3 92%, white);
 }
-.stat-card {
-  padding: 1rem 1.05rem;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 18px 40px -24px rgba(8, 20, 60, 0.65);
-}
 .cargo-drift {
   animation: cargo-drift 7s ease-in-out infinite;
 }
@@ -1040,3 +1034,82 @@ body {
 }
 @keyframes connector-pulse { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
 @media (prefers-reduced-motion: reduce) { .connector-arrow::after { animation: none; } }
+
+/* Landing story: the dark problem band, journey outcome metrics and the ROI card. */
+.problem-band {
+  --foreground: #f4f8ff;
+  color: var(--foreground);
+  background:
+    radial-gradient(60rem 30rem at 85% 0%, rgba(194, 54, 43, 0.28), transparent 60%),
+    radial-gradient(50rem 30rem at 0% 100%, rgba(29, 78, 216, 0.35), transparent 60%),
+    #0b1f4d;
+}
+.problem-hero-number {
+  font-family: var(--font-display-face), var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(6rem, 22vw, 15rem);
+  font-weight: 800;
+  line-height: 0.82;
+  letter-spacing: -0.03em;
+  background: linear-gradient(100deg, #ffffff 20%, #ff8a7a 70%, #f59e0b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.problem-number {
+  font-family: var(--font-display-face), var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(3rem, 5vw, 4.25rem);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+.journey-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-family: var(--font-display-face), var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 0.9;
+  color: #c2362b;
+  white-space: nowrap;
+}
+.journey-metric span {
+  margin-top: 0.3rem;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4a5872;
+}
+.roi-card {
+  padding: 1.75rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(11, 31, 77, 0.1);
+  box-shadow: 0 40px 80px -40px rgba(11, 31, 77, 0.45);
+  backdrop-filter: blur(12px);
+}
+@media (min-width: 1024px) {
+  .roi-card {
+    padding: 2.5rem 3rem;
+  }
+}
+.roi-number {
+  font-family: var(--font-display-face), var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(3rem, 5vw, 5rem);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  color: #0b1f4d;
+}
+.roi-number-accent {
+  color: #c2362b;
+}
+.roi-range {
+  accent-color: #c2362b;
+  height: 1.5rem;
+  cursor: pointer;
+}
