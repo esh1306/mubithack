@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { MubitMark } from "@/components/partner-marks";
 import { gsap, registerLandingMotion, ScrollTrigger } from "@/components/landing-motion";
 import { DEMO_BAMBOO_CODE } from "@/lib/demo";
+import { TRAIN_AFTER, VARIANT_COUNT } from "@/lib/landing-stats";
 
-const TRAIN_AFTER = 25;
 const VARIANTS = [
   "Bamboo kids' dinner set, plate bowl cup",
   "Bamboo children's dinner set, plate bowl cup",
@@ -57,13 +57,15 @@ export function MubitShowcase() {
     const circ = 2 * Math.PI * r;
 
     if (reduce) {
-      setCount(VARIANTS.length);
+      const done = gsap.delayedCall(0, () => setCount(VARIANTS.length));
       gsap.set(chips, { opacity: 0.35 });
       if (ring.current) {
         ring.current.style.strokeDasharray = `${circ}`;
         ring.current.style.strokeDashoffset = `${circ * (1 - VARIANTS.length / TRAIN_AFTER)}`;
       }
-      return;
+      return () => {
+        done.kill();
+      };
     }
 
     const obj = { n: 0 };
@@ -132,11 +134,15 @@ export function MubitShowcase() {
   }, []);
 
   return (
-    <section ref={root} id="mubit" className="relative mx-auto max-w-[86rem] border-t border-foreground/10 px-5 py-20 sm:px-8 lg:px-10">
-      <h2 className="landing-display landing-section-title overflow-visible">Learns how your firm codes.</h2>
-      <p className="mt-3 max-w-xl text-[15px] font-medium leading-snug text-foreground/70">
-        One correction becomes ~20 paraphrases, sent through this firm&apos;s Mubit task. We count examples toward{" "}
-        {TRAIN_AFTER}. We cannot see if an adapter is live.
+    <section ref={root} id="mubit" className="relative mx-auto max-w-[86rem] border-t border-foreground/10 px-5 py-24 sm:px-8 lg:px-10 lg:py-32">
+      <p className="landing-kicker text-[#c2362b]">Why it gets better every week</p>
+      <h2 className="landing-display landing-section-title mt-3 overflow-visible">Correct it once. Prue remembers.</h2>
+      <p className="mt-4 max-w-xl text-[17px] font-medium leading-relaxed text-foreground/75">
+        Generic AI forgets your fixes. Prue turns each correction into {VARIANT_COUNT} paraphrases for your firm&apos;s own Mubit memory, so the
+        next look-alike product follows your precedent, not a guess.
+      </p>
+      <p className="mt-2 max-w-xl text-[13px] text-foreground/55">
+        We count examples toward {TRAIN_AFTER} for a firm adapter; we cannot see whether an adapter is live.
       </p>
 
       <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]">
