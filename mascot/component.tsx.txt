@@ -1,0 +1,63 @@
+
+// ---------------------------------------------------------------------------
+// React component (components/prue.tsx): same name, same `size` / `mood` / `className`
+// props as v1 and v2, plus `state`, `animate`, `loop`.
+//
+//   <Prue state="thinking" size={72} />
+//   <Prue state="learned" />          // hop + stamp + confetti once, then holds the stamped receipt
+//   <Prue mood="happy" size={30} />   // v1 API still works (renders still)
+import { useId } from "react";
+
+export function Prue({
+  state,
+  mood,
+  size = 48,
+  animate,
+  loop = false,
+  compact,
+  className,
+  label = "Prue, Precedent's assistant",
+}: {
+  state?: PrueState;
+  /** v1 prop, kept so existing call sites keep working. Prefer `state`. */
+  mood?: PrueMood;
+  /** Width in px; height follows the 240:350 artboard. */
+  size?: number;
+  /** Defaults to true with `state`, false with legacy `mood` (keeps the sidebar still). */
+  animate?: boolean;
+  /** Loop the one-shot `learned` celebration (showcase use). */
+  loop?: boolean;
+  /** Hide the receipt and crop tight. Defaults to true below 64px. */
+  compact?: boolean;
+  className?: string;
+  label?: string;
+}) {
+  const s: PrueState = state ?? moodToState[mood ?? "neutral"];
+  const still = !(animate ?? state !== undefined);
+  const id = "pc" + useId().replace(/[^a-zA-Z0-9]/g, "");
+  const tight = compact ?? size < 64;
+  const vb = tight ? VIEWBOX.compact : VIEWBOX.full;
+  return (
+    <>
+      {/* React 19 hoists this into <head> once, however many Prues are on the page. */}
+      <style href="prue-v3" precedence="default">{PRUE_CSS}</style>
+      <svg
+        key={s /* re-mount restarts one-shot animations when the state changes */}
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox={vb.join(" ")}
+        width={size}
+        height={Math.round((size * vb[3]) / vb[2])}
+        className={["pcm", className].filter(Boolean).join(" ")}
+        data-state={s}
+        data-loop={loop}
+        data-still={still}
+        data-compact={tight}
+        role="img"
+        aria-label={label}
+        dangerouslySetInnerHTML={{ __html: prueDefs(id) + prueBody(id) }}
+      />
+    </>
+  );
+}
+
+export default Prue;
