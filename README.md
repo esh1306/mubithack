@@ -4,7 +4,7 @@
 A UK customs desk where an AI agent codes every invoice line against HMRC's live tariff, shows its working, and learns from each broker correction through Mubit.</p>
 
 <p align="center">
-  <a href="precedent-launch-A.mp4">Demo video (1:55)</a> ·
+  <a href="precedent-launch-D2.mp4">Demo video (1:59)</a> ·
   <a href="#how-we-use-mubit">How we use Mubit</a> ·
   <a href="#run-it">Run it locally</a> ·
   <a href="https://github.com/esh1306/mubithack">Repo</a>
@@ -22,39 +22,58 @@ A UK customs desk where an AI agent codes every invoice line against HMRC's live
 
 ## The problem
 
-UK customs brokers have to give every line on an importer's invoice a 10-digit UK Trade Tariff commodity code. The work is done by hand, and a wrong code is a legal problem for the broker: duty is overpaid or underpaid, HMRC can send a demand, and the broker shares liability as the importer's indirect representative. Precedent is a desk where an AI agent, Prue, codes each line against HMRC's live tariff and shows its working. A broker signs off each line or corrects it, and every correction becomes a precedent that the firm's later invoices follow.
+Every UK import needs a 10-digit commodity code for each line on the invoice, picked from a tariff of about 20,000. Brokers do it by hand, and the numbers from the demo's opening say why that hurts:
 
-It's for customs brokers and freight forwarders filing UK import declarations. Our working estimate is that coding a line by hand takes about 6 minutes and reviewing Prue's suggestion about 1 (`lib/savings.ts`). On a 40-line invoice that's roughly 4 hours down to 40 minutes.
+| | | Source |
+|---|---|---|
+| **19–28 min** | staff time per customs form | HMRC/Ipsos (Feb 2026) |
+| **£80–200** | paid to a broker per shipment | HMRC/Ipsos (Feb 2026) |
+| **£418m** | in surprise HMRC bills in one year, for duty that was underpaid | Menzies FOI request to HMRC (year to Mar 2026) |
+| **£250 to £2,500** | civil penalty per mistake | HMRC civil penalties guidance |
+| **600m** | small parcels a year newly in scope from Oct 2028 | GOV.UK low-value imports consultation response (Jul 2026) |
+| **+7.9%** | more customs paperwork last year, with no new hires | HMRC/Ipsos (Feb 2026) |
+
+A wrong code doesn't fail at the border. The bill arrives months later, then the fine, and the broker shares liability as the importer's indirect representative. And from 2028 the same small teams get hundreds of millions more parcels to code.
+
+Precedent is a desk where an AI agent, Prue, codes each line against HMRC's live tariff and shows its working. A broker signs off each line or corrects it, and every correction becomes a precedent that the firm's later invoices follow. Our working estimate is about 6 minutes to code a line by hand and 1 to review Prue's suggestion (`lib/savings.ts`), so a 40-line invoice goes from about 4 hours to 40 minutes.
+
+<p align="center">
+  <img src="docs/img/problem.jpg" width="80%" alt="From the demo: £418m in surprise HMRC bills in one year, and fines up to £2.5k per mistake" />
+</p>
 
 ## The demo video
 
-`precedent-launch-A.mp4` (1:55). The video runs against the real app and makes a real HMRC sandbox submission. Waiting is sped up, at most 6×.
+`precedent-launch-D2.mp4` (1:59). The video runs against the real app and makes a real HMRC sandbox submission. Waiting is sped up, at most 19×.
 
-1. **Landing:** "One wrong code. Overpaid duty." This is Precedent.
-2. **Desk home:** what Prue has saved the firm (time, £, lines coded), and how she's learning the firm.
-3. **Ask Prue:** click the mascot, ask a question, and she answers with the tariff lookups she made.
-4. **The tour:** Sunrise Homeware sends a six-line invoice, shipped from Ningbo and Dhaka.
-5. **Checking every line with HMRC:** each line goes to the UK Trade Tariff (classification search, chapter notes, commodity lookup), and every code comes with a reason and a source.
-6. **A correction:** the bamboo kids' dinner set is bound with melamine resin, so it's chapter 39 plastics at 6% duty, not bamboo at 0%. The broker corrects it and says why.
-7. **Precedent and Mubit:** the fix becomes a precedent. About 20 paraphrases are sent through the firm's Mubit task, each with its own request ID. Products the firm has never coded now get the corrected code. Another firm on Precedent doesn't, because the correction belongs to the firm that made it.
-8. **Declare:** the broker approves the other five lines and Precedent drafts an H1 import declaration. It's submitted straight to HMRC's CDS sandbox, which returns **HTTP 202 Accepted**.
-9. **Look back 3 years:** past imports are re-checked at the duty rate in force on each date. That finds £655.27 of duty to disclose before HMRC finds it, and £597.39 to reclaim.
-10. **Learning:** every agent call runs through the firm's own Mubit task. The app's counter showed 45 recorded examples at the time.
+1. **The problem:** "One wrong customs code." A 10-digit code for every import, from about 20,000. The bill arrives months later, then the fine. From Oct 2028, small parcels need codes too.
+2. **Introducing Precedent:** the broker checks; the AI learns, through Mubit.
+3. **An invoice lands:** Sunrise Homeware sends six lines, shipped from Ningbo and Dhaka.
+4. **Checking every line with HMRC:** each line goes to the UK Trade Tariff (classification search, chapter notes, commodity lookup), and every code comes with a reason and a source. Six lines take 21 seconds of real check time.
+5. **One line is wrong:** the bamboo kids' dinner set is bamboo fibre bound with melamine resin, so it's chapter 39 plastics at 6% duty, not bamboo at 0%. The broker fixes it once and says why. Caught before it was declared, that's £110.40 that would have been underpaid on this invoice alone.
+6. **Never-coded products flip:** the fix becomes a precedent. Bamboo cups, lunch boxes and baby bowls the firm has never coded now get the melamine code. Real bamboo chopsticks and chopping boards stay put, and other firms on Precedent don't get the correction.
+7. **Each fix trains the firm's own Mubit task:** the fix becomes about 20 practice examples, paraphrases sent through the firm's Mubit task, each with its own request ID. At 25 examples, the task's first adapter trains.
+8. **The declaration drafts itself:** the broker approves the other five lines and Precedent drafts an H1 import declaration, with duty and VAT from HMRC's tariff.
+9. **Real CDS sandbox submission:** it's submitted straight to HMRC's CDS sandbox, which returns **HTTP 202 Accepted**.
+10. **Look back 3 years:** past imports are re-checked at the duty rate in force on each date. That finds £597.39 to reclaim and £655.27 to disclose before HMRC finds it.
+11. **Plugs into the broker's tools:** Shopify and Excel invoices in, the UK Trade Tariff live API and legal notes, the firm's Mubit task, HMRC CDS out.
 
 <p align="center">
-  <img src="docs/img/hmrc-check.jpg" width="49%" alt="Step 5: Prue checks every line against the UK Trade Tariff, with a reason and source for each code" />
-  <img src="docs/img/correction.jpg" width="49%" alt="Step 6: the broker corrects the bamboo kids' dinner set to melamine, chapter 39, 6% duty" />
+  <img src="docs/img/hmrc-check.jpg" width="49%" alt="Step 4: Prue checks every line against the UK Trade Tariff, six lines in 21 seconds" />
+  <img src="docs/img/correction.jpg" width="49%" alt="Step 5: one line is wrong, the bamboo dinner set is melamine, 6% duty not 0%" />
 </p>
 <p align="center">
-  <img src="docs/img/precedent-flip.jpg" width="49%" alt="Step 7: never-coded products flip to the corrected code, while real bamboo stays put" />
-  <img src="docs/img/hmrc-202.jpg" width="49%" alt="Step 8: the H1 declaration is submitted to HMRC's CDS sandbox and returns HTTP 202 Accepted" />
+  <img src="docs/img/precedent-flip.jpg" width="49%" alt="Step 6: never-coded products flip to the corrected code, while real bamboo stays put, and the fix becomes about 20 Mubit examples" />
+  <img src="docs/img/learning.jpg" width="49%" alt="Step 7: the firm's own Mubit task, which trains its first adapter at 25 examples" />
 </p>
 <p align="center">
-  <img src="docs/img/retro-scan.jpg" width="49%" alt="Step 9: the 3-year look-back finds £597.39 to reclaim and £655.27 to disclose" />
-  <img src="docs/img/learning.jpg" width="49%" alt="Step 10: the Learning page, with 45 examples in the firm's Mubit task at the time of recording" />
+  <img src="docs/img/hmrc-202.jpg" width="49%" alt="Step 9: the H1 declaration is submitted to HMRC's CDS sandbox and returns HTTP 202 Accepted" />
+  <img src="docs/img/retro-scan.jpg" width="49%" alt="Step 10: the 3-year look-back finds £597.39 to reclaim and £655.27 to disclose" />
+</p>
+<p align="center">
+  <img src="docs/img/integrations.jpg" width="80%" alt="Step 11: plugs into the broker's tools, Shopify and Excel, UK Trade Tariff, Mubit task, HMRC CDS" />
 </p>
 
-<p align="center"><sub>Stills from the demo video, steps 5 to 10.</sub></p>
+<p align="center"><sub>Stills from the demo video.</sub></p>
 
 ## How we use Mubit
 
@@ -101,7 +120,7 @@ Helper calls opt out of recording, so only real classification work ends up in a
   | Classifier, v2 | 27.8% | 18 |
 
 **Numbers inside the app:**
-- **App database:** the app counts recorded classify calls in its own database: 142 for Harbourline and 14 for Northgate today. The video's "45 examples" is that counter at the time of recording. The Mubit console above is the source of truth.
+- **App database:** the app counts recorded classify calls in its own database: 142 for Harbourline and 14 for Northgate today. The counters in the video come from that database at the time of recording. The Mubit console above is the source of truth.
 - **The landing page's "20 of 25" counter** illustrates the loop. The live counts are in the tour and on the Learning page, which read the app's database.
 
 ## How it works
