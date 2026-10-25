@@ -3,6 +3,7 @@
 import { Info as InfoIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { SAVINGS_ASSUMPTION } from "@/lib/savings";
 
 // Short explanations behind the ⓘ buttons, kept in one place so the wording stays consistent.
 export const INFO = {
@@ -65,6 +66,10 @@ export const INFO = {
   hmrc: {
     title: "HMRC Customs Declarations (sandbox)",
     body: "Sandbox only — not live CDS. Needs HMRC_CLIENT_ID / SECRET and redirect http://localhost:3000/api/hmrc/callback. Sign in as a sandbox test company, then file a classified invoice as an H1. See docs/HMRC.md.",
+  },
+  savings: {
+    title: "How the savings are worked out",
+    body: `${SAVINGS_ASSUMPTION} Only lines Prue actually coded for this firm count. Duty to reclaim comes from the 3-year duty check.`,
   },
   export: {
     title: "Export",

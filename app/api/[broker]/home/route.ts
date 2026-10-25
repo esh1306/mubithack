@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { getConfig } from "@/lib/integrations";
 import { mubitExampleCount, SYSTEM_BATCHES } from "@/lib/run";
 import { TRAIN_AFTER } from "@/lib/mubit";
+import { savings } from "@/lib/savings";
 
 // Everything Home shows, in one call: what needs the broker, recent invoices, what was learned,
 // money to recover, and which systems are connected.
@@ -42,7 +43,21 @@ export async function GET(_req: Request, { params }: { params: Promise<{ broker:
     }));
 
   const classified = lines.filter((l) => latest(l));
-  const signedOff = classified.filter((l) => ["approved", "corrected"].includes(latest(l)!.status)).length;
+  const isSigned = (l: (typeof lines)[number]) => ["approved", "corrected"].includes(latest(l)?.status ?? "");
+  const signedOff = classified.filter(isSigned).length;
+
+  // What Prue did on her own: lines she coded (not failed runs), and those confident enough to need no question.
+  const coded = classified.filter((l) => latest(l)!.model !== "error");
+  const auto = coded.filter((l) => !latest(l)!.flagged).length;
+
+  // The desk at a glance: invoices still open, fully signed, and added today.
+  const today = new Date().toDateString();
+  const batches = [...byBatch.values()];
+  const desk = {
+    open: batches.filter((ls) => !ls.every(isSigned)).length,
+    done: batches.filter((ls) => ls.every(isSigned)).length,
+    today: batches.filter((ls) => ls.at(-1)!.createdAt.toDateString() === today).length,
+  };
 
   const precedents = await db.precedent.findMany({ where: { brokerId: broker }, orderBy: { id: "desc" } });
   const followed = await db.suggestion.groupBy({
@@ -93,6 +108,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ broker:
       followed: followed.reduce((s, f) => s + f._count, 0),
       invoices: byBatch.size,
     },
+    saved: { linesCoded: coded.length, auto, ...savings(coded.length) },
+    desk,
     invoices,
     needsYou,
     learned,
