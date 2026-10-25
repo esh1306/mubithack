@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BookOpenCheck, FileInput, Landmark, PenLine, RotateCcw, type LucideIcon } from "lucide-react";
 import { DEMO_HREF, DESK_HREF } from "@/components/site-nav";
 import { MubitShowcase } from "@/components/mubit-showcase";
+import { CustomsScene } from "@/components/customs-scene";
 import { AuroraField } from "@/components/bits/aurora-field";
 import { TiltCard } from "@/components/bits/tilt-card";
 import { ConnectorLogo, CONNECTORS, type ConnectorId } from "@/components/connector-logos";
@@ -389,6 +390,14 @@ export function LandingView() {
             <p className="mt-3 max-w-md text-[16px] font-medium leading-relaxed text-[#1e3a6e]">
               The same five steps a UK customs broker already follows, with the tariff work done and every decision on record.
             </p>
+            {/* One line through the gate: checked against the tariff, stamped with its code, on to the border. */}
+            <figure className="mt-8 max-w-md overflow-hidden rounded-xl border border-[#0b1f4d]/10 bg-white/80 backdrop-blur-md">
+              <CustomsScene code="8539 52 00 00" className="aspect-[520/150] w-full" />
+              <figcaption className="flex items-baseline justify-between gap-3 border-t border-[#0b1f4d]/10 px-4 py-2.5 text-[12px] text-[#4a5872]">
+                <span>LED bulb, E27, 9W, warm white</span>
+                <span className="font-[family-name:var(--font-plex-mono)] text-[#0e1a2f]">Duty 0%</span>
+              </figcaption>
+            </figure>
           </div>
 
           <div className="journey-timeline">
