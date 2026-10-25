@@ -11,15 +11,16 @@ import { AuroraField } from "@/components/bits/aurora-field";
 import { TiltCard } from "@/components/bits/tilt-card";
 import { ConnectorLogo, CONNECTORS, type ConnectorId } from "@/components/connector-logos";
 import { gsap, registerLandingMotion, ScrollTrigger, SplitText } from "@/components/landing-motion";
+import { ProblemBand, RoiBlock } from "@/components/landing-stats";
 import { JOURNEY_STEPS } from "@/lib/landing-steps";
+import { LOOKBACK_YEARS } from "@/lib/landing-stats";
+import { MANUAL_MIN_PER_LINE, REVIEW_MIN_PER_LINE } from "@/lib/savings";
 import type { EarthApi } from "@/components/earth-globe";
 
 const EarthGlobe = dynamic(() => import("@/components/earth-globe"), {
   ssr: false,
   loading: () => null,
 });
-
-const TARIFF = "https://www.trade-tariff.service.gov.uk";
 
 const STEP_ICON: Record<(typeof JOURNEY_STEPS)[number]["icon"], LucideIcon> = {
   invoice: FileInput,
@@ -75,28 +76,27 @@ function Headline() {
   return (
     <div className="max-w-xl">
       <h1 className="landing-display landing-hero-title overflow-visible">
-        <span ref={ref}>The right commodity code.</span>
+        <span ref={ref}>Stop coding invoices by hand.</span>
         <br />
         <span ref={accent} className="landing-hero-accent">
-          Every UK import.
+          Just sign them.
         </span>
       </h1>
       <p className="landing-lede mt-6 max-w-lg">
-        Precedent classifies each product on your client&apos;s invoice against HMRC&apos;s UK Trade Tariff and its legal notes, shows the
-        reasoning in a record you sign, and remembers every correction your team makes. Then it finds the duty overpaid in the last three
-        years.
+        One wrong commodity code means overpaid duty, an HMRC demand or a penalty. Prue codes every line against HMRC&apos;s live tariff,
+        shows the legal reasoning, and remembers your firm&apos;s corrections. You review in a minute and sign.
       </p>
       <ul className="landing-chips">
-        <li>Checked against HMRC&apos;s tariff</li>
-        <li>You sign every code</li>
-        <li>3-year duty reclaim</li>
+        <li>{MANUAL_MIN_PER_LINE} min → {REVIEW_MIN_PER_LINE} min a line</li>
+        <li>HMRC&apos;s live tariff</li>
+        <li>{LOOKBACK_YEARS}-year duty reclaim</li>
       </ul>
       <div className="mt-8 flex flex-wrap items-center gap-3">
         <Link href={DEMO_HREF} className="landing-cta landing-cta-primary">
-          Try the demo
+          Try the live demo
         </Link>
-        <Link href="#journey" className="landing-cta landing-cta-ghost">
-          See how it works
+        <Link href="#problem" className="landing-cta landing-cta-ghost">
+          See the cost
         </Link>
       </div>
     </div>
@@ -140,41 +140,6 @@ function RecordCard() {
     </figure>
   );
 }
-
-const WHY = [
-  {
-    title: "One code, a different bill",
-    body: "The same bamboo dinner set is 0% duty as bamboo tableware (4419 19 00 00) and 6% as melamine tableware from China (3924 10 00 11). The legal notes decide which is right.",
-    source: { label: "UK Trade Tariff", href: `${TARIFF}/commodities/3924100011` },
-  },
-  {
-    title: "Overpay, and the clock runs",
-    body: "Overpaid import duty can be reclaimed, but only within three years of the debt being notified. After that it is gone.",
-    source: { label: "Reg 59, S.I. 2018/1248", href: "https://www.legislation.gov.uk/uksi/2018/1248/regulation/59" },
-  },
-  {
-    title: "Underpay, and HMRC sends the bill",
-    body: "Underpaid duty is recovered with a post-clearance demand, and an inaccurate declaration can draw a customs civil penalty.",
-    source: { label: "HMRC customs civil penalties", href: "https://www.gov.uk/government/publications/customs-civil-penalties" },
-  },
-  {
-    title: "The broker can be liable too",
-    body: "A customs agent acting as an indirect representative is jointly liable for the duty. Showing reasonable care is the broker's best protection.",
-    source: { label: "HMRC customs debt liability", href: "https://www.gov.uk/guidance/customs-debt-liability" },
-  },
-];
-
-const IMPACT = [
-  { value: "£384", tone: "text-[#15803d]", label: "Overpaid duty to claim back", body: "LED bulbs declared as light fittings at 4% are LED lamps at 0% on HMRC's tariff. Five past imports, still inside the 3-year window." },
-  { value: "£766", tone: "text-[#b91c1c]", label: "Underpayment caught", body: "Melamine \"bamboo\" tableware declared at 0% should pay 6%. Caught on this invoice and disclosed for past ones, before an audit." },
-  { value: "£576", tone: "text-[#15803d]", label: "Saved with a trade preference", body: "Cotton T-shirts made in Bangladesh pay 0% instead of 12% under the Developing Countries Trading Scheme, with proof of origin." },
-];
-
-const AUDIENCE = [
-  { who: "For the broker", points: ["Invoice to signed codes in minutes", "Corrections remembered for every client", "An evidence trail that shows reasonable care"] },
-  { who: "For the importer", points: ["Overpaid duty found and claimed back", "No surprise demand from HMRC", "Trade preferences used when goods qualify"] },
-  { who: "For HMRC and customs", points: ["Codes taken from HMRC's own tariff", "Every line arrives with its reason and legal note", "Underpayments disclosed, not discovered"] },
-];
 
 const CONNECTOR_FLOW: { title: string; items: ConnectorId[] }[] = [
   { title: "Goods come in from", items: ["shopify", "excel", "csv"] },
@@ -276,31 +241,21 @@ export function LandingView() {
     };
   }, []);
 
-  /* Vertical journey step reveal */
+  /* Staggered scroll reveal for every [data-reveal] block, batched so siblings arrive together */
   useEffect(() => {
     registerLandingMotion();
-    const steps = document.querySelectorAll<HTMLElement>("[data-journey-step]");
-    if (reduce || steps.length === 0) {
-      steps.forEach((s) => {
-        s.style.opacity = "1";
-        s.style.transform = "none";
-      });
-      return;
-    }
-    const tweens: gsap.core.Tween[] = [];
-    steps.forEach((step) => {
-      gsap.set(step, { opacity: 0, y: 36 });
-      tweens.push(
-        gsap.to(step, {
-          y: 0,
-          opacity: 1,
-          duration: 0.65,
-          ease: "power3.out",
-          scrollTrigger: { trigger: step, start: "top 88%", toggleActions: "play none none none" },
-        }),
-      );
+    const els = gsap.utils.toArray<HTMLElement>("[data-reveal]");
+    if (reduce || els.length === 0) return;
+    gsap.set(els, { opacity: 0, y: 36 });
+    const triggers = ScrollTrigger.batch(els, {
+      start: "top 88%",
+      once: true,
+      onEnter: (batch) => gsap.to(batch, { opacity: 1, y: 0, duration: 0.8, stagger: 0.09, ease: "power3.out", overwrite: true }),
     });
-    return () => tweens.forEach((tw) => tw.revert());
+    return () => {
+      triggers.forEach((st) => st.kill());
+      gsap.set(els, { clearProps: "opacity,transform" });
+    };
   }, [reduce]);
 
   return (
@@ -325,70 +280,17 @@ export function LandingView() {
         </div>
       </section>
 
-      {/* ─── Why the code matters ─── */}
-      <section className="relative z-20 border-t border-[#0b1f4d]/10">
-        <div className="mx-auto max-w-[86rem] px-5 py-20 sm:px-8 lg:px-10">
-          <h2 className="landing-display landing-section-title overflow-visible">Why the code matters.</h2>
-          <p className="mt-3 max-w-2xl text-[16px] font-medium leading-relaxed text-[#1e3a6e]">
-            A commodity code is a legal choice with money attached. It sets the duty, the VAT base, the trade-deal preference and who is
-            liable when it is wrong.
-          </p>
-          <div className="mt-10 grid gap-px overflow-hidden rounded-xl border border-[#0b1f4d]/10 bg-[#0b1f4d]/10 sm:grid-cols-2 lg:grid-cols-4">
-            {WHY.map((w) => (
-              <article key={w.title} className="flex flex-col bg-white/75 p-6 backdrop-blur-md">
-                <h3 className="font-[family-name:var(--font-ruling)] text-[20px] font-semibold leading-snug text-[#0b1f4d]">{w.title}</h3>
-                <p className="mt-2 flex-1 text-[14px] leading-relaxed text-[#1e3a6e]">{w.body}</p>
-                <a href={w.source.href} target="_blank" rel="noreferrer" className="mt-4 text-[12px] font-medium text-[#1d4ed8] hover:underline">
-                  Source: {w.source.label}
-                </a>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* ─── The problem, in numbers ─── */}
+      <ProblemBand />
 
-      {/* ─── Impact ─── */}
-      <section className="relative z-20 border-t border-[#0b1f4d]/10">
-        <div className="mx-auto max-w-[86rem] px-5 py-20 sm:px-8 lg:px-10">
-          <h2 className="landing-display landing-section-title overflow-visible">What one shipment finds.</h2>
-          <p className="mt-3 max-w-2xl text-[16px] font-medium leading-relaxed text-[#1e3a6e]">
-            One six-line invoice from Ningbo and Dhaka, run through Precedent against HMRC&apos;s live tariff and three years of the same
-            broker&apos;s past imports.
-          </p>
-          <div className="mt-10 grid gap-4 md:grid-cols-3">
-            {IMPACT.map((m) => (
-              <article key={m.label} className="rounded-xl border border-[#0b1f4d]/10 bg-white/80 p-6 backdrop-blur-md">
-                <p className={`font-[family-name:var(--font-ruling)] text-[44px] font-semibold leading-none tabular-nums ${m.tone}`}>{m.value}</p>
-                <p className="mt-3 text-[15px] font-semibold text-[#0b1f4d]">{m.label}</p>
-                <p className="mt-1 text-[14px] leading-relaxed text-[#1e3a6e]">{m.body}</p>
-              </article>
-            ))}
-          </div>
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            {AUDIENCE.map((a) => (
-              <article key={a.who} className="rounded-xl border border-[#0b1f4d]/10 bg-white/60 p-6 backdrop-blur-md">
-                <h3 className="font-[family-name:var(--font-ruling)] text-[20px] font-semibold text-[#0b1f4d]">{a.who}</h3>
-                <ul className="mt-3 space-y-1.5 text-[14px] leading-relaxed text-[#1e3a6e]">
-                  {a.points.map((p) => (
-                    <li key={p} className="flex gap-2">
-                      <span className="mt-[9px] size-1.5 shrink-0 rounded-full bg-[#c2362b]" />
-                      {p}
-                    </li>
-                  ))}
-                </ul>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Journey ─── */}
-      <section id="journey" className="relative z-20 border-t border-[#0b1f4d]/10">
-        <div className="mx-auto grid max-w-[86rem] gap-12 px-5 py-20 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-16 lg:px-10 lg:py-28">
+      {/* ─── The answer: from invoice to border ─── */}
+      <section id="journey" className="relative z-20">
+        <div className="mx-auto grid max-w-[86rem] gap-12 px-5 py-24 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-16 lg:px-10 lg:py-32">
           <div className="lg:sticky lg:top-16 lg:self-start">
-            <h2 className="landing-display landing-section-title max-w-[12ch] overflow-visible">From invoice to border.</h2>
-            <p className="mt-3 max-w-md text-[16px] font-medium leading-relaxed text-[#1e3a6e]">
-              The same five steps a UK customs broker already follows, with the tariff work done and every decision on record.
+            <p className="landing-kicker text-[#c2362b]">The answer</p>
+            <h2 className="landing-display landing-section-title mt-3 max-w-[12ch] overflow-visible">From invoice to border.</h2>
+            <p className="mt-4 max-w-md text-[17px] font-medium leading-relaxed text-[#1e3a6e]">
+              The five steps you already follow. Prue does the tariff work; you keep the signature.
             </p>
             {/* One line through the gate: checked against the tariff, stamped with its code, on to the border. */}
             <figure className="mt-8 max-w-md overflow-hidden rounded-xl border border-[#0b1f4d]/10 bg-white/80 backdrop-blur-md">
@@ -404,7 +306,7 @@ export function LandingView() {
             {JOURNEY_STEPS.map((s) => {
               const Icon = STEP_ICON[s.icon];
               return (
-                <div key={s.id} className="journey-step" data-journey-step>
+                <div key={s.id} className="journey-step" data-reveal>
                   <div className="journey-marker">
                     <span>{s.n}</span>
                   </div>
@@ -413,8 +315,13 @@ export function LandingView() {
                       <Icon className="size-4" aria-hidden />
                       {s.place}
                     </div>
-                    <h3 className="mt-2 font-[family-name:var(--font-ruling)] text-[22px] font-semibold leading-tight text-[#0b1f4d]">{s.title}</h3>
-                    <p className="mt-1 text-[13px] font-semibold text-[#c2362b]">{s.label}</p>
+                    <div className="mt-3 flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+                      <h3 className="font-[family-name:var(--font-ruling)] text-[22px] font-semibold leading-tight text-[#0b1f4d]">{s.title}</h3>
+                      <p className="journey-metric">
+                        {s.metric}
+                        <span>{s.unit}</span>
+                      </p>
+                    </div>
                     <p className="mt-2 text-[14px] leading-relaxed text-[#1e3a6e]">{s.body}</p>
                   </TiltCard>
                 </div>
@@ -424,19 +331,25 @@ export function LandingView() {
         </div>
       </section>
 
+      {/* ─── Proof: it gets better every week ─── */}
       <MubitShowcase />
+
+      {/* ─── Value for the firm ─── */}
+      <RoiBlock />
 
       {/* ─── Built on ─── */}
       <section className="relative z-20 border-t border-[#0b1f4d]/10">
         <div className="mx-auto max-w-[86rem] px-5 py-20 sm:px-8 lg:px-10">
-          <h2 className="landing-display landing-section-title overflow-visible">Plugs into what you already use.</h2>
-          <p className="mt-3 max-w-2xl text-[16px] font-medium leading-relaxed text-[#1e3a6e]">
-            Goods come in from your clients&apos; systems, every code is checked against HMRC&apos;s own tariff and your firm&apos;s memory, and
-            signed codes go out to the declaration. Names are for orientation, not a partnership.
+          <h2 className="landing-display landing-section-title overflow-visible" data-reveal>
+            Plugs into what you use.
+          </h2>
+          <p className="mt-3 max-w-2xl text-[16px] font-medium leading-relaxed text-[#1e3a6e]" data-reveal>
+            Goods in from your clients&apos; systems, codes checked against HMRC&apos;s tariff and your firm&apos;s memory, signed codes out to
+            the declaration. Names are for orientation, not a partnership.
           </p>
           <div className="mt-10 grid gap-6 lg:grid-cols-3">
             {CONNECTOR_FLOW.map((col, i) => (
-              <div key={col.title} className="relative space-y-3">
+              <div key={col.title} className="relative space-y-3" data-reveal>
                 <p className="text-[13px] font-semibold text-[#4338ca]">{col.title}</p>
                 {col.items.map((id) => (
                   <div key={id} className="flex items-start gap-3.5 rounded-xl border border-[#0b1f4d]/10 bg-white/80 p-4 backdrop-blur-md">
@@ -451,9 +364,24 @@ export function LandingView() {
               </div>
             ))}
           </div>
-          <div className="mt-10 flex flex-wrap items-center gap-3">
+        </div>
+      </section>
+
+      {/* ─── Final call ─── */}
+      <section className="relative z-20 border-t border-[#0b1f4d]/10">
+        <div className="mx-auto flex max-w-[86rem] flex-col items-center px-5 py-28 text-center sm:px-8 lg:px-10 lg:py-36">
+          <p className="landing-kicker text-[#c2362b]" data-reveal>
+            Your next invoice is already waiting
+          </p>
+          <h2 className="landing-display landing-section-title mt-4 max-w-[16ch] overflow-visible" data-reveal>
+            Code your first invoice in <span className="landing-hero-accent">60 seconds.</span>
+          </h2>
+          <p className="mt-5 max-w-lg text-[17px] font-medium leading-relaxed text-[#1e3a6e]" data-reveal>
+            Pick a demo firm and watch Prue code a real invoice against HMRC&apos;s live tariff. No sign-up, no card.
+          </p>
+          <div className="mt-9 flex flex-wrap items-center justify-center gap-3" data-reveal>
             <Link href={DEMO_HREF} className="landing-cta landing-cta-primary">
-              Try the demo
+              Try the live demo
             </Link>
             <Link href={DESK_HREF} className="landing-cta landing-cta-ghost">
               Open the desk
