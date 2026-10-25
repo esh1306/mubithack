@@ -6,14 +6,18 @@ import { AlertTriangle, ArrowRight, Check, MessageCircleQuestion, PlayCircle, Up
 import { Button } from "@/components/ui/button";
 import { Code } from "@/components/code";
 import { Panel } from "@/components/page";
+import { Info } from "@/components/info";
 import { ConnectorLogo, type ConnectorId } from "@/components/connector-logos";
 import { cn } from "@/lib/utils";
+import { BROKER_GBP_PER_HOUR, MANUAL_MIN_PER_LINE, REVIEW_MIN_PER_LINE, savings, TOUR_LINES_PER_WEEK } from "@/lib/savings";
 
 type Home = {
   sampleHistory?: boolean;
   learning?: { examples: number; trainAfter: number };
   aiOffline: boolean;
   pastEntries: number;
+  saved: { linesCoded: number; auto: number; hours: number; gbp: number };
+  desk: { open: number; done: number; today: number };
   totals: { classified: number; signedOff: number; review: number; precedents: number; followed: number; invoices: number };
   invoices: { batchId: string; client: string | null; createdAt: string; lines: number; classified: number; review: number; signedOff: number }[];
   needsYou: { lineId: number; batchId: string; text: string; client: string | null; code: string; confidence: number; question: string | null }[];
@@ -28,149 +32,183 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const focusRing = "outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-card";
 
 // ---------------------------------------------------------------------------------------------
-// Hero: the one bold moment. Headline comes from the desk's state, not the clock.
+// Header: the firm and the one thing to do next, in a single line.
 
-type HeroCopy = {
-  title: string;
-  lead: string;
-  primary: { label: string; href: string; icon: "play" | "arrow" };
-  secondary: { label: string; href: string };
-};
-
-function heroCopy(d: Home | null, broker: string): HeroCopy {
-  const tour = { label: "Take the product tour", href: `/${broker}/tour`, icon: "play" as const };
-  const upload = { label: "Upload an invoice", href: `/${broker}/classify?new=1` };
-  if (!d || d.totals.invoices === 0) {
-    return {
-      title: "Every product on an invoice, coded against HMRC’s tariff.",
-      lead: "Precedent finds the 10-digit UK commodity code for each line, shows you why, and waits for your sign-off. Correct it once and the next invoice is right first time.",
-      primary: tour,
-      secondary: upload,
-    };
+function primaryAction(d: Home | null, broker: string) {
+  if (!d || d.totals.invoices === 0) return { label: "Take the product tour", href: `/${broker}/tour`, icon: "play" as const };
+  if (d.totals.review > 0) {
+    const pending = d.invoices.find((i) => i.review > 0) ?? d.invoices[0];
+    return { label: "Continue reviewing", href: `/${broker}/classify?batch=${pending.batchId}`, icon: "arrow" as const };
   }
-  const t = d.totals;
-  const pending = d.invoices.find((i) => i.review > 0) ?? d.invoices[0];
-  const clients = [...new Set(d.invoices.filter((i) => i.review > 0).map((i) => i.client).filter(Boolean))];
-  if (t.review > 0) {
-    const forWhom = clients.length === 1 ? ` for ${clients[0]}` : "";
-    return {
-      title: `${plural(t.review, "line")} ${t.review === 1 ? "is" : "are"} waiting for your sign-off.`,
-      lead: `Across ${plural(d.invoices.filter((i) => i.review > 0).length, "invoice")}${forWhom}. Each one already has a code from HMRC’s live tariff and the reasoning behind it, so checking takes seconds, not a search.`,
-      primary: { label: "Continue reviewing", href: `/${broker}/classify?batch=${pending.batchId}`, icon: "arrow" },
-      secondary: upload,
-    };
-  }
-  return {
-    title: "Every line is signed off and ready to declare.",
-    lead: `${plural(t.signedOff, "code")} signed off across ${plural(t.invoices, "invoice")}. Send them to your declaration software, or straight to HMRC’s Customs Declaration Service.`,
-    primary: { label: "File the declaration", href: `/${broker}/integrations`, icon: "arrow" },
-    secondary: upload,
-  };
+  return { label: "File the declaration", href: `/${broker}/integrations`, icon: "arrow" as const };
 }
+
+function Header({ d, broker, brokerName }: { d: Home | null; broker: string; brokerName: string }) {
+  const primary = primaryAction(d, broker);
+  return (
+    <header className="flex flex-wrap items-center justify-between gap-3">
+      <div className="min-w-0">
+        <h1 id="home-title" className="desk-kicker text-[22px]">
+          {brokerName} desk
+        </h1>
+        <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+          <span className={cn("size-2 rounded-full", d?.aiOffline ? "bg-warn" : "bg-good")} />
+          {d?.aiOffline ? "Prue’s AI check is offline, using HMRC’s shortlist" : "Prue is coding against HMRC’s live UK Trade Tariff"}
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="outline" asChild>
+          <Link href={`/${broker}/classify?new=1`}>
+            <Upload /> Upload an invoice
+          </Link>
+        </Button>
+        <Button asChild>
+          <Link href={primary.href}>
+            {primary.icon === "play" && <PlayCircle />}
+            {primary.label}
+            {primary.icon === "arrow" && <ArrowRight />}
+          </Link>
+        </Button>
+      </div>
+    </header>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// What's happening: four linked tiles you can read in two seconds.
+
+type Tone = "good" | "warn" | "idle";
+const dot: Record<Tone, string> = { good: "bg-good", warn: "bg-warn", idle: "bg-muted-foreground/40" };
+
+function Pulse({ d, broker }: { d: Home; broker: string }) {
+  const t = d.totals;
+  const pending = d.invoices.find((i) => i.review > 0);
+  const last = d.learned[0];
+  const tiles: { label: string; tone: Tone; value: React.ReactNode; note: string; href: string }[] = [
+    {
+      label: "Waiting for you",
+      tone: t.review > 0 ? "warn" : "good",
+      value: t.review > 0 ? plural(t.review, "line") : "All clear",
+      note: t.review > 0 ? "Prue has a code and a reason ready" : `${t.signedOff} of ${t.classified} signed off`,
+      href: `/${broker}/classify${pending ? `?batch=${pending.batchId}` : ""}`,
+    },
+    {
+      label: "Invoices",
+      tone: d.desk.open > 0 ? "warn" : t.invoices > 0 ? "good" : "idle",
+      value: `${d.desk.open} open · ${d.desk.done} done`,
+      note: d.desk.today > 0 ? `${plural(d.desk.today, "invoice")} added today` : "None added today",
+      href: `/${broker}/classify`,
+    },
+    {
+      label: "Prue learned",
+      tone: last ? "good" : "idle",
+      value: last ? (
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate">{last.lineText}</span>
+          <ArrowRight className="size-3.5 shrink-0 text-primary" />
+          <Code code={last.newCode} className="shrink-0 text-[13px]" />
+        </span>
+      ) : (
+        "No corrections yet"
+      ),
+      note: last ? `Latest correction, used ${last.followed}× since` : "Correct a code once and it carries forward",
+      href: `/${broker}/precedents`,
+    },
+    {
+      label: "Filing",
+      tone: d.connected.hmrc ? "good" : "idle",
+      value: d.connected.hmrc ? "Signed in to HMRC" : "HMRC not connected",
+      note: d.connected.hmrc && d.connected.eori ? `EORI ${d.connected.eori}` : "CSV export always works",
+      href: `/${broker}/integrations`,
+    },
+  ];
+  return (
+    <ul aria-label="What’s happening" className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
+      {tiles.map((x) => (
+        <li key={x.label} className="bg-card">
+          <Link href={x.href} className={cn("block h-full space-y-1 px-4 py-3 transition-colors hover:bg-accent/40", focusRing, "focus-visible:ring-inset")}>
+            <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+              <span aria-hidden className={cn("size-2 rounded-full", dot[x.tone])} />
+              {x.label}
+            </p>
+            <div className="truncate font-medium">{x.value}</div>
+            <p className="truncate text-[13px] text-muted-foreground">{x.note}</p>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// What Prue saved the firm, from its own lines. Assumptions sit behind the ⓘ (lib/savings.ts).
 
 type Figure = { value: string; label: string; note: React.ReactNode };
 
-function figures(d: Home | null, broker: string): { heading: string; tour: boolean; items: Figure[] } {
-  if (!d || d.totals.invoices === 0) {
+function figures(d: Home, broker: string): { tour: boolean; items: Figure[] } {
+  if (d.saved.linesCoded === 0) {
+    const s = savings(TOUR_LINES_PER_WEEK);
     return {
-      heading: "What the tour finds on one real shipment",
       tour: true,
       items: [
+        { value: `${s.hours} h`, label: "Time saved a week", note: `At ${TOUR_LINES_PER_WEEK} invoice lines a week.` },
+        { value: gbp(s.gbp), label: "Broker cost saved a week", note: `At £${BROKER_GBP_PER_HOUR} an hour.` },
         { value: gbp(384), label: "Overpaid duty to reclaim", note: "LED bulbs declared at 4% that HMRC codes at 0%." },
-        { value: gbp(766), label: "Underpayment caught before HMRC did", note: "Melamine “bamboo” tableware is 6%, not 0%." },
-        { value: gbp(576), label: "Saved with a trade preference", note: "Bangladesh origin qualifies for a lower rate." },
+        { value: gbp(766), label: "Underpayment caught", note: "Melamine “bamboo” tableware is 6%, not 0%." },
       ],
     };
   }
-  const t = d.totals;
+  const s = d.saved;
   const m = d.money;
   return {
-    heading: "At your desk so far",
     tour: false,
     items: [
+      { value: `${s.hours} h`, label: "Time saved", note: `${plural(s.linesCoded, "line")} Prue coded for you.` },
+      { value: gbp(s.gbp), label: "Broker cost saved", note: `At £${BROKER_GBP_PER_HOUR} an hour.` },
+      {
+        value: `${s.auto} of ${s.linesCoded}`,
+        label: "Coded with no questions",
+        note: d.totals.followed > 0 ? `${plural(d.totals.followed, "line")} answered by your corrections.` : "Confident enough to just sign off.",
+      },
       m.scanned
-        ? {
-            value: gbp(m.reclaim),
-            label: "Overpaid duty to reclaim",
-            note: m.owe > 0 ? `Plus ${gbp(m.owe)} underpaid to put right.` : "From the 3-year duty check.",
-          }
+        ? { value: gbp(m.reclaim), label: "Overpaid duty to reclaim", note: m.owe > 0 ? `Plus ${gbp(m.owe)} underpaid to put right.` : "From the 3-year duty check." }
         : {
             value: String(d.pastEntries),
-            label: "Past imports ready for the 3-year duty check",
+            label: "Past imports to check for overpaid duty",
             note: (
               <Link href={`/${broker}/retro-scan`} className={cn("text-link underline-offset-4 hover:underline", focusRing)}>
-                Find what was overpaid
+                Run the 3-year duty check
               </Link>
             ),
           },
-      {
-        value: String(t.classified),
-        label: "Product lines coded against HMRC’s tariff",
-        note: `${t.signedOff} signed off, ${t.review} to check.`,
-      },
-      {
-        value: String(t.precedents),
-        label: t.precedents === 1 ? "Correction remembered" : "Corrections remembered",
-        note: t.followed > 0 ? `Applied ${plural(t.followed, "time")} on new lines since.` : "Correct a code once and it carries forward.",
-      },
     ],
   };
 }
 
-function Hero({ d, broker }: { d: Home | null; broker: string }) {
-  const copy = heroCopy(d, broker);
+function Savings({ d, broker, brokerName }: { d: Home; broker: string; brokerName: string }) {
   const fig = figures(d, broker);
-
   return (
-    <section
-      aria-labelledby="home-title"
-      className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-[0_40px_80px_-56px_rgba(19,48,107,0.55)]"
+    <Panel
+      title={
+        <span className="inline-flex items-center gap-1">
+          What Prue saved {fig.tour ? "a firm like yours" : brokerName} <Info id="savings" />
+        </span>
+      }
+      actions={fig.tour && <span className="text-sm text-muted-foreground">Tour example, not your firm’s figures</span>}
     >
-      {/* thin brand rule along the top edge */}
-      <span aria-hidden className="absolute inset-x-0 top-0 z-10 h-[3px] bg-[linear-gradient(90deg,#13306b_0%,#13306b_70%,#c2362b_70%,#c2362b_100%)]" />
-
-      <div className="flex flex-col gap-6 px-6 pb-8 pt-9 sm:px-10 sm:pb-10 sm:pt-12">
-        <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="size-2 rounded-full bg-good" />
-          Checking against HMRC’s live UK Trade Tariff
-        </p>
-        <h1 id="home-title" className="max-w-[20ch] text-balance font-serif text-[34px] font-semibold leading-[1.06] tracking-[-0.02em] text-foreground sm:text-[46px]">
-          {copy.title}
-        </h1>
-        <p className="max-w-xl text-pretty text-[17px] leading-relaxed text-foreground/75">{copy.lead}</p>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button size="lg" asChild>
-            <Link href={copy.primary.href}>
-              {copy.primary.icon === "play" && <PlayCircle />}
-              {copy.primary.label}
-              {copy.primary.icon === "arrow" && <ArrowRight />}
-            </Link>
-          </Button>
-          <Button size="lg" variant="outline" asChild>
-            <Link href={copy.secondary.href}>
-              <Upload /> {copy.secondary.label}
-            </Link>
-          </Button>
-        </div>
-      </div>
-
-      {/* The value, in money and work, under the fold of the hero. */}
-      <div className="border-t border-border bg-[#fbfcfe]">
-        <div className="flex flex-wrap items-baseline justify-between gap-2 px-6 pt-5 sm:px-10">
-          <h2 className="font-serif text-[17px] font-semibold">{fig.heading}</h2>
-          {fig.tour && <span className="text-sm text-muted-foreground">Tour example, not your firm’s figures</span>}
-        </div>
-        <dl className="grid divide-y divide-border px-6 sm:px-10 md:grid-cols-3 md:divide-x md:divide-y-0">
-          {fig.items.map((f, i) => (
-            <div key={f.label} className={cn("py-5 md:py-6", i > 0 && "md:pl-8", i < 2 && "md:pr-8")}>
-              <dt className="text-sm text-muted-foreground">{f.label}</dt>
-              <dd className="mt-1.5 font-serif text-[40px] font-semibold leading-none tabular-nums tracking-[-0.02em]">{f.value}</dd>
-              <dd className="mt-2 text-sm text-foreground/70">{f.note}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
-    </section>
+      <dl className="grid gap-px border-t border-border/70 bg-border/70 sm:grid-cols-2 lg:grid-cols-4">
+        {fig.items.map((f) => (
+          <div key={f.label} className="bg-card px-6 py-4">
+            <dt className="text-sm text-muted-foreground">{f.label}</dt>
+            <dd className="mt-1 font-serif text-[32px] font-semibold leading-none tabular-nums tracking-[-0.02em]">{f.value}</dd>
+            <dd className="mt-1.5 text-[13px] text-foreground/70">{f.note}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="border-t border-border/70 px-6 py-2 text-xs text-muted-foreground">
+        Assumes {MANUAL_MIN_PER_LINE} min to code a line by hand vs {REVIEW_MIN_PER_LINE} min to review Prue’s, at £{BROKER_GBP_PER_HOUR}/hour.
+      </p>
+    </Panel>
   );
 }
 
@@ -235,13 +273,13 @@ function Flow({ d, broker }: { d: Home; broker: string }) {
   const done = list.filter((s) => s.done).length;
   const next = list.findIndex((s) => !s.done);
   return (
-    <section aria-labelledby="flow-title" className="space-y-5">
+    <section aria-labelledby="flow-title" className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 id="flow-title" className="font-serif text-[26px] font-semibold leading-tight tracking-[-0.01em]">
+          <h2 id="flow-title" className="desk-kicker">
             From invoice to declaration
           </h2>
-          <p className="mt-1 text-[15px] text-muted-foreground">The whole job in five steps. Each one ticks off as you do it.</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">The whole job in five steps. Each one ticks off as you do it.</p>
         </div>
         <div className="flex items-center gap-3" aria-label={`${done} of ${list.length} steps done`}>
           <span className="text-sm tabular-nums text-muted-foreground">
@@ -262,7 +300,7 @@ function Flow({ d, broker }: { d: Home; broker: string }) {
             <li
               key={s.title}
               className={cn(
-                "relative flex flex-col gap-3 border-border px-5 py-5 max-lg:border-b max-lg:last:border-b-0 lg:border-r lg:last:border-r-0 lg:py-6",
+                "relative flex flex-col gap-2.5 border-border px-4 py-4 max-lg:border-b max-lg:last:border-b-0 lg:border-r lg:last:border-r-0",
                 isNext && "bg-primary/[0.04]",
               )}
             >
@@ -313,9 +351,9 @@ function Flow({ d, broker }: { d: Home; broker: string }) {
 
 function Work({ d, broker }: { d: Home; broker: string }) {
   const link = cn("text-sm text-link underline-offset-4 hover:underline", focusRing);
-  const rowLink = cn("flex items-start gap-4 px-6 py-3.5 transition-colors hover:bg-accent/40 focus-visible:bg-accent/40", "outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/60");
+  const rowLink = cn("flex items-start gap-4 px-6 py-2.5 transition-colors hover:bg-accent/40 focus-visible:bg-accent/40", "outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/60");
   return (
-    <div className="grid items-start gap-6 lg:grid-cols-5">
+    <div className="grid items-start gap-4 lg:grid-cols-5">
       <Panel
         className="lg:col-span-3"
         title="Waiting for you"
@@ -327,7 +365,7 @@ function Work({ d, broker }: { d: Home; broker: string }) {
         }
       >
         {d.needsYou.length === 0 ? (
-          <p className="border-t border-border/70 px-6 py-6 text-muted-foreground">Every line is signed off or confident.</p>
+          <p className="border-t border-border/70 px-6 py-4 text-muted-foreground">Every line is signed off or confident.</p>
         ) : (
           <ul className="divide-y divide-border/70 border-t border-border/70">
             {d.needsYou.slice(0, 5).map((n) => (
@@ -396,11 +434,11 @@ function Learning({ d, broker }: { d: Home; broker: string }) {
     { n: ex, label: `of ${of} examples on your Mubit task`, note: offline ? "the Mubit key was rejected, so nothing is being recorded" : `first training possible at ${of}` },
   ];
   return (
-    <section className="overflow-hidden rounded-2xl border border-primary/20 bg-card">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border/70 bg-primary/[0.04] px-6 py-5">
+    <section className="overflow-hidden rounded-lg border border-primary/20 bg-card">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border/70 bg-primary/[0.04] px-6 py-3.5">
         <div>
-          <h2 className="font-serif text-[24px] leading-tight">How Precedent is learning your firm</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Correct a code once. It&apos;s applied to every similar product, and taught to a model that only your firm uses.</p>
+          <h2 className="desk-kicker">How Prue is learning your firm</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">Correct a code once. It&apos;s applied to every similar product, and taught to a model that only your firm uses.</p>
         </div>
         <Link href={`/${broker}/mubit`} className={cn("inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline", focusRing)}>
           See what it learned <ArrowRight className="size-3.5" />
@@ -408,9 +446,9 @@ function Learning({ d, broker }: { d: Home; broker: string }) {
       </div>
       <ol className="grid gap-px bg-border/70 md:grid-cols-3">
         {steps.map((st, i) => (
-          <li key={st.label} className="relative bg-card px-6 py-5">
+          <li key={st.label} className="relative bg-card px-6 py-4">
             <p className="flex items-baseline gap-2">
-              <span className="font-serif text-[40px] leading-none tabular-nums">{st.n}</span>
+              <span className="font-serif text-[32px] leading-none tabular-nums">{st.n}</span>
               <span className="text-[14.5px] font-medium">{st.label}</span>
             </p>
             <p className={cn("mt-2 text-[13.5px]", i === 2 && offline ? "text-warn" : "text-muted-foreground")}>{st.note}</p>
@@ -424,7 +462,7 @@ function Learning({ d, broker }: { d: Home; broker: string }) {
         ))}
       </ol>
       {last && (
-        <p className="flex flex-wrap items-center gap-2 border-t border-border/70 px-6 py-3.5 text-[14px]">
+        <p className="flex flex-wrap items-center gap-2 border-t border-border/70 px-6 py-2.5 text-[14px]">
           <span className="text-muted-foreground">Latest:</span>
           <span className="font-medium">{last.lineText}</span>
           <Code code={last.oldCode} className="text-[13px] line-through opacity-50" />
@@ -436,8 +474,7 @@ function Learning({ d, broker }: { d: Home; broker: string }) {
   );
 }
 
-// brokerName is kept for the route's API; the sidebar already shows the firm, so the page doesn't repeat it.
-export function HomeView({ broker }: { broker: string; brokerName: string }) {
+export function HomeView({ broker, brokerName }: { broker: string; brokerName: string }) {
   const [d, setD] = useState<Home | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -454,13 +491,13 @@ export function HomeView({ broker }: { broker: string; brokerName: string }) {
   const hasWork = !!d && d.totals.invoices > 0;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-12">
-      <Hero d={d} broker={broker} />
+    <div className="mx-auto max-w-6xl space-y-5">
+      <Header d={d} broker={broker} brokerName={brokerName} />
 
       {loadError && <p className="rounded-md border border-bad/30 bg-bad/5 px-4 py-3 text-sm">{loadError}</p>}
 
       {d?.aiOffline && (
-        <div role="status" className="-mt-6 flex items-start gap-3 rounded-lg border border-warn/40 bg-[#fdf3e3] px-5 py-3.5 text-[15px]">
+        <div role="status" className="flex items-start gap-3 rounded-lg border border-warn/40 bg-[#fdf3e3] px-4 py-2.5 text-sm">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" />
           <p>
             <span className="font-medium">The AI check is offline.</span> New lines get HMRC&apos;s own shortlist and are marked Unconfirmed until
@@ -469,6 +506,8 @@ export function HomeView({ broker }: { broker: string; brokerName: string }) {
         </div>
       )}
 
+      {d && hasWork && <Pulse d={d} broker={broker} />}
+      {d && <Savings d={d} broker={broker} brokerName={brokerName} />}
       {d && hasWork && <Work d={d} broker={broker} />}
       {d && <Learning d={d} broker={broker} />}
       {d && <Flow d={d} broker={broker} />}
