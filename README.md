@@ -51,7 +51,7 @@ Precedent is a desk where an AI agent, Prue, codes each line against HMRC's live
 4. **Checking every line with HMRC:** each line goes to the UK Trade Tariff (classification search, chapter notes, commodity lookup), and every code comes with a reason and a source. Six lines take 21 seconds of real check time.
 5. **One line is wrong:** the bamboo kids' dinner set is bamboo fibre bound with melamine resin, so it's chapter 39 plastics at 6% duty, not bamboo at 0%. The broker fixes it once and says why. Caught before it was declared, that's £110.40 that would have been underpaid on this invoice alone.
 6. **Never-coded products flip:** the fix becomes a precedent. Bamboo cups, lunch boxes and baby bowls the firm has never coded now get the melamine code. Real bamboo chopsticks and chopping boards stay put, and other firms on Precedent don't get the correction.
-7. **Each fix trains the firm's own Mubit task:** the fix becomes about 20 practice examples, paraphrases sent through the firm's Mubit task, each with its own request ID. At 25 examples, the task's first adapter trains.
+7. **Each fix trains the firm's own Mubit task:** the fix becomes about 20 practice examples, paraphrases sent through the firm's Mubit task, each with its own request ID. At 25 examples, the task's first adapter trains. The app's counter showed 45 recorded examples at the time.
 8. **The declaration drafts itself:** the broker approves the other five lines and Precedent drafts an H1 import declaration, with duty and VAT from HMRC's tariff.
 9. **Real CDS sandbox submission:** it's submitted straight to HMRC's CDS sandbox, which returns **HTTP 202 Accepted**.
 10. **Look back 3 years:** past imports are re-checked at the duty rate in force on each date. That finds £597.39 to reclaim and £655.27 to disclose before HMRC finds it.
@@ -63,7 +63,7 @@ Precedent is a desk where an AI agent, Prue, codes each line against HMRC's live
 </p>
 <p align="center">
   <img src="docs/img/precedent-flip.jpg" width="49%" alt="Step 6: never-coded products flip to the corrected code, while real bamboo stays put, and the fix becomes about 20 Mubit examples" />
-  <img src="docs/img/learning.jpg" width="49%" alt="Step 7: the firm's own Mubit task, which trains its first adapter at 25 examples" />
+  <img src="docs/img/learning.jpg" width="49%" alt="Step 7: the firm's own Mubit task, with 45 examples at the time of recording; its first adapter trains at 25" />
 </p>
 <p align="center">
   <img src="docs/img/hmrc-202.jpg" width="49%" alt="Step 9: the H1 declaration is submitted to HMRC's CDS sandbox and returns HTTP 202 Accepted" />
@@ -120,7 +120,7 @@ Helper calls opt out of recording, so only real classification work ends up in a
   | Classifier, v2 | 27.8% | 18 |
 
 **Numbers inside the app:**
-- **App database:** the app counts recorded classify calls in its own database: 142 for Harbourline and 14 for Northgate today. The counters in the video come from that database at the time of recording. The Mubit console above is the source of truth.
+- **App database:** the app counts recorded classify calls in its own database: 142 for Harbourline and 14 for Northgate today. The video's "45 examples" is that counter at the time of recording. The Mubit console above is the source of truth.
 - **The landing page's "20 of 25" counter** illustrates the loop. The live counts are in the tour and on the Learning page, which read the app's database.
 
 ## How it works
