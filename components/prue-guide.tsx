@@ -51,6 +51,7 @@ const MAX_THROW = 2600;
 const TILT_K = 180, TILT_C = 13; // spring pulling her lean towards its target
 const SQUASH_K = 320, SQUASH_C = 11; // spring for the landing squash and its wobble
 const DRAWER = 460; // the Ask Prue drawer's width; she hops out of its way
+const LANDED_MS = 800; // how long the landed pose (squash, dizzy eyes) shows before her page pose comes back
 
 type Phase = "rest" | "held" | "fall";
 type Sim = { x: number; y: number; vx: number; vy: number; angle: number; av: number; sq: number; sqv: number; phase: Phase; t: number; last: number; moved: number };
@@ -70,10 +71,13 @@ export function PrueGuide({ broker, firm, section: page }: { broker: string; fir
   const [phase, setPhase] = useState<Phase>("rest");
   const [placed, setPlaced] = useState(false);
   const [onRight, setOnRight] = useState(false);
+  const [landed, setLanded] = useState(false); // just hit the floor after a drop or throw
+  const [hopping, setHopping] = useState(false); // airborne because she hopped out of the drawer's way, not thrown
   const conf = prueFor(section);
   const visible = conf.place === "sidebar" || conf.place === "corner";
   const corner = conf.place === "corner";
-  const state: PrueState = phase !== "rest" ? "confused" : loading ? "thinking" : (said?.state ?? conf.pose);
+  const pose: PrueState = loading ? "thinking" : (said?.state ?? conf.pose);
+  const state: PrueState = phase === "held" ? "held" : phase === "fall" ? (hopping ? "hello" : "falling") : landed ? "landed" : pose;
   const text = said?.text ?? conf.say;
   const cta = section === "home" ? { label: "Show me one shipment", href: `/${broker}/tour` } : { label: "Take the product tour", href: `/${broker}/tour` };
 
@@ -86,6 +90,8 @@ export function PrueGuide({ broker, firm, section: page }: { broker: string; fir
   const justDragged = useRef(false);
   const still = useRef(false); // prefers-reduced-motion, read when she's picked up
   const dropped = useRef(false); // has she been moved by hand (so her x is saved, not the page default)
+  const hop = useRef(false); // mirrors `hopping` for the sim
+  const landTimer = useRef<number | null>(null);
 
   // Write the sim to the DOM: translate for position, rotate for the lean, scale (from her feet) for squash and stretch.
   const paint = useCallback(() => {
@@ -99,6 +105,26 @@ export function PrueGuide({ broker, firm, section: page }: { broker: string; fir
   const toPhase = useCallback((p: Phase) => {
     sim.current.phase = p;
     setPhase(p);
+    if (p === "held" && hop.current) {
+      hop.current = false; // caught mid-hop: from here on it's a throw
+      setHopping(false);
+    }
+  }, []);
+
+  // Touchdown: after a drop or throw, the one-shot landed pose, then back to the page's pose. A drawer hop just lands.
+  const land = useCallback(() => {
+    if (landTimer.current) clearTimeout(landTimer.current);
+    landTimer.current = null;
+    if (hop.current) {
+      hop.current = false;
+      setHopping(false);
+      return;
+    }
+    setLanded(true);
+    landTimer.current = window.setTimeout(() => {
+      landTimer.current = null;
+      setLanded(false);
+    }, LANDED_MS);
   }, []);
 
   // One frame of the sim; false once she has settled and the loop can stop.
@@ -136,6 +162,7 @@ export function PrueGuide({ broker, firm, section: page }: { broker: string; fir
             else {
               s.vy = 0;
               toPhase("rest");
+              land();
             }
           }
           // Flail on the way down: lean into the throw and wiggle while she's moving fast.
@@ -169,7 +196,7 @@ export function PrueGuide({ broker, firm, section: page }: { broker: string; fir
         } catch {}
       return false;
     },
-    [paint, toPhase],
+    [paint, toPhase, land],
   );
 
   const kick = useCallback(() => {
@@ -227,6 +254,7 @@ export function PrueGuide({ broker, firm, section: page }: { broker: string; fir
       window.removeEventListener("resize", onResize);
       if (raf.current) cancelAnimationFrame(raf.current);
       raf.current = null;
+      if (landTimer.current) clearTimeout(landTimer.current);
     };
   }, [paint]);
 
@@ -245,6 +273,8 @@ export function PrueGuide({ broker, firm, section: page }: { broker: string; fir
     dropped.current = true;
     const up = 950, air = (2 * up) / G;
     Object.assign(s, { vx: (target - s.x) / air, vy: -up });
+    hop.current = true;
+    setHopping(true);
     toPhase("fall");
     kick();
   };
