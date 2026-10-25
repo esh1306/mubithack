@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -9,14 +9,13 @@ import {
   Inbox,
   Building2,
   BookMarked,
-  Cpu,
   History,
   Plug,
-  Download,
   Check,
   RotateCcw,
   Search,
   Menu,
+  Plus,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -27,169 +26,170 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Kbd } from "@/components/ui/kbd";
-import { Info } from "@/components/info";
 import { Wordmark } from "@/components/mark";
 import { CommandMenu, openCommandMenu } from "@/components/command-menu";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { clearDemoClientState } from "@/lib/demo";
+import { rememberFirm } from "@/components/firm-gate";
+import { PrueGuide } from "@/components/prue-guide";
 import { cn } from "@/lib/utils";
-import { MubitPulse } from "@/components/mubit-pulse";
 
 type Broker = { id: string; name: string };
+type Counts = { review: number; reclaim: number | null };
 
+// Everyday work first, then the firm's own setup. The tour lives in its own card at the foot.
 export const NAV = [
   {
-    group: "Workspace",
+    group: null,
     items: [
       { href: "home", label: "Home", icon: Home },
-      { href: "classify", label: "Inbox", icon: Inbox },
+      { href: "classify", label: "Invoices", icon: Inbox },
       { href: "clients", label: "Clients", icon: Building2 },
+      { href: "retro-scan", label: "Duty reclaim", icon: History },
     ],
   },
   {
-    group: "Learning",
+    group: "Your firm",
     items: [
-      { href: "precedents", label: "Precedents", icon: BookMarked },
-      { href: "mubit", label: "Mubit", icon: Cpu },
-    ],
-  },
-  { group: "Recover", items: [{ href: "retro-scan", label: "Duty reclaim", icon: History }] },
-  {
-    group: "Connect",
-    items: [
-      { href: "integrations", label: "Integrations", icon: Plug },
-      { href: "export", label: "Export", icon: Download },
+      { href: "precedents", label: "Corrections", icon: BookMarked },
+      { href: "integrations", label: "Connections", icon: Plug },
     ],
   },
 ];
 
-function BrokerSwitch({ current, brokers, section }: { current: Broker; brokers: Broker[]; section: string }) {
+// One grid for the whole rail: 12px outer padding, 12px inner padding, 36px rows, 24px between sections.
+const ROW = "flex h-9 items-center gap-3 rounded-md px-3 text-[14.5px]";
+
+const gbp0 = (n: number) => n.toLocaleString("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 });
+
+// Small live counts beside the nav: lines waiting for review, and duty found to reclaim.
+function useCounts(broker: string, pathname: string) {
+  const [c, setC] = useState<Counts | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/${broker}/home`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => live && d && setC({ review: d.totals.review, reclaim: d.money.scanned ? d.money.reclaim : null }))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [broker, pathname]);
+  return c;
+}
+
+function FirmSwitch({ current, brokers, section }: { current: Broker; brokers: Broker[]; section: string }) {
   const router = useRouter();
+  const [confirm, setConfirm] = useState(false);
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger className="flex min-w-0 items-center gap-3 rounded-md border border-sidebar-border bg-card px-3 py-2.5 text-left outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary font-serif text-lg text-primary-foreground">
-          {current.name[0]}
-        </span>
+    <DropdownMenu onOpenChange={(o) => !o && setConfirm(false)}>
+      <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-lg border border-sidebar-border bg-card px-3 py-2 text-left outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-[13px] font-semibold text-primary-foreground">{current.name[0]}</span>
         <span className="min-w-0 flex-1">
-          <span className="block text-xs text-muted-foreground">Broker</span>
-          <span className="block text-[15px] font-medium leading-snug">{current.name}</span>
+          <span className="block text-[11.5px] leading-tight text-muted-foreground">Your firm</span>
+          <span className="block text-[14px] font-medium leading-snug">{current.name}</span>
         </span>
-        <ChevronsUpDown className="size-3.5 text-muted-foreground" />
+        <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-60">
-        <DropdownMenuLabel className="flex items-center gap-1 text-xs text-muted-foreground">
-          Brokers <Info id="brokers" side="right" />
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
+      <DropdownMenuContent align="start" className="w-[14.5rem]">
+        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Switch firm</DropdownMenuLabel>
         {brokers.map((b) => (
-          <DropdownMenuItem key={b.id} onSelect={() => router.push(`/${b.id}/${section}`)}>
-            <span className="flex size-5 items-center justify-center rounded-md bg-muted text-[10px] font-semibold">{b.name[0]}</span>
-            <span className="flex-1">{b.name}</span>
+          <DropdownMenuItem
+            key={b.id}
+            onSelect={() => {
+              rememberFirm(b.id);
+              router.push(`/${b.id}/${section}`);
+            }}
+          >
+            <span className="flex size-5 items-center justify-center rounded bg-muted text-[10px] font-semibold">{b.name[0]}</span>
+            <span className="flex-1 truncate">{b.name}</span>
             {b.id === current.id && <Check className="size-4" />}
           </DropdownMenuItem>
         ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => router.push("/start?switch=1")}>
+          <Plus className="size-4" /> Set up a new firm
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className={cn(confirm && "bg-bad/10 text-bad focus:bg-bad/15 focus:text-bad")}
+          onSelect={async (e) => {
+            if (!confirm) {
+              e.preventDefault();
+              return setConfirm(true);
+            }
+            await fetch("/api/demo/reset", { method: "POST" });
+            clearDemoClientState(brokers.map((b) => b.id));
+            window.location.assign(`/${current.id}/home`);
+          }}
+        >
+          <RotateCcw className="size-4" /> {confirm ? "Click again: clears all demo work" : "Reset demo data"}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
 
-function NavBody({
-  current,
-  brokers,
-  section,
-  onNavigate,
-}: {
-  current: Broker;
-  brokers: Broker[];
-  section: string;
-  onNavigate?: () => void;
-}) {
-  const [confirmReset, setConfirmReset] = useState(false);
-  const [resetting, setResetting] = useState(false);
+function NavBody({ current, brokers, section, onNavigate }: { current: Broker; brokers: Broker[]; section: string; onNavigate?: () => void }) {
+  const pathname = usePathname();
+  const counts = useCounts(current.id, pathname);
+  const badge = (href: string) => {
+    if (!counts) return null;
+    if (href === "classify" && counts.review > 0)
+      return <span className="ml-auto rounded-full bg-warn/15 px-1.5 text-[11.5px] font-semibold tabular-nums text-warn">{counts.review}</span>;
+    if (href === "retro-scan" && counts.reclaim)
+      return <span className="ml-auto rounded-full bg-good/12 px-1.5 text-[11.5px] font-semibold tabular-nums text-good">{gbp0(counts.reclaim)}</span>;
+    return null;
+  };
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={openCommandMenu}
-        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-      >
-        <Search className="size-3.5" />
-        <span className="flex-1 text-left">Search or jump to…</span>
-        <Kbd>⌘K</Kbd>
-      </button>
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <FirmSwitch current={current} brokers={brokers} section={section} />
 
-      <nav className="flex flex-col gap-5">
-        {NAV.map((g) => (
-          <div key={g.group} className="space-y-0.5">
-            <p className="px-3 pb-1 text-[13px] font-medium text-muted-foreground">{g.group}</p>
-            {g.items.map(({ href, label, icon: Icon }) => (
-              <Link
-                key={href}
-                href={`/${current.id}/${href}`}
-                onClick={onNavigate}
-                className={cn(
-                  "relative flex items-center gap-3 rounded-md px-3 py-2 text-[15px] text-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-foreground",
-                  section === href &&
-                    "bg-sidebar-accent font-medium text-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-primary",
-                )}
-              >
-                <Icon className={cn("size-[18px]", section === href ? "text-primary" : "text-muted-foreground")} />
-                {label}
-              </Link>
-            ))}
+      <nav className="flex flex-col gap-6" aria-label="Main">
+        {NAV.map((g, i) => (
+          <div key={i} className="flex flex-col gap-0.5">
+            {g.group && <p className="px-3 pb-1.5 text-[12px] font-medium text-muted-foreground">{g.group}</p>}
+            {g.items.map(({ href, label, icon: Icon }) => {
+              const active = section === href;
+              return (
+                <Link
+                  key={href}
+                  href={`/${current.id}/${href}`}
+                  onClick={onNavigate}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    ROW,
+                    "text-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-foreground",
+                    active && "bg-primary/[0.08] font-medium text-primary hover:bg-primary/[0.1] hover:text-primary",
+                  )}
+                >
+                  <Icon className={cn("size-[18px] shrink-0", active ? "text-primary" : "text-muted-foreground")} />
+                  {label}
+                  {badge(href)}
+                </Link>
+              );
+            })}
           </div>
         ))}
       </nav>
 
-      <div className="mt-auto space-y-2 px-1">
-        <button
-          type="button"
-          disabled={resetting}
-          onBlur={() => setConfirmReset(false)}
-          onClick={async () => {
-            if (!confirmReset) return setConfirmReset(true);
-            setResetting(true);
-            await fetch("/api/demo/reset", { method: "POST" });
-            clearDemoClientState(brokers.map((b) => b.id));
-            window.location.assign(`/${current.id}/home`);
-          }}
-          className={cn(
-            "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
-            confirmReset && "bg-bad/15 text-bad hover:bg-bad/20 hover:text-bad",
-          )}
-        >
-          <RotateCcw className="size-3.5" />
-          {resetting ? "Resetting…" : confirmReset ? "Click again to reset demo" : "Reset demo"}
-        </button>
-        <p className="px-3 font-serif text-[15px] italic text-muted-foreground">Teach it once. It remembers.</p>
-      </div>
-    </>
+      {section !== "tour" && <PrueGuide broker={current.id} section={section} />}
+    </div>
   );
 }
 
 export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker[] }) {
   const pathname = usePathname();
-  const section = pathname.split("/")[2] ?? "home";
+  const raw = pathname.split("/")[2] ?? "home";
+  const section = raw === "export" || raw === "mubit" ? "integrations" : raw;
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <>
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col gap-6 border-r border-sidebar-border bg-sidebar px-3.5 py-6 md:flex">
-        <Link href={`/${current.id}/home`} className="px-2">
-          <Wordmark size={24} />
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col gap-6 border-r border-sidebar-border bg-sidebar p-3 pt-5 md:flex">
+        <Link href={`/${current.id}/home`} className="flex h-8 items-center px-3">
+          <Wordmark size={22} />
         </Link>
-        <BrokerSwitch current={current} brokers={brokers} section={section} />
-        <MubitPulse broker={current.id} />
         <NavBody current={current} brokers={brokers} section={section} />
       </aside>
 
@@ -197,24 +197,27 @@ export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker
         <Link href={`/${current.id}/home`}>
           <Wordmark size={22} />
         </Link>
+        <div className="flex items-center gap-1">
+        <Button variant="ghost" size="icon" aria-label="Search" onClick={openCommandMenu}>
+          <Search />
+        </Button>
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="Open menu">
               <Menu />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-72 gap-5 bg-sidebar p-4">
-            <SheetHeader className="p-0">
+          <SheetContent side="left" className="flex w-72 flex-col gap-6 bg-sidebar p-3 pt-5">
+            <SheetHeader className="p-0 px-3">
               <SheetTitle className="text-left">
                 <Wordmark size={22} />
               </SheetTitle>
-              <SheetDescription className="sr-only">Broker navigation</SheetDescription>
+              <SheetDescription className="sr-only">Navigation</SheetDescription>
             </SheetHeader>
-            <BrokerSwitch current={current} brokers={brokers} section={section} />
-            <MubitPulse broker={current.id} />
             <NavBody current={current} brokers={brokers} section={section} onNavigate={() => setMobileOpen(false)} />
           </SheetContent>
         </Sheet>
+        </div>
       </div>
 
       <CommandMenu broker={current.id} brokers={brokers} />

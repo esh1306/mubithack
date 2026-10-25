@@ -1,5 +1,15 @@
 [
   {
+    "id": "00-tour",
+    "name": "Demo shipment \u00b7 Ningbo and Dhaka",
+    "supplier": "Sunrise Homeware \u00b7 Ningbo",
+    "about": "Six lines for the guided tour: one costly mistake, one overpayment",
+    "client": {
+      "name": "Sunrise Homeware Ltd",
+      "eori": "GB683471029001"
+    }
+  },
+  {
     "id": "01-ningbo-homeware",
     "name": "Ningbo homeware",
     "supplier": "Sunrise Homeware \u00b7 Ningbo",
@@ -62,8 +72,8 @@
   {
     "id": "07-bulk-mixed",
     "name": "Bulk mixed desk",
-    "supplier": "Several suppliers · mixed",
-    "about": "30 lines across apparel, kitchen, electronics, sport and home — for a fuller inbox",
+    "supplier": "Several suppliers \u00b7 mixed",
+    "about": "30 lines across apparel, kitchen, electronics, sport and home \u2014 for a fuller inbox",
     "client": {
       "name": "Harbourline Mixed Ltd",
       "eori": "GB683471029007"

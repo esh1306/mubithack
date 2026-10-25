@@ -968,3 +968,75 @@ body {
     animation: none;
   }
 }
+/* Customs scene: crate → tariff gate → stamped → on its way. */
+.customs-scene .cs-crate { transform: translateX(235px); }
+.customs-scene .cs-mark,
+.customs-scene .cs-tag { opacity: 1; }
+.customs-scene .cs-beam { opacity: 0.25; }
+.customs-scene.is-active .cs-crate { animation: cs-crate 5.2s cubic-bezier(.45,.05,.35,1) infinite; }
+.customs-scene.is-active .cs-mark { animation: cs-mark 5.2s linear infinite; }
+.customs-scene.is-active .cs-tag { animation: cs-tag 5.2s ease-out infinite; }
+.customs-scene.is-active .cs-beam { animation: cs-beam 5.2s ease-in-out infinite; transform-origin: 50% 0; }
+.customs-scene.is-active .cs-stamp { animation: cs-stamp 5.2s ease-in-out infinite; }
+.customs-scene.is-active .cs-lamp { animation: cs-lamp 5.2s steps(1) infinite; }
+.customs-scene.is-active .cs-rollers { animation: cs-roll 0.6s linear infinite; }
+@keyframes cs-crate {
+  0% { transform: translateX(-90px); }
+  30%, 62% { transform: translateX(235px); }
+  100% { transform: translateX(560px); }
+}
+@keyframes cs-beam {
+  0%, 30% { opacity: 0; transform: scaleY(0.2); }
+  36%, 46% { opacity: 1; transform: scaleY(1); }
+  52%, 100% { opacity: 0; transform: scaleY(1); }
+}
+@keyframes cs-stamp {
+  0%, 46% { transform: translateY(0); }
+  50% { transform: translateY(26px); }
+  56%, 100% { transform: translateY(0); }
+}
+@keyframes cs-mark {
+  0%, 49% { opacity: 0; }
+  50%, 100% { opacity: 1; }
+}
+@keyframes cs-tag {
+  0%, 54% { opacity: 0; transform: translateY(6px); }
+  60%, 100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes cs-lamp {
+  0% { fill: #f59e0b; }
+  50% { fill: #22c55e; }
+}
+@keyframes cs-roll { to { transform: translateX(-20px); } }
+
+/* Guide bubble: the tour's voice. */
+.guide-bubble { animation: guide-in 0.45s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes guide-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+.tour-pulse { position: relative; }
+.tour-pulse::after {
+  content: ""; position: absolute; inset: -5px; border-radius: inherit; border: 2px solid var(--brand);
+  animation: tour-pulse 1.8s ease-out infinite; pointer-events: none;
+}
+@keyframes tour-pulse { 0% { opacity: 0.9; transform: scale(0.99); } 100% { opacity: 0; transform: scale(1.03); } }
+.log-line { animation: guide-in 0.35s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .customs-scene.is-active * { animation: none !important; }
+  .customs-scene.is-active .cs-crate { transform: translateX(235px); }
+  .guide-bubble, .log-line { animation: none; }
+  .tour-pulse::after { animation: none; opacity: 0.6; }
+}
+
+/* Landing connector flow: an arrow between the three columns, with a travelling pulse. */
+.connector-arrow {
+  display: none;
+  position: absolute; top: 50%; right: -1.25rem; width: 1rem; height: 2px;
+  background: rgba(11, 31, 77, 0.25); overflow: hidden;
+}
+@media (min-width: 1024px) { .connector-arrow { display: block; } }
+.connector-arrow::after {
+  content: ""; position: absolute; inset: 0; width: 40%; background: #c2362b;
+  animation: connector-pulse 1.6s linear infinite;
+}
+@keyframes connector-pulse { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+@media (prefers-reduced-motion: reduce) { .connector-arrow::after { animation: none; } }

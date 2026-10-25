@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { BookOpen, ShoppingBag, FileSpreadsheet, Landmark, Download, Cpu, Loader2, Check } from "lucide-react";
+import { Download, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Code } from "@/components/code";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Info } from "@/components/info";
 import { PageHeader } from "@/components/page";
+import { ConnectorLogo, type ConnectorId } from "@/components/connector-logos";
 import { DeclarationPreview, type DeclarationSummary } from "@/components/declaration-preview";
 
 type Batch = { batchId: string; lines: number; createdAt: string };
@@ -24,8 +25,8 @@ type Hmrc = {
   lastSubmission: { at: string; status: number; conversationId: string | null; body: string; lrn: string } | null;
 };
 
-function Card({ icon: Icon, title, info, status, children }: {
-  icon: React.ComponentType<{ className?: string }>;
+function Card({ logo, title, info, status, children }: {
+  logo: ConnectorId;
   title: string;
   info?: Parameters<typeof Info>[0]["id"];
   status: React.ReactNode;
@@ -35,9 +36,7 @@ function Card({ icon: Icon, title, info, status, children }: {
     <section className="space-y-4 rounded-lg border border-border bg-card p-6">
       <header className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <span className="flex size-9 items-center justify-center rounded-md border border-border bg-muted/60">
-            <Icon className="size-[18px]" />
-          </span>
+          <ConnectorLogo id={logo} size={36} />
           <h2 className="flex items-center gap-1.5 font-serif text-[22px] leading-tight">
             {title} {info && <Info id={info} />}
           </h2>
@@ -45,6 +44,21 @@ function Card({ icon: Icon, title, info, status, children }: {
         {status}
       </header>
       {children}
+    </section>
+  );
+}
+
+function Group({ n, title, text, children }: { n: number; title: string; text: string; children: React.ReactNode }) {
+  return (
+    <section className="space-y-4">
+      <div className="flex items-start gap-3">
+        <span className="mt-1 flex size-7 shrink-0 items-center justify-center rounded-full border border-primary text-sm font-medium text-primary">{n}</span>
+        <div>
+          <h2 className="font-serif text-[24px] leading-tight">{title}</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">{text}</p>
+        </div>
+      </div>
+      <div className="space-y-4">{children}</div>
     </section>
   );
 }
@@ -138,15 +152,55 @@ export function IntegrationsView({ broker }: { broker: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="mx-auto max-w-4xl space-y-12">
       <PageHeader
-        title="Integrations"
+        title="Connections"
         info="integrations"
-        description="The systems a broker already works in: where codes come from, where products live, and where declarations go."
+        description="Precedent sits between your client's goods and your declaration. Here's what it reads from, what it checks against, and where it sends signed codes."
       />
 
+      <Group n={1} title="Goods come in from" text="Your clients' stores and suppliers' invoices. No retyping.">
       <Card
-        icon={BookOpen}
+        logo="shopify"
+        title="Shopify · client stores"
+        info="shopify"
+        status={storeCount > 0 ? <On>{`${storeCount} connected`}</On> : <Off>Not connected</Off>}
+      >
+        <p className="text-sm text-muted-foreground">
+          Each client connects its own store. Approved codes write back as the 6-digit HS code and the 10-digit GB code on the inventory item.
+          No live store? Import a Shopify product CSV on the client card.
+        </p>
+        {shopifySetup && <p className="rounded-md bg-muted/70 px-3 py-2.5 text-sm text-muted-foreground">{shopifySetup}</p>}
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild>
+            <Link href={`/${broker}/clients`}>Manage client stores</Link>
+          </Button>
+          <Button variant="ghost" asChild>
+            <a href="/api/sample/shopify-csv">
+              <Download /> Sample Shopify CSV
+            </a>
+          </Button>
+        </div>
+      </Card>
+
+      <Card logo="excel" title="Excel and CSV invoices" status={<On>Ready</On>}>
+        <p className="text-sm text-muted-foreground">
+          Drop the supplier&apos;s commercial invoice straight in on{" "}
+          <Link href={`/${broker}/classify?new=1`} className="text-primary hover:underline">Invoices</Link>. Title rows and totals are skipped, and the
+          description, quantity, value and origin columns are found whatever they&apos;re called.
+        </p>
+        <Button variant="outline" asChild>
+          {/* A file download, not a page, so a plain link. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a href="/api/sample/xlsx"><Download /> Sample Excel invoice</a>
+        </Button>
+      </Card>
+
+      </Group>
+
+      <Group n={2} title="Every code is checked against" text="HMRC's own tariff, plus everything your team has corrected.">
+      <Card
+        logo="tariff"
         title="UK Trade Tariff · HMRC"
         status={tariff ? (tariff.live ? <On>Connected</On> : <Off>Not answering · using saved copy</Off>) : null}
       >
@@ -211,44 +265,28 @@ export function IntegrationsView({ broker }: { broker: string }) {
         </p>
       </Card>
 
-      <Card
-        icon={ShoppingBag}
-        title="Shopify · client stores"
-        info="shopify"
-        status={storeCount > 0 ? <On>{`${storeCount} connected`}</On> : <Off>Not connected</Off>}
-      >
+      <Card logo="mubit" title="Memory · Mubit" info="mubit" status={tariff?.mubitKey ? <On>Key present</On> : <Off>No key</Off>}>
         <p className="text-sm text-muted-foreground">
-          Each client connects its own store. Approved codes write back as the 6-digit HS code and the 10-digit GB code on the inventory item.
-          No live store? Import a Shopify product CSV on the client card.
+          Every correction your team makes is applied to similar products from then on. The AI runs through Mubit as
+          this firm&apos;s own task, so it learns your way of classifying and nobody else&apos;s.
         </p>
-        {shopifySetup && <p className="text-sm text-destructive">{shopifySetup}</p>}
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" asChild>
-            <Link href={`/${broker}/clients`}>Manage client stores</Link>
-          </Button>
-          <Button variant="ghost" asChild>
-            <a href="/api/sample/shopify-csv">
-              <Download /> Sample Shopify CSV
-            </a>
-          </Button>
+          <Button variant="outline" asChild><Link href={`/${broker}/precedents`}>See corrections</Link></Button>
+          <Button variant="ghost" asChild><Link href={`/${broker}/mubit`}>What Mubit has seen</Link></Button>
         </div>
       </Card>
+      </Group>
 
-      <Card icon={FileSpreadsheet} title="Excel and CSV invoices" status={<On>Ready</On>}>
+      <Group n={3} title="Signed codes go out to" text="Your declaration software, or HMRC directly. Nothing is filed without your sign-off.">
+      <Card logo="software" title="Declaration software" info="export" status={<On>CSV ready</On>}>
         <p className="text-sm text-muted-foreground">
-          Drop the supplier&apos;s commercial invoice straight in on{" "}
-          <Link href={`/${broker}/classify`} className="text-primary hover:underline">Classify</Link>. Title rows and totals are skipped, and the
-          description, quantity, value and origin columns are found whatever they&apos;re called.
+          A CSV with the 10-digit code split into DE 6/14 and DE 6/15. ASM, CargoWise and Descartes can import it.
+          Live push into those systems is coming soon.
         </p>
-        <Button variant="outline" asChild>
-          {/* A file download, not a page, so a plain link. */}
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-          <a href="/api/sample/xlsx"><Download /> Sample Excel invoice</a>
-        </Button>
+        <Button variant="outline" asChild><Link href={`/${broker}/export`}>Go to Export</Link></Button>
       </Card>
-
       <Card
-        icon={Landmark}
+        logo="cds"
         title="HMRC Customs Declarations (sandbox)"
         info="hmrc"
         status={hmrc?.connected ? <On>Signed in</On> : <Off />}
@@ -259,7 +297,9 @@ export function IntegrationsView({ broker }: { broker: string }) {
         </p>
 
         {hmrc && !hmrc.appReady && (
-          <p className="text-sm text-destructive">Precedent&apos;s HMRC app isn&apos;t set up on this server (HMRC_CLIENT_ID / HMRC_CLIENT_SECRET in .env.local).</p>
+          <p className="rounded-md bg-muted/70 px-3 py-2.5 text-sm text-muted-foreground">
+            HMRC sign-in isn&apos;t switched on for this demo. Export the signed codes for your declaration software instead.
+          </p>
         )}
 
         {hmrc?.appReady && (
@@ -358,22 +398,7 @@ export function IntegrationsView({ broker }: { broker: string }) {
         {hmrcError && <p className="text-sm text-destructive">{hmrcError}</p>}
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card icon={Download} title="Declaration software" info="export" status={<On>CSV ready</On>}>
-          <p className="text-sm text-muted-foreground">
-            A CSV with the 10-digit code split into DE 6/14 and DE 6/15. ASM, CargoWise and Descartes can import it.
-            Live push into those systems is coming soon.
-          </p>
-          <Button variant="outline" asChild><Link href={`/${broker}/export`}>Go to Export</Link></Button>
-        </Card>
-        <Card icon={Cpu} title="Mubit" info="mubit" status={tariff?.mubitKey ? <On>Key present</On> : <Off>No key</Off>}>
-          <p className="text-sm text-muted-foreground">
-            Every classify call goes through Mubit as this broker&apos;s task. Mubit can train an adapter after about 25 kept examples;
-            this app does not observe whether one is trained or live.
-          </p>
-          <Button variant="outline" asChild><Link href={`/${broker}/mubit`}>See examples sent</Link></Button>
-        </Card>
-      </div>
+      </Group>
     </div>
   );
 }

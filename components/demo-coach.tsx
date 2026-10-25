@@ -13,7 +13,7 @@ const COPY: Record<DemoStep, { title: string; body: string; next?: string }> = {
   },
   fix: {
     title: "Step 2 · Fix the bamboo line",
-    body: "It came back as wood (4419, 0%). Open it, pick 3924 10 00 19 (plastics / melamine, 6%), keep the house reason, and save.",
+    body: "It came back as wood (4419, 0%). Open it, pick 3924 10 00 11 (melamine kitchenware from China, 6%), keep the house reason, and save.",
   },
   learn: {
     title: "Step 3 · It remembers",

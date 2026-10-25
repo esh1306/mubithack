@@ -2,7 +2,8 @@
 // that would start a new Mubit task.
 
 export const DEMO_SAMPLE_ID = "01-ningbo-homeware";
-export const DEMO_BAMBOO_CODE = "3924100019";
+// Melamine kitchenware consigned from China or Hong Kong (the demo invoice ships from Ningbo).
+export const DEMO_BAMBOO_CODE = "3924100011";
 export const DEMO_BAMBOO_REASON =
   "This supplier's \"bamboo\" tableware is bamboo fibre bound with melamine resin, so it's kitchenware of plastics (ch. 39), not wood.";
 

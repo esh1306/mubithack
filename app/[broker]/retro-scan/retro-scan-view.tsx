@@ -221,9 +221,13 @@ export function RetroScanView({ broker }: { broker: string }) {
   const [openId, setOpenId] = useState<number | null>(null);
   const [guided, setGuided] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
+  const [sampleHistory, setSampleHistory] = useState(false);
   const load = useCallback(async () => {
     setEntries(await (await fetch(`/api/${broker}/retro-scan`)).json());
+    const home = await (await fetch(`/api/${broker}/home`)).json().catch(() => null);
+    setSampleHistory(!!home?.sampleHistory);
   }, [broker]);
 
   useEffect(() => {
@@ -261,6 +265,7 @@ export function RetroScanView({ broker }: { broker: string }) {
   const inWindow = list.filter((e) => e.inWindow);
   const years = inWindow.length ? `${inWindow[0].entryDate.slice(0, 7)} to ${inWindow.at(-1)!.entryDate.slice(0, 7)}` : "";
   const assumed = list.filter((e) => e.finding?.maths?.rateSource === "current").length;
+  const paid = list.reduce((s, e) => s + e.dutyPaid, 0);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -269,17 +274,21 @@ export function RetroScanView({ broker }: { broker: string }) {
         info="retroScan"
         description={
           <>
-            Re-checks every import from the last 3 years ({years || "no dates"}) against today&apos;s precedents and the duty rate in force on
-            each import date. Overpaid duty can be reclaimed; underpaid duty should be disclosed.
+            Find duty your clients overpaid on imports from the last 3 years ({years || "no dates"}), and any underpaid duty to put right.
           </>
         }
         actions={
-          <Button onClick={scan} disabled={!!progress || list.length === 0}>
-            {progress ? <Loader2 className="animate-spin" /> : <History />} {scanned ? "Scan again" : "Scan past entries"}
+          scanned && <Button onClick={scan} disabled={!!progress || list.length === 0}>
+            {progress ? <Loader2 className="animate-spin" /> : <History />} Scan again
           </Button>
         }
       />
 
+      {sampleHistory && (
+        <p className="rounded-md border border-info/30 bg-info/5 px-4 py-3 text-sm">
+          These past imports are <span className="font-medium">sample data</span>, added when this firm was set up so the check has something to find.
+        </p>
+      )}
       {guided && <DemoCoach step="retro" broker={broker} onSkip={() => setGuided(false)} />}
       {scanError && <p className="rounded-md border border-bad/30 bg-bad/5 px-4 py-3 text-sm">{scanError}</p>}
       {entries === null && !progress && <p className="text-sm text-muted-foreground">Loading past entries…</p>}
@@ -320,13 +329,54 @@ export function RetroScanView({ broker }: { broker: string }) {
         </div>
       )}
 
+      {!scanned && !progress && list.length > 0 && (
+        <section className="rounded-lg border border-border bg-card p-6 sm:p-8">
+          <h2 className="font-serif text-[26px] leading-tight">Did your clients pay the right duty?</h2>
+          <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
+            HMRC repays overpaid import duty for up to 3 years. This check re-codes every past import and works out what should have been paid.
+          </p>
+          <dl className="mt-6 grid gap-4 sm:grid-cols-3">
+            {[
+              ["Past imports on file", String(list.length)],
+              ["Within the 3-year limit", String(inWindow.length)],
+              ["Duty paid on them", gbp(paid)],
+            ].map(([k, v]) => (
+              <div key={k} className="rounded-md bg-muted/60 px-4 py-3">
+                <dt className="text-sm text-muted-foreground">{k}</dt>
+                <dd className="font-serif text-[28px] leading-tight tabular-nums">{v}</dd>
+              </div>
+            ))}
+          </dl>
+          <ol className="mt-6 space-y-2 text-[15px]">
+            {[
+              "Each past product is checked against HMRC's tariff, your signed codes and your corrections.",
+              "Duty is recalculated at the rate in force on each import date.",
+              "Overpayments become a claim pack for HMRC's repayment service; underpayments become a disclosure pack.",
+            ].map((t, i) => (
+              <li key={t} className="flex gap-3">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-primary text-xs font-medium text-primary">{i + 1}</span>
+                <span className="text-foreground/85">{t}</span>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-7 flex flex-wrap items-center gap-3">
+            <Button size="lg" onClick={scan}>
+              <History /> Run the 3-year check
+            </Button>
+            <button type="button" className="text-sm text-link hover:underline" onClick={() => setShowAll((v) => !v)}>
+              {showAll ? "Hide" : "Show"} the {list.length} past imports
+            </button>
+          </div>
+        </section>
+      )}
+
       {scanned && assumed > 0 && (
         <p className="text-xs text-muted-foreground">
           {assumed} rows use today&apos;s third-country rate because the rate on the import date was not available. Those rows say so in the trail.
         </p>
       )}
 
-      {list.length > 0 && <div className="overflow-hidden rounded-lg border border-border bg-card">
+      {list.length > 0 && (scanned || showAll) && <div className="overflow-hidden rounded-lg border border-border bg-card">
         <Table>
           <TableHeader>
             <TableRow>

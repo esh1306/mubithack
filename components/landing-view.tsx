@@ -9,7 +9,7 @@ import { MubitShowcase } from "@/components/mubit-showcase";
 import { AuroraField } from "@/components/bits/aurora-field";
 import { TiltCard } from "@/components/bits/tilt-card";
 import { Mark } from "@/components/mark";
-import { MubitMark, ShopifyMark } from "@/components/partner-marks";
+import { ConnectorLogo, CONNECTORS, type ConnectorId } from "@/components/connector-logos";
 import { gsap, registerLandingMotion, ScrollTrigger, SplitText } from "@/components/landing-motion";
 import { JOURNEY_STEPS } from "@/lib/landing-steps";
 import type { EarthApi } from "@/components/earth-globe";
@@ -124,7 +124,7 @@ function RecordCard() {
         </div>
       </div>
       <p className="mt-3 font-[family-name:var(--font-plex-mono)] text-[22px] font-semibold tracking-[0.02em] text-[#0e1a2f]">
-        3924 <span className="font-normal text-[#4a5872]">10 00 19</span>
+        3924 <span className="font-normal text-[#4a5872]">10 00 11</span>
       </p>
       <p className="text-[12px] text-[#4a5872]">Plastics › Tableware and kitchenware › Other</p>
       <dl className="mt-3 grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-1.5 text-[12px]">
@@ -145,8 +145,8 @@ function RecordCard() {
 const WHY = [
   {
     title: "One code, a different bill",
-    body: "The same bamboo dinner set is 0% duty as bamboo tableware (4419 19 00 00) and 6% as melamine tableware (3924 10 00 19). The legal notes decide which is right.",
-    source: { label: "UK Trade Tariff", href: `${TARIFF}/commodities/3924100019` },
+    body: "The same bamboo dinner set is 0% duty as bamboo tableware (4419 19 00 00) and 6% as melamine tableware from China (3924 10 00 11). The legal notes decide which is right.",
+    source: { label: "UK Trade Tariff", href: `${TARIFF}/commodities/3924100011` },
   },
   {
     title: "Overpay, and the clock runs",
@@ -165,27 +165,22 @@ const WHY = [
   },
 ];
 
-const BUILT_ON = [
-  {
-    name: "UK Trade Tariff",
-    by: "HMRC public API",
-    what: "Classification search, chapter notes, duty and VAT on any date, and rules of origin. The same data HMRC's own Trade Tariff MCP server uses.",
-  },
-  {
-    name: "Customs Declaration Service",
-    by: "HMRC developer sandbox",
-    what: "Signed-off codes go into a draft import declaration. You submit it; Precedent never files for you.",
-  },
-  {
-    name: "Shopify",
-    by: "Admin API or product CSV",
-    what: "Bring in a client's catalogue as invoice lines, and write the signed GB code back to each product.",
-  },
-  {
-    name: "Mubit",
-    by: "Per-broker learning",
-    what: "Each correction is sent through your firm's own task, so the model learns your house rules and no one else's.",
-  },
+const IMPACT = [
+  { value: "£384", tone: "text-[#15803d]", label: "Overpaid duty to claim back", body: "LED bulbs declared as light fittings at 4% are LED lamps at 0% on HMRC's tariff. Five past imports, still inside the 3-year window." },
+  { value: "£766", tone: "text-[#b91c1c]", label: "Underpayment caught", body: "Melamine \"bamboo\" tableware declared at 0% should pay 6%. Caught on this invoice and disclosed for past ones, before an audit." },
+  { value: "£576", tone: "text-[#15803d]", label: "Saved with a trade preference", body: "Cotton T-shirts made in Bangladesh pay 0% instead of 12% under the Developing Countries Trading Scheme, with proof of origin." },
+];
+
+const AUDIENCE = [
+  { who: "For the broker", points: ["Invoice to signed codes in minutes", "Corrections remembered for every client", "An evidence trail that shows reasonable care"] },
+  { who: "For the importer", points: ["Overpaid duty found and claimed back", "No surprise demand from HMRC", "Trade preferences used when goods qualify"] },
+  { who: "For HMRC and customs", points: ["Codes taken from HMRC's own tariff", "Every line arrives with its reason and legal note", "Underpayments disclosed, not discovered"] },
+];
+
+const CONNECTOR_FLOW: { title: string; items: ConnectorId[] }[] = [
+  { title: "Goods come in from", items: ["shopify", "excel", "csv"] },
+  { title: "Every code is checked against", items: ["tariff", "mubit"] },
+  { title: "Signed codes go out to", items: ["cds", "software"] },
 ];
 
 function Footer() {
@@ -354,6 +349,41 @@ export function LandingView() {
         </div>
       </section>
 
+      {/* ─── Impact ─── */}
+      <section className="relative z-20 border-t border-[#0b1f4d]/10">
+        <div className="mx-auto max-w-[86rem] px-5 py-20 sm:px-8 lg:px-10">
+          <h2 className="landing-display landing-section-title overflow-visible">What one shipment finds.</h2>
+          <p className="mt-3 max-w-2xl text-[16px] font-medium leading-relaxed text-[#1e3a6e]">
+            One six-line invoice from Ningbo and Dhaka, run through Precedent against HMRC&apos;s live tariff and three years of the same
+            broker&apos;s past imports.
+          </p>
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
+            {IMPACT.map((m) => (
+              <article key={m.label} className="rounded-xl border border-[#0b1f4d]/10 bg-white/80 p-6 backdrop-blur-md">
+                <p className={`font-[family-name:var(--font-ruling)] text-[44px] font-semibold leading-none tabular-nums ${m.tone}`}>{m.value}</p>
+                <p className="mt-3 text-[15px] font-semibold text-[#0b1f4d]">{m.label}</p>
+                <p className="mt-1 text-[14px] leading-relaxed text-[#1e3a6e]">{m.body}</p>
+              </article>
+            ))}
+          </div>
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            {AUDIENCE.map((a) => (
+              <article key={a.who} className="rounded-xl border border-[#0b1f4d]/10 bg-white/60 p-6 backdrop-blur-md">
+                <h3 className="font-[family-name:var(--font-ruling)] text-[20px] font-semibold text-[#0b1f4d]">{a.who}</h3>
+                <ul className="mt-3 space-y-1.5 text-[14px] leading-relaxed text-[#1e3a6e]">
+                  {a.points.map((p) => (
+                    <li key={p} className="flex gap-2">
+                      <span className="mt-[9px] size-1.5 shrink-0 rounded-full bg-[#c2362b]" />
+                      {p}
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ─── Journey ─── */}
       <section id="journey" className="relative z-20 border-t border-[#0b1f4d]/10">
         <div className="mx-auto grid max-w-[86rem] gap-12 px-5 py-20 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-16 lg:px-10 lg:py-28">
@@ -393,24 +423,28 @@ export function LandingView() {
       {/* ─── Built on ─── */}
       <section className="relative z-20 border-t border-[#0b1f4d]/10">
         <div className="mx-auto max-w-[86rem] px-5 py-20 sm:px-8 lg:px-10">
-          <h2 className="landing-display landing-section-title overflow-visible">What it&apos;s built on.</h2>
+          <h2 className="landing-display landing-section-title overflow-visible">Plugs into what you already use.</h2>
           <p className="mt-3 max-w-2xl text-[16px] font-medium leading-relaxed text-[#1e3a6e]">
-            Official customs data and the systems brokers already use. Names are for orientation, not a partnership.
+            Goods come in from your clients&apos; systems, every code is checked against HMRC&apos;s own tariff and your firm&apos;s memory, and
+            signed codes go out to the declaration. Names are for orientation, not a partnership.
           </p>
-          <dl className="mt-10 divide-y divide-[#0b1f4d]/10 overflow-hidden rounded-xl border border-[#0b1f4d]/10 bg-white/70 backdrop-blur-md">
-            {BUILT_ON.map((b) => (
-              <div key={b.name} className="grid gap-1 px-6 py-5 sm:grid-cols-[16rem_1fr] sm:gap-6">
-                <dt>
-                  <span className="flex items-center gap-2 font-[family-name:var(--font-ruling)] text-[19px] font-semibold text-[#0b1f4d]">
-                    {b.name === "Shopify" && <ShopifyMark size={18} />}
-                    {b.name === "Mubit" ? <MubitMark size={16} className="text-[#0b1f4d] [&_rect]:fill-[#0b1f4d] [&_path]:fill-white" /> : b.name}
-                  </span>
-                  <span className="text-[13px] text-[#4a5872]">{b.by}</span>
-                </dt>
-                <dd className="text-[14px] leading-relaxed text-[#1e3a6e] sm:pt-1">{b.what}</dd>
+          <div className="mt-10 grid gap-6 lg:grid-cols-3">
+            {CONNECTOR_FLOW.map((col, i) => (
+              <div key={col.title} className="relative space-y-3">
+                <p className="text-[13px] font-semibold text-[#4338ca]">{col.title}</p>
+                {col.items.map((id) => (
+                  <div key={id} className="flex items-start gap-3.5 rounded-xl border border-[#0b1f4d]/10 bg-white/80 p-4 backdrop-blur-md">
+                    <ConnectorLogo id={id} size={44} />
+                    <div className="min-w-0">
+                      <p className="font-[family-name:var(--font-ruling)] text-[18px] font-semibold leading-tight text-[#0b1f4d]">{CONNECTORS[id].name}</p>
+                      <p className="mt-1 text-[13px] leading-snug text-[#1e3a6e]">{CONNECTORS[id].what}</p>
+                    </div>
+                  </div>
+                ))}
+                {i < CONNECTOR_FLOW.length - 1 && <span className="connector-arrow" aria-hidden />}
               </div>
             ))}
-          </dl>
+          </div>
           <div className="mt-10 flex flex-wrap items-center gap-3">
             <Link href={DEMO_HREF} className="landing-cta landing-cta-primary">
               Try the demo

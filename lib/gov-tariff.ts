@@ -178,7 +178,11 @@ export async function lookupCommodity(code: string, asOf?: string): Promise<Comm
   const areaOf = (m: Inc) => String(m.relationships?.geographical_area?.data?.id ?? "");
 
   const third = measures.find((m) => typeOf(m) === "103" && areaOf(m) === "1011");
-  const vat = measures.find((m) => typeOf(m) === "305");
+  // Several VAT measures can apply (standard, plus zero or reduced rates for e.g. children's clothing):
+  // show the standard rate, and flag the reliefs for the broker to check.
+  const vats = measures.filter((m) => typeOf(m) === "305");
+  const vatPct = (m: Inc) => Number.parseFloat(String(exprOf(m)?.base ?? "")) || 0;
+  const vat = vats.reduce<Inc | undefined>((best, m) => (!best || vatPct(m) > vatPct(best) ? m : best), undefined);
   const ancestors = (d.data.relationships?.ancestors?.data ?? []) as { id: string; type: string }[];
   const path = [
     ...ancestors.map((r) => clean(byId.get(`${r.type}:${r.id}`)?.attributes?.description)),
@@ -190,6 +194,11 @@ export async function lookupCommodity(code: string, asOf?: string): Promise<Comm
   const flags: string[] = [];
   if (measures.some((m) => ANTI_DUMPING.has(typeOf(m)))) flags.push("Anti-dumping or countervailing duty applies to some origins");
   if (measures.some((m) => QUOTA.has(typeOf(m)))) flags.push("Tariff quota available");
+  // Import controls that apply to every origin (e.g. melamine kitchenware checks): documents or checks needed at the border.
+  const kind = (m: Inc) => String(byId.get(`measure_type:${typeOf(m)}`)?.attributes?.description ?? "");
+  if (measures.some((m) => areaOf(m) === "1011" && /restriction|prohibition|control/i.test(kind(m))))
+    flags.push("Import restriction: documents or border checks are needed for these goods");
+  if (vats.some((m) => vatPct(m) < vatPct(vat!))) flags.push("A zero or reduced VAT rate applies to some goods under this code");
 
   const summary = inc.find((i) => i.type === "import_trade_summary")?.attributes;
   return {

@@ -27,7 +27,7 @@ Open that receipt if you want a beat: precedents, tariff, chapter notes, Mubit r
 
 ## 0:50–1:30 · The fix
 
-Guide: **Step 2 · Fix the bamboo line**. Click the code (or F). The house code **3924 10 00 19** is already picked, with the house reason. **Save fix and teach.**
+Guide: **Step 2 · Fix the bamboo line**. Click the code (or F). The house code **3924 10 00 11** is already picked, with the house reason. **Save fix and teach.**
 
 > “One correction, in their own words.”
 
@@ -36,7 +36,7 @@ Guide: **Step 2 · Fix the bamboo line**. Click the code (or F). The house code 
 The panel slides in. Same screen, unmissable:
 
 - **Before your fix: 4419… at 0%**
-- **After: 3924 10 00 19 at 6% — because of Precedent #N**
+- **After: 3924 10 00 11 at 6% — because of Precedent #N**
 
 Never-seen **bamboo cups / lunch box / baby bowl** flip to 3924 (`learned from #N`). Chopsticks and the chopping board stay wood. Northgate’s column does not move.
 

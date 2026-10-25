@@ -42,7 +42,7 @@ export async function POST(req: Request, { params }: Params) {
   try {
     if (body.action === "oauth") {
       const app = shopifyApp(new URL(req.url).origin);
-      if (!app) return Response.json({ error: "Set SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET in .env.local" }, { status: 500 });
+      if (!app) return Response.json({ error: "One-click store sign-in isn't switched on for this demo. Paste a custom-app token or import a product CSV instead." }, { status: 500 });
       const shop = normaliseShop(body.shop);
       if (!validShop(shop)) return Response.json({ error: "Enter the store's myshopify.com address" }, { status: 400 });
       const state = crypto.randomUUID();
