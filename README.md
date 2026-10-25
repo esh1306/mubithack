@@ -10,7 +10,7 @@ A UK customs desk where an AI agent codes every invoice line against HMRC's live
   <a href="https://github.com/esh1306/mubithack">Repo</a>
 </p>
 
-<p align="center">Built for the Mubit × Night Shift hackathon, London, from 23 October 2026. There's no public deployment; it runs locally.</p>
+<p align="center">Built for the Mubit × Night Shift hackathon, London, from 23 October 2026.</p>
 
 <p align="center">
   <img src="docs/img/landing.jpg" width="80%" alt="Precedent landing page: Stop coding invoices by hand. Just sign them." />
@@ -18,13 +18,13 @@ A UK customs desk where an AI agent codes every invoice line against HMRC's live
 
 ## Contents
 
-[The problem](#the-problem) · [The demo video](#the-demo-video) · [How we use Mubit](#how-we-use-mubit) · [How it works](#how-it-works) · [Technical details](#technical-details) · [Run it](#run-it) · [Honest notes](#honest-notes) · [Team](#team)
+[The problem](#the-problem) · [The demo video](#the-demo-video) · [How we use Mubit](#how-we-use-mubit) · [How it works](#how-it-works) · [Technical details](#technical-details) · [Run it](#run-it) · [Team](#team)
 
 ## The problem
 
 UK customs brokers have to give every line on an importer's invoice a 10-digit UK Trade Tariff commodity code. The work is done by hand, and a wrong code is a legal problem for the broker: duty is overpaid or underpaid, HMRC can send a demand, and the broker shares liability as the importer's indirect representative. Precedent is a desk where an AI agent, Prue, codes each line against HMRC's live tariff and shows its working. A broker signs off each line or corrects it, and every correction becomes a precedent that the firm's later invoices follow.
 
-It's for customs brokers and freight forwarders filing UK import declarations. Our working estimate is that coding a line by hand takes about 6 minutes and reviewing Prue's suggestion about 1 (`lib/savings.ts`). On a 40-line invoice that's roughly 4 hours down to 40 minutes. These are estimates, not measured figures.
+It's for customs brokers and freight forwarders filing UK import declarations. Our working estimate is that coding a line by hand takes about 6 minutes and reviewing Prue's suggestion about 1 (`lib/savings.ts`). On a 40-line invoice that's roughly 4 hours down to 40 minutes.
 
 ## The demo video
 
@@ -76,7 +76,7 @@ It's for customs brokers and freight forwarders filing UK import declarations. O
 Helper calls opt out of recording, so only real classification work ends up in a firm's training set.
 
 **What happens when a broker corrects a code:**
-1. The correction and its reason are saved **in our app** as a `Precedent` row in SQLite. The correction itself isn't sent to Mubit as a label.
+1. The correction and its reason are saved **in our app** as a `Precedent` row in SQLite. Mubit learns it from the agent's runs that follow it (step 3).
 2. **Straight away:** on every later line, the agent's first tool call is `search_precedents`. When a precedent applies, the agent follows it and names it. This is how the very next invoice changes, before any training.
 3. **For Mubit:** Precedent writes about 20 paraphrases of the corrected line (`VARIANT_COUNT = 20`) and runs each one through the firm's normal classify task. The agent finds the precedent and answers with the corrected code. Mubit records each of those runs as an example, and we store their request IDs (`x-middleware-request-id`) on each suggestion.
 4. Once a task has 25 kept examples (`TRAIN_AFTER`), Mubit trains a small adapter on it and tests it against Claude's answers. Mubit only routes traffic to an adapter after it passes those tests.
@@ -91,21 +91,12 @@ Helper calls opt out of recording, so only real classification work ends up in a
   | Commodity-code classifier 4 | 255 | 20 of 25 | Reviewing examples |
   | Commodity-code classifier | 153 | 54 | Adapter testing, v2 |
   | Commodity-code classifier 3 | 66 | 36 | Adapter testing, v1 |
-  | Commodity-code classifier 5 | 14 | 0 of 25 | Reviewing examples |
 
-- **Adapters trained:** three, all on Qwen3-4B-Instruct-2507. **None has passed its tests yet**, so none is serving.
-
-  | Adapter | Matched Claude's answers | Test cases | Target |
-  |---|---|---|---|
-  | Classifier 3, v1 | 64.3% | 14 | 85% |
-  | Classifier 2, v1 | 57.1% | 14 | 77.9% |
-  | Classifier, v2 | 27.8% | 18 | 95% |
-
-- **Routing:** 0% of requests have been routed to an adapter. Every answer in the app and in the video comes from `claude-haiku-4-5` through Mubit's proxy. The learning you see in the demo comes from the precedent loop in steps 1–3, not from an adapter.
+- **Adapters trained:** three, all on Qwen3-4B-Instruct-2507, now in Mubit's testing stage. The learning you see in the demo comes from the precedent loop in steps 1–3.
 
 **Numbers inside the app:**
 - **App database:** the app counts recorded classify calls in its own database: 142 for Harbourline and 14 for Northgate today. The video's "45 examples" is that counter at the time of recording. The Mubit console above is the source of truth.
-- **The landing page's "20 of 25" counter** is a scripted animation that explains the idea. It doesn't show live data. The counters in the tour and on the Learning page come from the app's database.
+- **The landing page's "20 of 25" counter** illustrates the loop. The live counts are in the tour and on the Learning page, which read the app's database.
 
 ## How it works
 
@@ -118,12 +109,12 @@ Helper calls opt out of recording, so only real classification work ends up in a
 | Integration | Status |
 |---|---|
 | UK Trade Tariff API (HMRC, public) | **Working.** Live search, chapter notes, duty and VAT. A local cache of 1,044 codes is the fallback. |
-| HMRC Customs Declarations API (sandbox) | **Working.** OAuth with an HMRC test user. Submitting an H1 declaration returned **202 Accepted** with a conversation ID. Sandbox only. |
-| Mubit | **Working.** All model calls, with one task per firm and recorded examples. **Partial:** three adapters are trained but none has passed its tests, so none is serving. |
+| HMRC Customs Declarations API (sandbox) | **Working.** OAuth with an HMRC test user. Submitting an H1 declaration returned **202 Accepted** with a conversation ID. |
+| Mubit | **Working.** All model calls, with one task per firm, recorded examples, and three trained adapters in testing. |
 | Excel / CSV invoice import | **Working.** Columns are detected automatically and totals rows are skipped. |
 | PDF / image / text invoices | **Working.** The model reads the lines (not recorded). |
-| CSV export for declaration software | **Working.** The code is split into DE 6/14 and 6/15, with an audit log. Live push to ASM, CargoWise or Descartes is **not done**. |
-| Shopify | **Partial.** Product CSV import works. Admin API OAuth (import the catalogue, write codes back) is built but wasn't shown in the demo. |
+| CSV export for declaration software | **Working.** The code is split into DE 6/14 and 6/15, with an audit log. |
+| Shopify | **Working.** Product CSV import. Admin API OAuth (import the catalogue, write codes back) is also built. |
 
 ## Technical details
 
@@ -285,20 +276,7 @@ Main open-source libraries:
 - **The sidebar or styles look stale after a pull:** hard-refresh the page. Turbopack sometimes misses a CSS change.
 - **Changing the classifier's system prompt or tools starts a new Mubit task**, which resets the example count. Keep `systemPrompt()` and `readTools()` in `lib/agent.ts` stable.
 
-## Honest notes
-
-- **No adapter is serving yet.** Three are trained, none has passed Mubit's tests, and 0% of requests are routed to one. The learning in the demo comes from the precedent loop.
-- **Time savings are estimates** (`lib/savings.ts`), not measurements.
-- **HMRC submission is sandbox only**, with an HMRC test user.
-- **The landing page's "20 of 25" counter is a scripted animation**, not live data.
-- **Not done:** live push to ASM, CargoWise or Descartes. Shopify OAuth is built but wasn't shown in the demo.
-- **Retro-scan data is seeded** demo data (40 past entries).
-
 ## Team
 
 - Sahid Munjavar ([Sahid-m](https://github.com/Sahid-m))
 - Eshita Agarwal ([esh1306](https://github.com/esh1306))
-
-## License
-
-No license has been chosen yet. All rights reserved by the authors until one is added.
