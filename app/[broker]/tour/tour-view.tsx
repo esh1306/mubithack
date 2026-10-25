@@ -31,6 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Code } from "@/components/code";
 import { Prue, type PrueState } from "@/components/prue";
 import { CustomsScene } from "@/components/customs-scene";
+import { DeclareButton } from "@/components/declare-button";
 import { ClientToolbar, sortClients, useClientSort } from "@/components/client-sort";
 import { readSse } from "@/lib/sse";
 import { describeStep, pretty, type ToolCall } from "@/lib/steps";
@@ -1055,11 +1056,13 @@ export function TourView({ broker, brokerName }: { broker: string; brokerName: s
                   <span className="font-medium">Evidence file</span>
                   <span className="text-sm text-muted-foreground">Every code&apos;s reason, source and sign-off</span>
                 </a>
-                <Link href={`/${broker}/integrations`} className="flex flex-col gap-1.5 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/50">
+                {/* Preview and file right here, rather than detouring to Integrations. */}
+                <div className="flex flex-col gap-1.5 rounded-xl border border-primary/40 bg-card p-4">
                   <Landmark className="size-5 text-primary" />
                   <span className="font-medium">HMRC CDS</span>
-                  <span className="text-sm text-muted-foreground">Submit directly (sandbox)</span>
-                </Link>
+                  <span className="text-sm text-muted-foreground">Preview the declaration and submit it (sandbox)</span>
+                  {batchId && <DeclareButton broker={broker} batchId={batchId} label="Preview & submit" size="sm" />}
+                </div>
               </div>
               <div className="flex flex-wrap gap-3">
                 <Button variant="outline" size="lg" onClick={() => go(3)}>
@@ -1260,7 +1263,7 @@ export function TourView({ broker, brokerName }: { broker: string; brokerName: s
               title="You sign, then it's filed"
               what={<p>The 10-digit code splits into the declaration&apos;s data elements 6/14 and 6/15. Duty and VAT come from HMRC&apos;s live rates, including the preference for the Bangladesh T-shirts.</p>}
               worth={<p>Each line carries its evidence: HMRC&apos;s sources, the legal note and who signed it. If HMRC ever queries the entry, the answer is one download away.</p>}
-              tip={<p>Download either file if you like, then look back 3 years.</p>}
+              tip={<p>Preview the declaration and submit it to HMRC&apos;s sandbox right here, or download a file. Then look back 3 years.</p>}
             />
           )}
           {stage === "lookback" && (
