@@ -46,8 +46,13 @@ export async function POST(req: Request) {
       headers: NO_RECORD,
       timeout: 45000,
     });
-    // What she looked at, for the small "Looked up 8539520000" lines in the chat.
-    const used = res.steps.flatMap((s) => s.toolCalls.map((c) => toolLabel(c.toolName, c.input as Record<string, string>)));
+    // What she looked at, for the "What Prue is doing" steps in the chat: `Looked up 8539520000 · duty 2.70%`.
+    const used = res.steps.flatMap((s) =>
+      s.toolCalls.map((c) => {
+        const out = s.toolResults.find((r) => r.toolCallId === c.toolCallId)?.output as Record<string, unknown> | undefined;
+        return [toolLabel(c.toolName, c.input as Record<string, string>), toolDetail(c.toolName, out)].filter(Boolean).join(" · ");
+      }),
+    );
     return Response.json({ reply: res.text.trim() || "Hmm, I lost my words there. Try asking again?", used });
   } catch {
     return Response.json({ error: "Sorry, I couldn't reach Mubit just now. Try again in a moment." }, { status: 502 });
@@ -60,4 +65,24 @@ function toolLabel(name: string, input: Record<string, string>) {
   if (name === "read_chapter_notes") return `Read chapter ${input.chapter} notes`;
   if (name === "lookup_commodity") return `Looked up ${input.code}`;
   return name;
+}
+
+// A few words on what each tool found, kept short for the step line.
+function toolDetail(name: string, out: Record<string, unknown> | undefined) {
+  if (!out) return "";
+  const list = (k: string) => (Array.isArray(out[k]) ? (out[k] as Record<string, unknown>[]) : []);
+  if (name === "search_precedents") {
+    const n = list("precedents").length;
+    return n ? `${n} match${n === 1 ? "" : "es"}` : "no matches";
+  }
+  if (name === "hmrc_classification_search") {
+    const c = list("candidates");
+    return c.length ? `top ${c[0].code}, ${c.length} candidates` : "no candidates";
+  }
+  if (name === "read_chapter_notes") {
+    const n = list("notes").length;
+    return n ? `${n} notes` : "unavailable";
+  }
+  if (name === "lookup_commodity") return out.code ? (out.duty ? `duty ${out.duty}` : out.declarable ? "declarable" : "not declarable") : "not found";
+  return "";
 }
