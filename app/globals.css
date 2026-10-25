@@ -147,6 +147,9 @@
   }
   body {
     @apply bg-background text-foreground text-[15px] leading-relaxed;
+    /* On body, not html: an html overflow stops body's overflow reaching the viewport, so Radix's
+       scroll lock (body overflow:hidden) made body a scroller, so the sticky sidebar scrolled away. */
+    overflow-x: clip;
   }
   h1, h2, h3 {
     @apply tracking-tight;
@@ -156,7 +159,6 @@
   }
   html {
     @apply font-sans;
-    overflow-x: clip;
   }
 }
 
@@ -1021,19 +1023,81 @@ body {
   .tour-pulse::after { animation: none; opacity: 0.6; }
 }
 
-/* Landing connector flow: an arrow between the three columns, with a travelling pulse. */
-.connector-arrow {
-  display: none;
-  position: absolute; top: 50%; right: -1.25rem; width: 1rem; height: 2px;
-  background: rgba(11, 31, 77, 0.25); overflow: hidden;
+/* Landing end-to-end flow: sources → Precedent hub → outputs, joined by wires with travelling dashes. */
+.e2e-flow { display: grid; gap: 0; }
+.e2e-col-title {
+  height: 1.25rem; margin-bottom: 0.75rem;
+  font-size: 13px; font-weight: 600; color: #4338ca;
 }
-@media (min-width: 1024px) { .connector-arrow { display: block; } }
-.connector-arrow::after {
-  content: ""; position: absolute; inset: 0; width: 40%; background: #c2362b;
-  animation: connector-pulse 1.6s linear infinite;
+.e2e-col { display: flex; flex-direction: column; gap: 0.75rem; height: calc(100% - 2rem); margin: 0; padding: 0; list-style: none; }
+.e2e-node {
+  display: flex; flex: 1; align-items: center; gap: 0.875rem;
+  padding: 1rem; border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(11, 31, 77, 0.1);
+  box-shadow: 0 24px 48px -32px rgba(11, 31, 77, 0.4);
+  backdrop-filter: blur(12px);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s;
 }
-@keyframes connector-pulse { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
-@media (prefers-reduced-motion: reduce) { .connector-arrow::after { animation: none; } }
+.e2e-node:hover { transform: translateY(-2px); border-color: rgba(67, 56, 202, 0.3); }
+.e2e-tag {
+  border-radius: 999px; padding: 0.1rem 0.5rem;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  color: #8a5a00; background: #fdf1d6;
+}
+.e2e-tag-live { color: #0f5132; background: #c9f2dc; }
+.e2e-hub { display: flex; flex-direction: column; }
+.e2e-hub-card {
+  position: relative; flex: 1; display: flex; flex-direction: column; justify-content: center;
+  padding: 1.5rem; border-radius: 1rem; overflow: hidden;
+  background:
+    radial-gradient(24rem 16rem at 100% 0%, rgba(194, 54, 43, 0.35), transparent 60%),
+    radial-gradient(24rem 16rem at 0% 100%, rgba(29, 78, 216, 0.45), transparent 60%),
+    #0b1f4d;
+  box-shadow: 0 40px 80px -40px rgba(11, 31, 77, 0.75), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.e2e-stat {
+  font-family: var(--font-display-face), var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(3.5rem, 6vw, 5rem); font-weight: 800; line-height: 0.85; letter-spacing: -0.03em;
+  background: linear-gradient(100deg, #1d4ed8 0%, #6d28d9 50%, #e5483a 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.e2e-wires { display: none; width: 100%; margin-top: 2rem; overflow: visible; }
+.e2e-wire-base { fill: none; stroke: rgba(11, 31, 77, 0.18); stroke-width: 2; }
+.e2e-wire-flow {
+  fill: none; stroke: #c2362b; stroke-width: 2.5; stroke-linecap: round;
+  stroke-dasharray: 4 22; animation: e2e-flow 1.4s linear infinite;
+}
+@keyframes e2e-flow { to { stroke-dashoffset: -26; } }
+.e2e-wire-v {
+  position: relative; justify-self: center; width: 2px; height: 2.75rem; margin: 0.5rem 0;
+  background: rgba(11, 31, 77, 0.18); overflow: hidden;
+}
+.e2e-wire-v::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 35%;
+  background: #c2362b; border-radius: 2px;
+  animation: e2e-drop 1.4s linear infinite;
+}
+@keyframes e2e-drop { from { transform: translateY(-100%); } to { transform: translateY(300%); } }
+@media (min-width: 1024px) {
+  .e2e-flow { grid-template-columns: minmax(0, 1fr) 4.5rem minmax(0, 1.1fr) 4.5rem minmax(0, 1fr); }
+  .e2e-wires { display: block; }
+  .e2e-wire-v { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .e2e-wire-flow, .e2e-wire-v::after { animation: none; }
+  .e2e-node { transition: none; }
+}
+/* Hero: the end-to-end strip of real connector logos under the CTAs. */
+.hero-e2e {
+  display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem;
+  margin-top: 1.75rem; padding: 0.6rem 0.9rem; border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(11, 31, 77, 0.12);
+  backdrop-filter: blur(10px); transition: border-color 0.2s, background 0.2s;
+}
+.hero-e2e:hover { border-color: rgba(11, 31, 77, 0.3); background: rgba(255, 255, 255, 0.85); }
+.hero-e2e-arrow { color: #c2362b; font-weight: 700; }
 
 /* Landing story: the dark problem band, journey outcome metrics and the ROI card. */
 .problem-band {
