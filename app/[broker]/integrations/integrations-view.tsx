@@ -13,6 +13,7 @@ import { Info } from "@/components/info";
 import { PageHeader } from "@/components/page";
 import { ConnectorLogo, type ConnectorId } from "@/components/connector-logos";
 import { DeclarationPreview, type DeclarationSummary } from "@/components/declaration-preview";
+import { hmrcErrorText, safeJson } from "@/components/declare-button";
 
 type Batch = { batchId: string; lines: number; createdAt: string };
 type Hmrc = {
@@ -61,23 +62,6 @@ function Group({ n, title, text, children }: { n: number; title: string; text: s
       <div className="space-y-4">{children}</div>
     </section>
   );
-}
-
-// HMRC's XML error, as one readable sentence.
-function hmrcErrorText(body: string) {
-  const msg = (tag: string) => body.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, "g"))?.map((m) => m.replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/\{"[^"]*":(\w+)\}/g, "$1").trim());
-  const detail = msg("message")?.slice(1).join(" ");
-  return [msg("message")?.[0], detail].filter(Boolean).join(": ") || "HMRC rejected the declaration.";
-}
-
-// A failed route can answer with an empty body; turn that into a readable error.
-async function safeJson(res: Response) {
-  const text = await res.text();
-  try {
-    return text ? JSON.parse(text) : { error: `Server error ${res.status}` };
-  } catch {
-    return { error: `Server error ${res.status}: ${text.slice(0, 120)}` };
-  }
 }
 
 const On = ({ children = "Connected" }: { children?: React.ReactNode }) => (
