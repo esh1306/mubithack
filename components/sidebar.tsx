@@ -227,7 +227,7 @@ export function Sidebar({ current, brokers }: { current: Broker; brokers: Broker
       </div>
 
       {/* Outside the sticky rail so Prue sits above the page, not under it. */}
-      {section !== "tour" && <PrueGuide broker={current.id} section={raw} />}
+      {section !== "tour" && <PrueGuide broker={current.id} firm={current.name} section={raw} />}
       <CommandMenu broker={current.id} brokers={brokers} />
     </>
   );
