@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 
 type Home = {
   sampleHistory?: boolean;
+  learning?: { examples: number; trainAfter: number };
   aiOffline: boolean;
   pastEntries: number;
   totals: { classified: number; signedOff: number; review: number; precedents: number; followed: number; invoices: number };
@@ -501,6 +502,60 @@ function Connections({ d, broker }: { d: Home; broker: string }) {
 // ---------------------------------------------------------------------------------------------
 
 // brokerName is kept for the route's API; the sidebar already shows the firm, so the page doesn't repeat it.
+// ---------------------------------------------------------------------------------------------
+// The learning layer: every correction is applied at once and sent to this firm's own Mubit task.
+
+function Learning({ d, broker }: { d: Home; broker: string }) {
+  const ex = d.learning?.examples ?? 0;
+  const of = d.learning?.trainAfter ?? 25;
+  const offline = d.aiOffline || !d.connected.mubit;
+  const last = d.learned[0];
+  const steps = [
+    { n: d.totals.precedents, label: d.totals.precedents === 1 ? "correction made" : "corrections made", note: "by your team, each with its reason" },
+    { n: d.totals.followed, label: d.totals.followed === 1 ? "line answered by a correction" : "lines answered by a correction", note: "on later invoices, without asking again" },
+    { n: ex, label: `of ${of} examples on your Mubit task`, note: offline ? "the Mubit key was rejected, so nothing is being recorded" : `first training possible at ${of}` },
+  ];
+  return (
+    <section className="overflow-hidden rounded-2xl border border-primary/20 bg-card">
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border/70 bg-primary/[0.04] px-6 py-5">
+        <div>
+          <h2 className="font-serif text-[24px] leading-tight">How Precedent is learning your firm</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Correct a code once. It&apos;s applied to every similar product, and taught to a model that only your firm uses.</p>
+        </div>
+        <Link href={`/${broker}/mubit`} className={cn("inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline", focusRing)}>
+          See what it learned <ArrowRight className="size-3.5" />
+        </Link>
+      </div>
+      <ol className="grid gap-px bg-border/70 md:grid-cols-3">
+        {steps.map((st, i) => (
+          <li key={st.label} className="relative bg-card px-6 py-5">
+            <p className="flex items-baseline gap-2">
+              <span className="font-serif text-[40px] leading-none tabular-nums">{st.n}</span>
+              <span className="text-[14.5px] font-medium">{st.label}</span>
+            </p>
+            <p className={cn("mt-2 text-[13.5px]", i === 2 && offline ? "text-warn" : "text-muted-foreground")}>{st.note}</p>
+            {i === 2 && (
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                <div className={cn("h-full rounded-full", offline ? "bg-warn" : "bg-primary")} style={{ width: `${Math.max(2, Math.min(100, (ex / of) * 100))}%` }} />
+              </div>
+            )}
+            {i < 2 && <ArrowRight className="absolute -right-2.5 top-1/2 z-10 hidden size-5 -translate-y-1/2 rounded-full bg-card p-0.5 text-primary md:block" aria-hidden />}
+          </li>
+        ))}
+      </ol>
+      {last && (
+        <p className="flex flex-wrap items-center gap-2 border-t border-border/70 px-6 py-3.5 text-[14px]">
+          <span className="text-muted-foreground">Latest:</span>
+          <span className="font-medium">{last.lineText}</span>
+          <Code code={last.oldCode} className="text-[13px] line-through opacity-50" />
+          <ArrowRight className="size-3.5 text-primary" />
+          <Code code={last.newCode} className="text-[13px]" />
+        </p>
+      )}
+    </section>
+  );
+}
+
 export function HomeView({ broker }: { broker: string; brokerName: string }) {
   const [d, setD] = useState<Home | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -534,6 +589,7 @@ export function HomeView({ broker }: { broker: string; brokerName: string }) {
       )}
 
       {d && hasWork && <Work d={d} broker={broker} />}
+      {d && <Learning d={d} broker={broker} />}
       {d && <Flow d={d} broker={broker} />}
       {d && <Connections d={d} broker={broker} />}
     </div>

@@ -68,6 +68,7 @@ export function PrecedentsView({ broker }: { broker: string }) {
     <div className="mx-auto max-w-6xl space-y-8">
       <PageHeader
         title="Corrections"
+        prue="precedents"
         info="precedents"
         description="Every code your team corrected, and why. Precedent applies each one to similar products automatically, and teaches it to your firm's own Mubit model."
         actions={

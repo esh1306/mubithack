@@ -6,7 +6,6 @@ import {
   FileText,
   ArrowRightLeft,
   Download,
-  Cpu,
   Building2,
   Inbox,
   BookMarked,
@@ -152,10 +151,9 @@ export function CommandMenu({ broker, brokers }: { broker: string; brokers: { id
   };
 
   const pages = [
-    ...NAV.flatMap((g) => g.items).map(({ href, label, icon }) => ({ href: `/${broker}/${href}`, label, icon, keywords: [] as string[] })),
+    ...NAV.flatMap((g) => g.items).map(({ href, label, icon }) => ({ href: `/${broker}/${href}`, label, icon, keywords: href === "mubit" ? ["mubit", "memory", "examples", "training"] : ([] as string[]) })),
     { href: `/${broker}/classify?new=1`, label: "New invoice", icon: Plus, keywords: ["upload", "classify", "add"] },
     { href: `/${broker}/export`, label: "Export", icon: Download, keywords: ["csv", "declaration", "software"] },
-    { href: `/${broker}/mubit`, label: "Mubit", icon: Cpu, keywords: ["memory", "examples"] },
   ];
 
   return (

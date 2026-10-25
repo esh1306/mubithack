@@ -11,6 +11,14 @@ export function rememberFirm(id: string) {
   } catch {}
 }
 
+// A clean slate: no firm chosen, every Prue tip shown again.
+export function forgetFirm() {
+  try {
+    localStorage.removeItem(FIRM_KEY);
+    for (const k of Object.keys(sessionStorage)) if (k.startsWith("prue:")) sessionStorage.removeItem(k);
+  } catch {}
+}
+
 export function savedFirm() {
   try {
     return localStorage.getItem(FIRM_KEY);

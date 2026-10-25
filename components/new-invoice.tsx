@@ -1,17 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Check, ClipboardPaste, FileText, Plus } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Building2, Check, ClipboardPaste, FileText, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ConnectorLogo } from "@/components/connector-logos";
 import { ClientToolbar, sortClients, useClientSort } from "@/components/client-sort";
+import { PrueSpot } from "@/components/prue-spot";
+import { PRUE } from "@/lib/prue-tips";
 import { cn } from "@/lib/utils";
 
 type Client = { id: number; name: string; eori: string | null; invoices?: number };
 type Sample = { id: string; name: string; supplier: string; about: string };
 type Source = "excel" | "shopify" | "paste" | "sample";
+type Batch = { batchId: string; lines: number; createdAt: string; client: string | null };
+
+const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 // A new invoice in two decisions: who it's for (nothing chosen yet), then where the goods come from.
 export function NewInvoice({
@@ -20,6 +26,9 @@ export function NewInvoice({
   setClientId,
   addClient,
   samples,
+  batches,
+  broker,
+  onCancel,
   busy,
   error,
   onFile,
@@ -32,6 +41,9 @@ export function NewInvoice({
   setClientId: (id: number | null) => void;
   addClient: (name: string, eori: string) => Promise<void>;
   samples: Sample[];
+  batches: Batch[];
+  broker: string;
+  onCancel?: () => void;
   busy: boolean;
   error: string | null;
   onFile: (f: File) => void;
@@ -55,8 +67,28 @@ export function NewInvoice({
     { id: "sample", title: "Use a sample invoice", text: "Real product lines to try it with.", logo: <ConnectorLogo id="csv" size={36} /> },
   ];
 
+  const picked = sources.find((x) => x.id === source);
+  const prueSay = client
+    ? source
+      ? "🚀 Ready when you are. I'll check every line against HMRC's tariff and print a receipt for each."
+      : `🚚 Now, where are ${client.name}'s goods coming from?`
+    : PRUE["classify:new"].say;
   return (
-    <div className="w-full max-w-4xl space-y-10">
+    <div className="w-full space-y-8">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-1.5">
+          {onCancel && (
+            <button type="button" onClick={onCancel} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="size-3.5" /> Back to invoices
+            </button>
+          )}
+          <h1 className="desk-display">New invoice</h1>
+          <p className="max-w-2xl text-[15px] text-muted-foreground">Choose who it&apos;s for, then bring in the goods. Every line is checked against HMRC&apos;s live tariff.</p>
+        </div>
+      </header>
+
+      <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="min-w-0 space-y-10">
       <section className="space-y-4">
         <div className="flex items-baseline gap-3">
           <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-primary text-sm font-medium text-primary">1</span>
@@ -203,6 +235,57 @@ export function NewInvoice({
           )}
         </div>
       </section>
+      </div>
+
+      <aside className="space-y-4 xl:sticky xl:top-20">
+        <PrueSpot state={client && source ? "thinking" : client ? "idle" : "hello"} size={88} say={prueSay} />
+        <div className="rounded-xl border border-border bg-card p-5">
+          <p className="font-serif text-[20px]">This invoice</p>
+          <dl className="mt-3 space-y-3 text-[14px]">
+            <div className="flex items-start justify-between gap-3">
+              <dt className="text-muted-foreground">For</dt>
+              <dd className={cn("text-right font-medium", !client && "font-normal text-muted-foreground")}>{client?.name ?? "Not chosen yet"}</dd>
+            </div>
+            <div className="flex items-start justify-between gap-3">
+              <dt className="text-muted-foreground">EORI</dt>
+              <dd className="text-right font-mono text-[13px]">{client?.eori ?? "—"}</dd>
+            </div>
+            <div className="flex items-start justify-between gap-3">
+              <dt className="text-muted-foreground">Goods from</dt>
+              <dd className={cn("text-right font-medium", !picked && "font-normal text-muted-foreground")}>{picked?.title ?? "Not chosen yet"}</dd>
+            </div>
+          </dl>
+          <div className="mt-5 border-t border-border/70 pt-4">
+            <p className="text-sm font-medium">Then Precedent</p>
+            <ol className="mt-2 space-y-2 text-[13.5px] text-muted-foreground">
+              {["Codes every line from HMRC's live tariff, with the reason", "Waits for you to approve or correct each one", "Gets the signed codes ready for your declaration"].map((t, i) => (
+                <li key={t} className="flex gap-2.5">
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">{i + 1}</span>
+                  {t}
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+        {batches.length > 0 && (
+          <div className="rounded-xl border border-border bg-card">
+            <p className="border-b border-border/70 px-5 py-3 text-sm font-medium">Or open a recent invoice</p>
+            <ul className="divide-y divide-border/60">
+              {batches.slice(0, 5).map((b) => (
+                <li key={b.batchId}>
+                  <Link href={`/${broker}/classify?batch=${b.batchId}`} className="block px-5 py-2.5 text-[13.5px] hover:bg-accent/40">
+                    <span className="block font-medium">{b.client ?? "Pasted lines"}</span>
+                    <span className="text-muted-foreground">
+                      {b.lines} lines · {when(b.createdAt)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </aside>
+      </div>
     </div>
   );
 }

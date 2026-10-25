@@ -26,12 +26,41 @@ export async function GET(_req: Request, { params }: { params: Promise<{ broker:
   const totalCalls = rows.reduce((n, r) => n + calls(r).length, 0);
   const examples = rows.length;
   const precedents = await db.precedent.findMany({ where: { brokerId: broker }, orderBy: { id: "desc" }, take: 8 });
+  const [corrections, applied, uses, lastAi] = await Promise.all([
+    db.precedent.count({ where: { brokerId: broker } }),
+    // Lines that came back with a correction's code (applied directly, or the model followed it).
+    db.suggestion.count({ where: { line: { brokerId: broker }, precedentId: { not: null }, model: { not: "broker" } } }),
+    db.suggestion.groupBy({
+      by: ["precedentId"],
+      where: { precedentId: { in: precedents.map((p) => p.id) }, model: { not: "broker" } },
+      _count: true,
+    }),
+    // The latest line the AI answered on its own. If it fell back to HMRC's search, Mubit refused the call.
+    db.suggestion.findFirst({
+      where: { line: { brokerId: broker }, model: { notIn: ["broker", "precedent", "seed", "error"] } },
+      orderBy: { id: "desc" },
+      select: { model: true },
+    }),
+  ]);
+  const hasKey = hasMubitKey();
+  const status: "ok" | "rejected" | "missing" = hasKey ? (lastAi?.model === "hmrc-search" ? "rejected" : "ok") : "missing";
+  const ids = (s: string | null) => {
+    try {
+      return s ? (JSON.parse(s) as string[]) : [];
+    } catch {
+      return [];
+    }
+  };
 
   return Response.json({
     broker: b.name,
     model: MODEL_ID,
     prompt: systemPrompt(b.name),
-    hasKey: hasMubitKey(),
+    hasKey,
+    status,
+    corrections,
+    applied,
+    paraphrases: bySource.variants?.lines ?? 0,
     trainAfter: TRAIN_AFTER,
     examples,
     examplesTowardTrain: Math.min(examples, TRAIN_AFTER),
@@ -49,9 +78,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ broker:
       id: p.id,
       lineText: p.lineText,
       newCode: p.newCode,
+      oldCode: p.oldCode,
+      reason: p.reason,
+      createdAt: p.createdAt,
+      uses: uses.find((u) => u.precedentId === p.id)?._count ?? 0,
       variantCount: p.variantCount,
       variantsMatched: p.variantsMatched,
-      requestIds: p.variantRequestIds ? (JSON.parse(p.variantRequestIds) as string[]) : [],
+      requestIds: ids(p.variantRequestIds),
     })),
     lastRequestId: rows.flatMap((r) => calls(r))[0] ?? null,
     recent: rows.slice(0, 15).map((r) => ({

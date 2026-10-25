@@ -13,7 +13,7 @@ const PAGE: Record<string, string> = {
   precedents: "Corrections",
   integrations: "Connections",
   export: "Export",
-  mubit: "Mubit",
+  mubit: "Learning",
   tour: "Product tour",
 };
 

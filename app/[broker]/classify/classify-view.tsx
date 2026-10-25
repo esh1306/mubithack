@@ -593,7 +593,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
       <section className="mx-auto flex w-full max-w-[84rem] min-w-0 flex-col gap-5 px-5 pb-12 pt-20 md:px-10 md:pt-10">
         {demo && <DemoCoach step={coachStep} broker={broker} onSkip={exitGuide} />}
 
-        <header className="flex flex-wrap items-end justify-between gap-4">
+        {!showCompose && <header className="flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0 space-y-1.5">
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <span>Invoices</span>
@@ -656,7 +656,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
               </Button>
             )}
           </div>
-        </header>
+        </header>}
 
         {!showCompose && rows.length > 0 && (
           <ProcedureBar broker={broker} total={rows.length} back={rows.length - counts.running} waiting={counts.review + counts.ready} done={counts.done} />
@@ -707,6 +707,9 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
               setClientId(c.id);
             }}
             samples={samples}
+            batches={batches}
+            broker={broker}
+            onCancel={() => router.push(`/${broker}/classify`)}
             busy={busy}
             error={uploadError}
             onFile={upload}

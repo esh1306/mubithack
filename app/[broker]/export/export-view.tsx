@@ -40,6 +40,7 @@ export function ExportView({ broker }: { broker: string }) {
     <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader
         title="Export"
+        prue="export"
         info="export"
         description="Codes as a CSV for your declaration software: DE 6/14 (8 digits) and DE 6/15 (TARIC) split out. No retyping."
         actions={batchId && (

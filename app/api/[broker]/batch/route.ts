@@ -28,6 +28,35 @@ export async function GET(req: Request, { params }: { params: Promise<{ broker: 
         })),
     );
   }
+  // GET ?summary=1 → the invoice list: each invoice with its client, value and review status.
+  if (search.get("summary")) {
+    const lines = await db.line.findMany({
+      where: { brokerId: broker, batchId: { notIn: SYSTEM_BATCHES } },
+      include: { suggestions: { orderBy: { id: "desc" }, take: 1 }, client: { select: { id: true, name: true } } },
+      orderBy: { id: "asc" },
+    });
+    const byBatch = new Map<string, typeof lines>();
+    for (const l of lines) byBatch.set(l.batchId, [...(byBatch.get(l.batchId) ?? []), l]);
+    return Response.json(
+      [...byBatch.entries()]
+        .map(([batchId, ls]) => {
+          const s = ls.map((l) => l.suggestions[0]);
+          return {
+            batchId,
+            createdAt: ls[0].createdAt,
+            client: ls[0].client,
+            lines: ls.length,
+            value: ls.reduce((t, l) => t + (l.value ?? 0), 0),
+            review: s.filter((x) => x && x.status === "pending").length,
+            signedOff: s.filter((x) => x && ["approved", "corrected"].includes(x.status)).length,
+            corrected: s.filter((x) => x?.status === "corrected").length,
+            waiting: s.filter((x) => !x).length,
+          };
+        })
+        .reverse(),
+    );
+  }
+
   const id = search.get("id");
   const latest = id
     ? { batchId: id }
