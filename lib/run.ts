@@ -10,8 +10,9 @@ import { generateVariants } from "@/lib/variants";
 export const NEVER_SEEN_BATCH = "never-seen";
 export const RETRO_BATCH = "retro-scan";
 export const VARIANT_BATCH = "variants";
+export const TRAINING_BATCH = "training"; // scripts/train-adapter.mts
 // Batches that are not invoices the broker uploaded.
-export const SYSTEM_BATCHES = [NEVER_SEEN_BATCH, RETRO_BATCH, VARIANT_BATCH];
+export const SYSTEM_BATCHES = [NEVER_SEEN_BATCH, RETRO_BATCH, VARIANT_BATCH, TRAINING_BATCH];
 
 export { isSimilar };
 
