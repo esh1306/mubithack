@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     scopes: "read_products,read_inventory,write_inventory",
     setup: app
       ? null
-      : "Set SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET in .env.local. You can still paste a custom-app token or import a Shopify product CSV. See docs/SHOPIFY.md.",
+      : "One-click store sign-in isn't switched on for this demo. Paste a store's custom-app token on the client card, or import a Shopify product CSV.",
   });
 }
 

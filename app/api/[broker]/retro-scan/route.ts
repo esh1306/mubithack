@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { compareDuty, formatDutyTrail, isMoneyFinding, withinThreeYears, type DutyMaths } from "@/lib/duty";
 import { hasMubitKey } from "@/lib/mubit";
 import { isSimilar } from "@/lib/retrieve";
-import { classifyWithRetry, pool, retroLine, sseResponse } from "@/lib/run";
+import { classifyWithRetry, isSameProduct, pool, retroLine, sseResponse, SYSTEM_BATCHES } from "@/lib/run";
 import { dutyAsOf } from "@/lib/tariff";
 
 function parseMaths(raw: string | null): DutyMaths | null {
@@ -39,27 +39,43 @@ async function entriesWithFindings(broker: string) {
   });
 }
 
-async function suggestCode(broker: string, text: string, precedents: { id: number; lineText: string; newCode: string; reason: string }[]) {
+type Signed = { text: string; code: string; at: Date };
+
+// Codes the broker has signed off on invoices: a person checked them, so they count as evidence for the same product.
+async function signedCodes(broker: string): Promise<Signed[]> {
+  const lines = await db.line.findMany({
+    where: { brokerId: broker, batchId: { notIn: SYSTEM_BATCHES } },
+    include: { suggestions: { orderBy: { id: "desc" }, take: 1 } },
+    orderBy: { id: "desc" },
+  });
+  return lines.flatMap((l) => {
+    const s = l.suggestions[0];
+    return s && s.status === "approved" ? [{ text: l.text, code: s.code, at: s.createdAt }] : [];
+  });
+}
+
+async function suggestCode(
+  broker: string,
+  text: string,
+  precedents: { id: number; lineText: string; newCode: string; reason: string }[],
+  signed: Signed[],
+) {
   const local = precedents.find((p) => isSimilar(p.lineText, text) || isSimilar(p.reason, text));
+  if (local) return { code: local.newCode, reason: local.reason, precedentId: local.id };
+  const ok = signed.find((s) => isSameProduct(s.text, text));
+  if (ok) {
+    const day = ok.at.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+    return { code: ok.code, reason: `Your team signed off ${ok.code} for "${ok.text}" on ${day}`, precedentId: null as number | null };
+  }
   if (!hasMubitKey()) {
-    return local
-      ? { code: local.newCode, reason: local.reason, precedentId: local.id }
-      : { code: null as string | null, reason: "No Mubit key — only precedents can re-code a line.", precedentId: null as number | null };
+    return { code: null as string | null, reason: "No Mubit key — only precedents and signed-off codes can re-code a line.", precedentId: null as number | null };
   }
-  const line = await retroLine(broker, text);
-  try {
-    const { suggestion } = await classifyWithRetry(broker, line);
-    // An unconfirmed HMRC search hit (model offline) is not evidence for a reclaim or a disclosure.
-    if (suggestion.model === "hmrc-search") {
-      return local
-        ? { code: local.newCode, reason: local.reason, precedentId: local.id }
-        : { code: null as string | null, reason: "AI reasoning unavailable, so this entry was not re-checked.", precedentId: null as number | null };
-    }
-    return { code: suggestion.code, reason: suggestion.reason, precedentId: suggestion.precedentId };
-  } catch (e) {
-    if (local) return { code: local.newCode, reason: `${local.reason} (classify failed; used precedent #${local.id})`, precedentId: local.id };
-    throw e;
+  const { suggestion } = await classifyWithRetry(broker, await retroLine(broker, text));
+  // An unconfirmed HMRC search hit (model offline) is not evidence for a reclaim or a disclosure.
+  if (suggestion.model === "hmrc-search") {
+    return { code: null as string | null, reason: "AI reasoning unavailable, so this entry was not re-checked.", precedentId: null as number | null };
   }
+  return { code: suggestion.code, reason: suggestion.reason, precedentId: suggestion.precedentId };
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ broker: string }> }) {
@@ -76,6 +92,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ broker
   const skipped = all.length - entries.length;
   const texts = [...new Set(entries.map((e) => e.text))];
   const precedents = await db.precedent.findMany({ where: { brokerId: broker }, orderBy: { id: "desc" } });
+  const signed = await signedCodes(broker);
 
   return sseResponse(async (send) => {
     await db.retroFinding.deleteMany({ where: { pastEntry: { brokerId: broker } } });
@@ -84,7 +101,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ broker
     let done = 0;
     await pool(texts, 6, async (text) => {
       try {
-        const suggestion = await suggestCode(broker, text, precedents);
+        const suggestion = await suggestCode(broker, text, precedents, signed);
         for (const e of entries.filter((x) => x.text === text)) {
           const suggestedCode = suggestion.code ?? e.declaredCode;
           const [declared, suggested] = await Promise.all([dutyAsOf(e.declaredCode, e.entryDate), dutyAsOf(suggestedCode, e.entryDate)]);

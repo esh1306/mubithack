@@ -11,7 +11,7 @@ export const TRAIN_AFTER = 25;
 export const LOOKBACK_YEARS = 3;
 
 /**
- * Harbourline demo bamboo lines declared 4419190000 at 0%, signed code 3924100019 at 6%.
+ * Harbourline demo bamboo lines declared 4419190000 at 0%, signed code 3924100011 at 6%.
  * Sum of customs_value_gbp × 6% from data/harbourline-past-entries.csv. Label as demo.
  */
 export const DEMO_DISCLOSE_GBP = 655;

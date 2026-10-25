@@ -7,7 +7,10 @@ import { ShoppingBag, Loader2, Plus, Trash2, Check, Building2 } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { PageHeader } from "@/components/page";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ConnectorLogo } from "@/components/connector-logos";
+import { ClientToolbar, sortClients, useClientSort } from "@/components/client-sort";
 import { readSse } from "@/lib/sse";
 
 type Client = {
@@ -88,36 +91,43 @@ function StoreConnect({ broker, client, oauthReady, onChange }: { broker: string
     );
   }
 
+  const storeForm = (
+    <div className="flex flex-wrap gap-2">
+      <Input className="max-w-64" placeholder="client-store.myshopify.com" value={shop} onChange={(e) => setShop(e.target.value)} />
+      {oauthReady && (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!shop || !!busy}
+          onClick={async () => {
+            const d = await run("oauth", { shop });
+            if (d?.authorizeUrl) window.location.assign(d.authorizeUrl);
+          }}
+        >
+          {busy === "oauth" && <Loader2 className="animate-spin" />} Connect with Shopify
+        </Button>
+      )}
+      <Input className="max-w-64" type="password" placeholder="Admin API token (shpat_…)" value={token} onChange={(e) => setToken(e.target.value)} />
+      <Button size="sm" variant="outline" disabled={!shop || !token || !!busy} onClick={async () => { if (await run("connect", { shop, token })) onChange(); }}>
+        {busy === "connect" && <Loader2 className="animate-spin" />} Connect store
+      </Button>
+    </div>
+  );
+
   return (
     <div className="space-y-2">
-      {!oauthReady && (
-        <p className="rounded-md border border-foreground/20 bg-muted/40 px-3 py-2 text-sm">
-          Shopify app credentials are not on this server (<span className="font-mono">SHOPIFY_CLIENT_ID</span> /{" "}
-          <span className="font-mono">SHOPIFY_CLIENT_SECRET</span> in <span className="font-mono">.env.local</span>).
-          Paste a custom-app token, or import a product CSV. Setup: <span className="font-mono">docs/SHOPIFY.md</span>.
-        </p>
-      )}
-      <div className="flex flex-wrap gap-2">
-        <Input className="max-w-64" placeholder="client-store.myshopify.com" value={shop} onChange={(e) => setShop(e.target.value)} />
-        {oauthReady && (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!shop || !!busy}
-            onClick={async () => {
-              const d = await run("oauth", { shop });
-              if (d?.authorizeUrl) window.location.assign(d.authorizeUrl);
-            }}
-          >
-            {busy === "oauth" && <Loader2 className="animate-spin" />} Connect with Shopify
-          </Button>
-        )}
-        <Input className="max-w-64" type="password" placeholder="Admin API token (shpat_…)" value={token} onChange={(e) => setToken(e.target.value)} />
-        <Button size="sm" variant="outline" disabled={!shop || !token || !!busy} onClick={async () => { if (await run("connect", { shop, token })) onChange(); }}>
-          {busy === "connect" && <Loader2 className="animate-spin" />} Connect store
-        </Button>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        Bring in this client&apos;s products: import their Shopify product export and every item gets a code.
+      </p>
       <CsvImport broker={broker} clientId={client.id} busy={busy} setBusy={setBusy} setError={setError} />
+      {oauthReady ? (
+        storeForm
+      ) : (
+        <details className="text-sm">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Connect a live store with an access token</summary>
+          <div className="mt-2">{storeForm}</div>
+        </details>
+      )}
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
@@ -216,75 +226,214 @@ export function ClientsView({ broker }: { broker: string }) {
     try {
       await call(`/api/${broker}/clients`, form);
       setForm({ name: "", eori: "" });
+      setAddOpen(false);
       load();
     } finally {
       setAdding(false);
     }
   }
 
+  const { sort, setSort, q, setQ } = useClientSort();
+  const shown = clients ? sortClients(clients, sort, q) : null;
+  const [addOpen, setAddOpen] = useState(false);
+  const [openId, setOpenId] = useState<number | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const open = clients?.find((c) => c.id === openId) ?? null;
+
   async function remove(id: number) {
     await fetch(`/api/${broker}/clients/${id}`, { method: "DELETE" });
+    setOpenId(null);
     load();
   }
 
+  const totals = {
+    clients: clients?.length ?? 0,
+    invoices: clients?.reduce((s, c) => s + c.invoices, 0) ?? 0,
+    lines: clients?.reduce((s, c) => s + c.lines, 0) ?? 0,
+    stores: clients?.filter((c) => c.store).length ?? 0,
+  };
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <PageHeader
-        title="Clients"
-        info="clients"
-        description="The importers you declare for. Connect a client's online store to classify their whole catalogue once and write the codes back to it."
-      />
+    <div className="mx-auto max-w-6xl space-y-6">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-1.5">
+          <h1 className="desk-display">Clients</h1>
+          <p className="max-w-2xl text-[15px] text-muted-foreground">The importers you declare for. Each one&apos;s EORI goes on its declarations.</p>
+        </div>
+        <Button onClick={() => setAddOpen(true)}>
+          <Plus /> Add client
+        </Button>
+      </header>
 
       {notice && <p className="rounded-md border px-3 py-2 text-sm">{notice}</p>}
 
-      <section className="grid gap-2 rounded-lg border p-4 sm:grid-cols-[1fr_1fr_auto]">
-        <Input placeholder="Client name, e.g. Sunrise Homeware Ltd" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <Input placeholder="Importer EORI (GB + 12 digits)" value={form.eori} onChange={(e) => setForm({ ...form, eori: e.target.value })} />
-        <Button onClick={add} disabled={!form.name.trim() || adding}>
-          <Plus /> Add client
-        </Button>
+      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border lg:grid-cols-4">
+        {[
+          ["Clients", totals.clients],
+          ["Invoices coded", totals.invoices],
+          ["Product lines coded", totals.lines],
+          ["Shopify stores connected", totals.stores],
+        ].map(([k, v]) => (
+          <div key={k} className="bg-card px-5 py-4">
+            <dt className="text-sm text-muted-foreground">{k}</dt>
+            <dd className="mt-1 font-serif text-[30px] leading-none tabular-nums">{v}</dd>
+          </div>
+        ))}
+      </dl>
+
+      <section className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-4 py-3">
+          <ClientToolbar q={q} setQ={setQ} sort={sort} setSort={setSort} shown={shown?.length ?? 0} total={clients?.length ?? 0} />
+        </div>
+
+        {clients === null && <p className="px-5 py-8 text-sm text-muted-foreground">Loading clients…</p>}
+        {clients?.length === 0 && (
+          <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
+            <Building2 className="size-8 text-muted-foreground" />
+            <p className="font-serif text-xl">No clients yet</p>
+            <p className="max-w-sm text-sm text-muted-foreground">Add the importers you work for. You&apos;ll pick one each time you bring in an invoice.</p>
+            <Button onClick={() => setAddOpen(true)}>
+              <Plus /> Add your first client
+            </Button>
+          </div>
+        )}
+        {shown && clients && clients.length > 0 && shown.length === 0 && <p className="px-5 py-8 text-sm text-muted-foreground">No client matches “{q}”.</p>}
+
+        {shown && shown.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[44rem] text-[14.5px]">
+              <thead>
+                <tr className="border-b border-border/70 bg-muted/50 text-left text-[12.5px] text-muted-foreground">
+                  <th className="px-5 py-2.5 font-medium">Client</th>
+                  <th className="px-3 py-2.5 font-medium">EORI</th>
+                  <th className="px-3 py-2.5 text-right font-medium">Invoices</th>
+                  <th className="px-3 py-2.5 text-right font-medium">Lines coded</th>
+                  <th className="px-3 py-2.5 font-medium">Shopify store</th>
+                  <th className="px-5 py-2.5" />
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((c) => (
+                  <tr
+                    key={c.id}
+                    onClick={() => setOpenId(c.id)}
+                    className="cursor-pointer border-b border-border/60 transition-colors last:border-b-0 hover:bg-accent/40"
+                  >
+                    <td className="px-5 py-3">
+                      <span className="flex items-center gap-3">
+                        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[13px] font-semibold text-primary">
+                          {c.name
+                            .split(/\s+/)
+                            .slice(0, 2)
+                            .map((w) => w[0])
+                            .join("")}
+                        </span>
+                        <span className="font-medium">{c.name}</span>
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 font-mono text-[13px] text-muted-foreground">{c.eori ?? "—"}</td>
+                    <td className="px-3 py-3 text-right tabular-nums">{c.invoices}</td>
+                    <td className="px-3 py-3 text-right tabular-nums">{c.lines}</td>
+                    <td className="px-3 py-3">
+                      {c.store ? (
+                        <span className="inline-flex items-center gap-1.5 text-good">
+                          <ConnectorLogo id="shopify" size={20} /> {c.store.name ?? c.store.shop}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Not connected</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        asChild
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Link href={`/${broker}/classify?new=1&client=${c.id}`}>New invoice</Link>
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
-      {clients === null && <p className="text-sm text-muted-foreground">Loading clients…</p>}
-      {clients?.length === 0 && (
-        <p className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">No clients yet. Add the importers you work for above.</p>
-      )}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add a client</DialogTitle>
+            <DialogDescription>The importer you&apos;ll declare goods for.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium">Company name</span>
+              <Input autoFocus placeholder="e.g. Sunrise Homeware Ltd" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-sm font-medium">EORI number</span>
+              <Input placeholder="GB followed by 12 digits" value={form.eori} onChange={(e) => setForm({ ...form, eori: e.target.value })} />
+              <span className="block text-xs text-muted-foreground">Optional now, needed before you file a declaration.</span>
+            </label>
+            <Button className="w-full" onClick={add} disabled={!form.name.trim() || adding}>
+              {adding && <Loader2 className="animate-spin" />} Add client
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-      <ul className="space-y-3">
-        {clients?.map((c) => (
-          <li key={c.id} className="space-y-3 rounded-lg border border-border bg-card p-6">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <span className="flex size-8 items-center justify-center rounded-md bg-muted">
-                  <Building2 className="size-4" />
-                </span>
-                <div>
-                  <p className="font-serif text-[22px] leading-tight">{c.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    EORI <span className="font-mono">{c.eori ?? "not set"}</span> · {c.invoices} invoices · {c.lines} lines
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {c.store ? (
-                  <Badge className="bg-good/15 text-good hover:bg-good/15"><Check /> Store connected</Badge>
-                ) : (
-                  <Badge variant="outline">No store</Badge>
-                )}
-                <Button size="icon" variant="ghost" title="Remove client" onClick={() => remove(c.id)}>
-                  <Trash2 />
+      <Sheet open={!!open} onOpenChange={(o) => { if (!o) { setOpenId(null); setConfirmRemove(false); } }}>
+        <SheetContent className="w-full gap-0 overflow-y-auto p-0 data-[side=right]:sm:max-w-lg">
+          {open && (
+            <>
+              <SheetHeader className="border-b border-border/70 p-6">
+                <SheetTitle className="font-serif text-[26px] font-normal">{open.name}</SheetTitle>
+                <SheetDescription>EORI <span className="font-mono">{open.eori ?? "not set"}</span></SheetDescription>
+              </SheetHeader>
+              <div className="space-y-6 p-6">
+                <dl className="grid grid-cols-2 gap-3">
+                  {[
+                    ["Invoices coded", open.invoices],
+                    ["Product lines coded", open.lines],
+                  ].map(([k, v]) => (
+                    <div key={k} className="rounded-lg bg-muted/60 px-4 py-3">
+                      <dt className="text-sm text-muted-foreground">{k}</dt>
+                      <dd className="font-serif text-[26px] leading-tight tabular-nums">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <Button className="w-full" asChild>
+                  <Link href={`/${broker}/classify?new=1&client=${open.id}`}>
+                    <Plus /> New invoice for {open.name}
+                  </Link>
                 </Button>
+                <section className="space-y-3">
+                  <h3 className="flex items-center gap-2 font-medium">
+                    <ConnectorLogo id="shopify" size={24} /> Shopify store
+                    {open.store ? (
+                      <Badge className="bg-good/15 text-good hover:bg-good/15"><Check /> Connected</Badge>
+                    ) : (
+                      <Badge variant="outline">Not connected</Badge>
+                    )}
+                  </h3>
+                  <StoreConnect broker={broker} client={open} oauthReady={oauthReady} onChange={load} />
+                </section>
+                <section className="border-t border-border/70 pt-5">
+                  <Button
+                    variant="ghost"
+                    className={confirmRemove ? "text-bad hover:text-bad" : "text-muted-foreground"}
+                    onClick={() => (confirmRemove ? remove(open.id) : setConfirmRemove(true))}
+                  >
+                    <Trash2 /> {confirmRemove ? "Click again to remove this client" : "Remove client"}
+                  </Button>
+                </section>
               </div>
-            </div>
-            <StoreConnect broker={broker} client={c} oauthReady={oauthReady} onChange={load} />
-          </li>
-        ))}
-      </ul>
-
-      <p className="text-xs text-muted-foreground">
-        Invoices are tagged to a client when you classify them (pick the client on{" "}
-        <Link href={`/${broker}/classify`} className="text-primary hover:underline">Classify</Link>). The client&apos;s EORI is the importer on its HMRC declarations.
-      </p>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

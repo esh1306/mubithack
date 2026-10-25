@@ -72,7 +72,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ broker:
   ]);
   const stores = (await Promise.all(clients.map((c) => getConfig(`shopify:${c.id}`)))).filter(Boolean).length;
 
+  // The latest line the AI answered on its own: if that fell back to HMRC's shortlist, the AI check is offline.
+  const lastAi = lines.map(latest).find((s) => s && !["broker", "precedent"].includes(s.model ?? ""));
+  const pastEntries = await db.pastEntry.count({ where: { brokerId: broker } });
+
+  const sampleHistory = !!(await getConfig(`sample-history:${broker}`));
+
   return Response.json({
+    sampleHistory,
+    aiOffline: lastAi?.model === "hmrc-search",
+    pastEntries,
     totals: {
       classified: classified.length,
       signedOff,

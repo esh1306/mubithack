@@ -2,13 +2,18 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Sparkles, Flag, MessageCircleQuestion, Inbox } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, MessageCircleQuestion, PlayCircle, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Code } from "@/components/code";
-import { Panel, Stat, Empty, Status } from "@/components/page";
-import { DEMO_SAMPLE_ID } from "@/lib/demo";
+import { Panel } from "@/components/page";
+import { CustomsScene } from "@/components/customs-scene";
+import { CONNECTORS, ConnectorLogo, type ConnectorId, type ConnectorStatus } from "@/components/connector-logos";
+import { cn } from "@/lib/utils";
 
 type Home = {
+  sampleHistory?: boolean;
+  aiOffline: boolean;
+  pastEntries: number;
   totals: { classified: number; signedOff: number; review: number; precedents: number; followed: number; invoices: number };
   invoices: { batchId: string; client: string | null; createdAt: string; lines: number; classified: number; review: number; signedOff: number }[];
   needsYou: { lineId: number; batchId: string; text: string; client: string | null; code: string; confidence: number; question: string | null }[];
@@ -19,61 +24,486 @@ type Home = {
 
 const gbp = (n: number) => n.toLocaleString("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 });
 const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const focusRing = "outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-card";
 
-// A single bar: how far through an invoice the broker is. Thin, rounded, one hue; the numbers sit beside it.
-function Progress({ done, total }: { done: number; total: number }) {
-  const pct = total ? Math.round((done / total) * 100) : 0;
+// ---------------------------------------------------------------------------------------------
+// Hero: the one bold moment. Headline comes from the desk's state, not the clock.
+
+type HeroCopy = {
+  title: string;
+  lead: string;
+  primary: { label: string; href: string; icon: "play" | "arrow" };
+  secondary: { label: string; href: string };
+};
+
+function heroCopy(d: Home | null, broker: string): HeroCopy {
+  const tour = { label: "Take the product tour", href: `/${broker}/tour`, icon: "play" as const };
+  const upload = { label: "Upload an invoice", href: `/${broker}/classify?new=1` };
+  if (!d || d.totals.invoices === 0) {
+    return {
+      title: "Every product on an invoice, coded against HMRC’s tariff.",
+      lead: "Precedent finds the 10-digit UK commodity code for each line, shows you why, and waits for your sign-off. Correct it once and the next invoice is right first time.",
+      primary: tour,
+      secondary: upload,
+    };
+  }
+  const t = d.totals;
+  const pending = d.invoices.find((i) => i.review > 0) ?? d.invoices[0];
+  const clients = [...new Set(d.invoices.filter((i) => i.review > 0).map((i) => i.client).filter(Boolean))];
+  if (t.review > 0) {
+    const forWhom = clients.length === 1 ? ` for ${clients[0]}` : "";
+    return {
+      title: `${plural(t.review, "line")} ${t.review === 1 ? "is" : "are"} waiting for your sign-off.`,
+      lead: `Across ${plural(d.invoices.filter((i) => i.review > 0).length, "invoice")}${forWhom}. Each one already has a code from HMRC’s live tariff and the reasoning behind it, so checking takes seconds, not a search.`,
+      primary: { label: "Continue reviewing", href: `/${broker}/classify?batch=${pending.batchId}`, icon: "arrow" },
+      secondary: upload,
+    };
+  }
+  return {
+    title: "Every line is signed off and ready to declare.",
+    lead: `${plural(t.signedOff, "code")} signed off across ${plural(t.invoices, "invoice")}. Send them to your declaration software, or straight to HMRC’s Customs Declaration Service.`,
+    primary: { label: "File the declaration", href: `/${broker}/integrations`, icon: "arrow" },
+    secondary: upload,
+  };
+}
+
+type Figure = { value: string; label: string; note: React.ReactNode };
+
+function figures(d: Home | null, broker: string): { heading: string; tour: boolean; items: Figure[] } {
+  if (!d || d.totals.invoices === 0) {
+    return {
+      heading: "What the tour finds on one real shipment",
+      tour: true,
+      items: [
+        { value: gbp(384), label: "Overpaid duty to reclaim", note: "LED bulbs declared at 4% that HMRC codes at 0%." },
+        { value: gbp(766), label: "Underpayment caught before HMRC did", note: "Melamine “bamboo” tableware is 6%, not 0%." },
+        { value: gbp(576), label: "Saved with a trade preference", note: "Bangladesh origin qualifies for a lower rate." },
+      ],
+    };
+  }
+  const t = d.totals;
+  const m = d.money;
+  return {
+    heading: "At your desk so far",
+    tour: false,
+    items: [
+      m.scanned
+        ? {
+            value: gbp(m.reclaim),
+            label: "Overpaid duty to reclaim",
+            note: m.owe > 0 ? `Plus ${gbp(m.owe)} underpaid to put right.` : "From the 3-year duty check.",
+          }
+        : {
+            value: String(d.pastEntries),
+            label: "Past imports ready for the 3-year duty check",
+            note: (
+              <Link href={`/${broker}/retro-scan`} className={cn("text-link underline-offset-4 hover:underline", focusRing)}>
+                Find what was overpaid
+              </Link>
+            ),
+          },
+      {
+        value: String(t.classified),
+        label: "Product lines coded against HMRC’s tariff",
+        note: `${t.signedOff} signed off, ${t.review} to check.`,
+      },
+      {
+        value: String(t.precedents),
+        label: t.precedents === 1 ? "Correction remembered" : "Corrections remembered",
+        note: t.followed > 0 ? `Applied ${plural(t.followed, "time")} on new lines since.` : "Correct a code once and it carries forward.",
+      },
+    ],
+  };
+}
+
+function Hero({ d, broker }: { d: Home | null; broker: string }) {
+  const copy = heroCopy(d, broker);
+  const fig = figures(d, broker);
+  const first = d?.needsYou[0];
+  const ticket = first
+    ? { text: first.text, code: first.code, who: first.client ?? "Pasted lines", tag: "Waiting for you", tone: "warn" as const }
+    : { text: "LED bulb, E27, 9W, warm white", code: "8539520000", who: "Tour example", tag: "Duty 0%", tone: "good" as const };
+
   return (
-    <div className="h-1.5 w-28 overflow-hidden rounded-full bg-muted" role="img" aria-label={`${done} of ${total} signed off`}>
-      <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+    <section
+      aria-labelledby="home-title"
+      className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-[0_40px_80px_-56px_rgba(19,48,107,0.55)]"
+    >
+      {/* thin brand rule along the top edge */}
+      <span aria-hidden className="absolute inset-x-0 top-0 z-10 h-[3px] bg-[linear-gradient(90deg,#13306b_0%,#13306b_70%,#c2362b_70%,#c2362b_100%)]" />
+
+      <div className="grid lg:grid-cols-[minmax(0,1.08fr)_minmax(0,1fr)]">
+        <div className="flex flex-col justify-center gap-6 px-6 pb-8 pt-9 sm:px-10 sm:pb-10 sm:pt-12">
+          <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="relative flex size-2">
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-good/50 motion-reduce:hidden" />
+              <span className="relative inline-flex size-2 rounded-full bg-good" />
+            </span>
+            Checking against HMRC’s live UK Trade Tariff
+          </p>
+          <h1 id="home-title" className="max-w-[20ch] text-balance font-serif text-[34px] font-semibold leading-[1.06] tracking-[-0.02em] text-foreground sm:text-[46px]">
+            {copy.title}
+          </h1>
+          <p className="max-w-xl text-pretty text-[17px] leading-relaxed text-foreground/75">{copy.lead}</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button size="lg" asChild>
+              <Link href={copy.primary.href}>
+                {copy.primary.icon === "play" && <PlayCircle />}
+                {copy.primary.label}
+                {copy.primary.icon === "arrow" && <ArrowRight />}
+              </Link>
+            </Button>
+            <Button size="lg" variant="outline" asChild>
+              <Link href={copy.secondary.href}>
+                <Upload /> {copy.secondary.label}
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        {/* The visual: a crate going through the tariff gate, and the line it stands for. */}
+        <div className="relative flex flex-col justify-center gap-5 border-t border-border bg-[linear-gradient(180deg,#eef4ff_0%,#f5f8fd_100%)] px-5 py-8 sm:px-8 lg:border-l lg:border-t-0">
+          <div className="overflow-hidden rounded-xl border border-[#d8e2f3] bg-white/60">
+            <CustomsScene code={formatCode(ticket.code)} className="aspect-[520/150] w-full" />
+          </div>
+          <div className="mx-auto w-full max-w-md rounded-xl border border-border bg-card px-5 py-4 shadow-[0_18px_40px_-28px_rgba(19,48,107,0.6)]">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-medium">{ticket.text}</p>
+                <p className="text-sm text-muted-foreground">{ticket.who}</p>
+              </div>
+              <span
+                className={cn(
+                  "shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium",
+                  ticket.tone === "warn" ? "bg-warn/15 text-warn" : "bg-good/12 text-good",
+                )}
+              >
+                {ticket.tag}
+              </span>
+            </div>
+            <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-dashed border-border pt-3">
+              <span className="text-sm text-muted-foreground">UK commodity code</span>
+              <Code code={ticket.code} className="text-[17px]" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* The value, in money and work, under the fold of the hero. */}
+      <div className="border-t border-border bg-[#fbfcfe]">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 px-6 pt-5 sm:px-10">
+          <h2 className="font-serif text-[17px] font-semibold">{fig.heading}</h2>
+          {fig.tour && <span className="text-sm text-muted-foreground">Tour example, not your firm’s figures</span>}
+        </div>
+        <dl className="grid divide-y divide-border px-6 sm:px-10 md:grid-cols-3 md:divide-x md:divide-y-0">
+          {fig.items.map((f, i) => (
+            <div key={f.label} className={cn("py-5 md:py-6", i > 0 && "md:pl-8", i < 2 && "md:pr-8")}>
+              <dt className="text-sm text-muted-foreground">{f.label}</dt>
+              <dd className="mt-1.5 font-serif text-[40px] font-semibold leading-none tabular-nums tracking-[-0.02em]">{f.value}</dd>
+              <dd className="mt-2 text-sm text-foreground/70">{f.note}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </section>
+  );
+}
+
+function formatCode(c: string) {
+  const s = c.replace(/\D/g, "");
+  return s.length === 10 ? `${s.slice(0, 4)} ${s.slice(4, 6)} ${s.slice(6, 8)} ${s.slice(8)}` : s;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The job, as one flow. Each step ticks itself off from what this firm has actually done.
+
+type Step = { title: string; body: string; done: boolean; doneText: string; action: string; href: string; logos: ConnectorId[] };
+
+function steps(d: Home, broker: string): Step[] {
+  const t = d.totals;
+  return [
+    {
+      title: "Bring in the invoice",
+      body: "Upload the supplier’s Excel or CSV, or import a client’s Shopify catalogue.",
+      done: t.invoices > 0,
+      doneText: `${plural(t.invoices, "invoice")} in`,
+      action: "Add an invoice",
+      href: `/${broker}/classify?new=1`,
+      logos: ["excel", "csv", "shopify"],
+    },
+    {
+      title: "Check and sign off",
+      body: "Each line gets a code from HMRC’s tariff, the reason, and the sources it checked.",
+      done: t.signedOff > 0,
+      doneText: `${t.signedOff} of ${t.classified} signed`,
+      action: "Open invoices",
+      href: `/${broker}/classify`,
+      logos: ["tariff"],
+    },
+    {
+      title: "Correct it once",
+      body: "Say why a code is wrong. It applies to similar products and trains your firm’s Mubit model.",
+      done: t.precedents > 0,
+      doneText: `${plural(t.precedents, "correction")}, used ${t.followed}×`,
+      action: t.precedents > 0 ? "See corrections" : "Correct a code",
+      href: `/${broker}/${t.precedents > 0 ? "precedents" : "classify"}`,
+      logos: ["mubit"],
+    },
+    {
+      title: "File the declaration",
+      body: "Signed codes go to your declaration software as a CSV, or to HMRC’s CDS.",
+      done: d.connected.hmrc,
+      doneText: "Signed in to HMRC",
+      action: "Choose how to file",
+      href: `/${broker}/integrations`,
+      logos: ["software", "cds"],
+    },
+    {
+      title: "Check 3 years back",
+      body: `Re-rate ${d.pastEntries} past imports at the duty in force on each date. Overpayments become a claim.`,
+      done: d.money.scanned,
+      doneText: `${gbp(d.money.reclaim)} to reclaim`,
+      action: "Run the duty check",
+      href: `/${broker}/retro-scan`,
+      logos: ["tariff"],
+    },
+  ];
+}
+
+function Flow({ d, broker }: { d: Home; broker: string }) {
+  const list = steps(d, broker);
+  const done = list.filter((s) => s.done).length;
+  const next = list.findIndex((s) => !s.done);
+  return (
+    <section aria-labelledby="flow-title" className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 id="flow-title" className="font-serif text-[26px] font-semibold leading-tight tracking-[-0.01em]">
+            From invoice to declaration
+          </h2>
+          <p className="mt-1 text-[15px] text-muted-foreground">The whole job in five steps. Each one ticks off as you do it.</p>
+        </div>
+        <div className="flex items-center gap-3" aria-label={`${done} of ${list.length} steps done`}>
+          <span className="text-sm tabular-nums text-muted-foreground">
+            {done} of {list.length} done
+          </span>
+          <span className="flex gap-1" aria-hidden>
+            {list.map((s, i) => (
+              <span key={i} className={cn("h-1.5 w-5 rounded-full", s.done ? "bg-good" : i === next ? "bg-primary" : "bg-border")} />
+            ))}
+          </span>
+        </div>
+      </div>
+
+      <ol className="grid overflow-hidden rounded-xl border border-border bg-card lg:grid-cols-5">
+        {list.map((s, i) => {
+          const isNext = i === next;
+          return (
+            <li
+              key={s.title}
+              className={cn(
+                "relative flex flex-col gap-3 border-border px-5 py-5 max-lg:border-b max-lg:last:border-b-0 lg:border-r lg:last:border-r-0 lg:py-6",
+                isNext && "bg-primary/[0.04]",
+              )}
+            >
+              {isNext && <span aria-hidden className="absolute inset-x-0 top-0 hidden h-[3px] bg-primary lg:block" />}
+              {isNext && <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] bg-primary lg:hidden" />}
+              <div className="flex items-center justify-between gap-3">
+                <span
+                  className={cn(
+                    "flex size-7 items-center justify-center rounded-full border text-[13px] font-medium tabular-nums",
+                    s.done ? "border-good bg-good text-white" : isNext ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground",
+                  )}
+                >
+                  {s.done ? <Check className="size-3.5" aria-label="Done" /> : i + 1}
+                </span>
+                <span className="flex -space-x-1.5">
+                  {s.logos.map((id) => (
+                    <ConnectorLogo key={id} id={id} size={24} className="ring-2 ring-card" />
+                  ))}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium leading-snug">{s.title}</p>
+                <p className="text-sm leading-relaxed text-muted-foreground">{s.body}</p>
+              </div>
+              <div className="mt-auto pt-1">
+                {s.done ? (
+                  <p className="text-sm font-medium text-good">{s.doneText}</p>
+                ) : isNext ? (
+                  <Button size="sm" asChild>
+                    <Link href={s.href}>{s.action}</Link>
+                  </Button>
+                ) : (
+                  <Link href={s.href} className={cn("text-sm text-link underline-offset-4 hover:underline", focusRing)}>
+                    {s.action}
+                  </Link>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Today's work: lines waiting, and the latest invoices.
+
+function Work({ d, broker }: { d: Home; broker: string }) {
+  const link = cn("text-sm text-link underline-offset-4 hover:underline", focusRing);
+  const rowLink = cn("flex items-start gap-4 px-6 py-3.5 transition-colors hover:bg-accent/40 focus-visible:bg-accent/40", "outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/60");
+  return (
+    <div className="grid items-start gap-6 lg:grid-cols-5">
+      <Panel
+        className="lg:col-span-3"
+        title="Waiting for you"
+        description={d.totals.review ? `${plural(d.totals.review, "line")} to check, lowest confidence first.` : "Nothing waiting."}
+        actions={
+          <Link href={`/${broker}/classify`} className={link}>
+            Open invoices
+          </Link>
+        }
+      >
+        {d.needsYou.length === 0 ? (
+          <p className="border-t border-border/70 px-6 py-6 text-muted-foreground">Every line is signed off or confident.</p>
+        ) : (
+          <ul className="divide-y divide-border/70 border-t border-border/70">
+            {d.needsYou.slice(0, 5).map((n) => (
+              <li key={n.lineId}>
+                <Link href={`/${broker}/classify?batch=${n.batchId}`} className={rowLink}>
+                  <span aria-hidden className="mt-2 size-2 shrink-0 rounded-full bg-warn" />
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <p className="font-medium">{n.text}</p>
+                    {n.question ? (
+                      <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
+                        <MessageCircleQuestion className="mt-0.5 size-3.5 shrink-0" />
+                        <span className="line-clamp-1">{n.question}</span>
+                      </p>
+                    ) : (
+                      n.client && <p className="text-sm text-muted-foreground">{n.client}</p>
+                    )}
+                  </div>
+                  <Code code={n.code} className="hidden shrink-0 pt-0.5 text-sm sm:inline" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+
+      <Panel className="lg:col-span-2" title="Recent invoices">
+        <ul className="divide-y divide-border/70 border-t border-border/70">
+          {d.invoices.slice(0, 5).map((inv) => {
+            const pct = inv.lines ? Math.round((inv.signedOff / inv.lines) * 100) : 0;
+            return (
+              <li key={inv.batchId}>
+                <Link href={`/${broker}/classify?batch=${inv.batchId}`} className={cn(rowLink, "items-center")}>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="truncate font-medium">{inv.client ?? "Pasted lines"}</p>
+                      <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+                        {inv.signedOff} of {inv.lines} signed
+                      </span>
+                    </div>
+                    <span className="block h-1 overflow-hidden rounded-full bg-muted" aria-hidden>
+                      <span className="block h-full rounded-full bg-good" style={{ width: `${pct}%` }} />
+                    </span>
+                    <p className="text-sm text-muted-foreground">Added {when(inv.createdAt)}</p>
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </Panel>
     </div>
   );
 }
 
-// Greeting by the viewer's clock, set after mount so server and client render the same HTML first.
-function useGreeting() {
-  const [g, setG] = useState({ hello: "Welcome back.", date: "" });
-  useEffect(() => {
-    const now = new Date();
-    const h = now.getHours();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reads the browser clock once
-    setG({
-      hello: h < 12 ? "Good morning." : h < 18 ? "Good afternoon." : "Good evening.",
-      date: now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }),
-    });
-  }, []);
-  return g;
-}
+// ---------------------------------------------------------------------------------------------
+// The systems it plugs into, in the order goods travel.
 
-function ConnectedPanel({ d, broker, linkMore }: { d: Home; broker: string; linkMore: string }) {
+const PILL: Record<ConnectorStatus, string> = {
+  on: "bg-good/12 text-good",
+  ready: "bg-good/12 text-good",
+  off: "bg-muted text-muted-foreground",
+  warn: "bg-warn/15 text-warn",
+};
+
+function Connections({ d, broker }: { d: Home; broker: string }) {
+  const c = d.connected;
+  const mubitOk = c.mubit && !d.aiOffline;
+  const cols: { title: string; items: { id: ConnectorId; status: ConnectorStatus; label: string }[] }[] = [
+    {
+      title: "Goods come in from",
+      items: [
+        { id: "shopify", status: c.stores ? "on" : "off", label: c.stores ? `${c.stores} connected` : "Not connected" },
+        { id: "excel", status: "ready", label: "Ready" },
+        { id: "csv", status: "ready", label: "Ready" },
+      ],
+    },
+    {
+      title: "Codes are checked against",
+      items: [
+        { id: "tariff", status: "on", label: "Live" },
+        { id: "mubit", status: mubitOk ? "on" : "warn", label: mubitOk ? "Learning" : "Key rejected" },
+      ],
+    },
+    {
+      title: "Signed codes go out to",
+      items: [
+        { id: "cds", status: c.hmrc ? "on" : "off", label: c.hmrc ? "Signed in" : "Sandbox" },
+        { id: "software", status: "ready", label: "CSV ready" },
+      ],
+    },
+  ];
   return (
-    <Panel className="lg:col-span-2" title="Connected" description="Where codes come from and where they go.">
-      <ul className="divide-y divide-border/70 border-t border-border/70">
-        {[
-          ["HMRC Customs Declarations", d.connected.hmrc ? <Status key="h" tone="good">Signed in</Status> : <Status key="h" tone="idle">Not signed in</Status>],
-          ["Client stores · Shopify", <Status key="s" tone={d.connected.stores ? "good" : "idle"}>{d.connected.stores} of {d.connected.clients} clients</Status>],
-          ["UK Trade Tariff", <Status key="t" tone="good">{d.connected.tariffCodes.toLocaleString()} codes</Status>],
-          ["Mubit", d.connected.mubit ? <Status key="m" tone="good">Recording</Status> : <Status key="m" tone="bad">No key</Status>],
-        ].map(([label, status]) => (
-          <li key={label as string} className="flex items-center justify-between gap-3 px-6 py-3.5">
-            <span>{label}</span>
-            {status}
-          </li>
-        ))}
-      </ul>
-      <div className="border-t border-border/70 px-6 py-3.5">
-        <Link href={`/${broker}/integrations`} className={linkMore}>
-          Manage integrations <ArrowRight className="size-3.5" />
+    <section aria-labelledby="conn-title" className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 id="conn-title" className="font-serif text-[26px] font-semibold leading-tight tracking-[-0.01em]">
+            Works with what you already use
+          </h2>
+          <p className="mt-1 text-[15px] text-muted-foreground">No new systems to learn. Invoices come in, codes go out.</p>
+        </div>
+        <Link href={`/${broker}/integrations`} className={cn("text-sm text-link underline-offset-4 hover:underline", focusRing)}>
+          Manage connections
         </Link>
       </div>
-    </Panel>
+      <div className="grid grid-cols-1 gap-x-10 gap-y-6 md:grid-cols-3">
+        {cols.map((col) => (
+          <div key={col.title} className="min-w-0">
+            <p className="pb-2 text-sm text-muted-foreground">{col.title}</p>
+            <ul className="divide-y divide-border/70 border-y border-border/70">
+              {col.items.map((i) => (
+                <li key={i.id} className="flex items-center gap-3 py-3">
+                  <ConnectorLogo id={i.id} size={32} />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium leading-tight">{CONNECTORS[i.id].name}</p>
+                    <p className="text-[13px] leading-snug text-muted-foreground">
+                      {CONNECTORS[i.id].what}
+                    </p>
+                  </div>
+                  <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium", PILL[i.status])}>{i.label}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
-export function HomeView({ broker, brokerName }: { broker: string; brokerName: string }) {
+// ---------------------------------------------------------------------------------------------
+
+// brokerName is kept for the route's API; the sidebar already shows the firm, so the page doesn't repeat it.
+export function HomeView({ broker }: { broker: string; brokerName: string }) {
   const [d, setD] = useState<Home | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const greeting = useGreeting();
 
   useEffect(() => {
     fetch(`/api/${broker}/home`)
@@ -82,192 +512,30 @@ export function HomeView({ broker, brokerName }: { broker: string; brokerName: s
         return r.json();
       })
       .then(setD)
-      .catch(() => setLoadError("Couldn't load this broker's home. Check the connection and refresh."));
+      .catch(() => setLoadError("Couldn't load your desk. Check the connection and refresh."));
   }, [broker]);
 
-  const empty = d && d.totals.invoices === 0;
-  const linkMore = "inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground";
-  const demoHref = `/${broker}/classify?sample=${DEMO_SAMPLE_ID}&demo=1`;
+  const hasWork = !!d && d.totals.invoices > 0;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-10">
-      <header className="flex flex-wrap items-end justify-between gap-6">
-        <div className="flex max-w-4xl items-end gap-6">
-          <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            {brokerName}
-            {greeting.date && <> · {greeting.date}</>}
-          </p>
-          <h1 className="font-serif text-[56px] leading-[1] tracking-[-0.015em]">{greeting.hello}</h1>
-          {d && (
-            <p className="font-serif text-[26px] leading-snug text-foreground/80">
-              {empty ? (
-                <>No invoices yet. Play the 3-minute demo — classify one invoice, fix the bamboo line, and watch it remember.</>
-              ) : d.totals.review > 0 ? (
-                <>
-                  <span className="text-foreground">{d.totals.review} lines</span> need your eye across {d.totals.invoices} invoices.{" "}
-                </>
-              ) : (
-                <>Every line is signed off or confident. </>
-              )}
-              {!empty && d.totals.followed > 0 && (
-                <>
-                  Your team&apos;s fixes answered <span className="text-foreground">{d.totals.followed}</span> on their own.
-                </>
-              )}
-            </p>
-          )}
-          </div>
-        </div>
-        <Button size="lg" asChild>
-          <Link href={demoHref}>
-            <Sparkles /> Play the 3-minute demo
-          </Link>
-        </Button>
-      </header>
+    <div className="mx-auto max-w-6xl space-y-12">
+      <Hero d={d} broker={broker} />
 
       {loadError && <p className="rounded-md border border-bad/30 bg-bad/5 px-4 py-3 text-sm">{loadError}</p>}
-      {!d && !loadError && <p className="text-sm text-muted-foreground">Loading this broker&apos;s desk…</p>}
 
-      {d && (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat
-            label="Needs your review"
-            value={d.totals.review}
-            context={`across ${d.totals.invoices} invoice${d.totals.invoices === 1 ? "" : "s"}`}
-            status={d.totals.review > 0 ? <Status tone="warn">Waiting</Status> : <Status tone="good">Clear</Status>}
-          />
-          <Stat label="Lines classified" value={d.totals.classified} context={`${d.totals.signedOff} signed off by your team`} />
-          <Stat
-            label="Answered by your precedents"
-            value={d.totals.followed}
-            context={`learned from ${d.totals.precedents} fix${d.totals.precedents === 1 ? "" : "es"}`}
-          />
-          <Stat
-            label="Duty to reclaim"
-            value={d.money.scanned ? gbp(d.money.reclaim) : "—"}
-            context={d.money.scanned ? `${gbp(d.money.owe)} to disclose voluntarily` : "run a retro-scan to find it"}
-          />
+      {d?.aiOffline && (
+        <div role="status" className="-mt-6 flex items-start gap-3 rounded-lg border border-warn/40 bg-[#fdf3e3] px-5 py-3.5 text-[15px]">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" />
+          <p>
+            <span className="font-medium">The AI check is offline.</span> New lines get HMRC&apos;s own shortlist and are marked Unconfirmed until
+            you check them. It switches back on when a working Mubit key is added to the server.
+          </p>
         </div>
       )}
 
-      {empty && d && (
-        <div className="grid items-start gap-6 lg:grid-cols-5">
-          <div className="lg:col-span-3">
-            <Empty icon={Inbox} title="No invoices yet">
-              Play the 3-minute demo, or drop a supplier invoice on the{" "}
-              <Link href={`/${broker}/classify`} className="text-primary underline-offset-4 hover:underline">Inbox</Link>
-              . Every line gets a 10-digit code, a reason and a receipt.
-            </Empty>
-          </div>
-          <ConnectedPanel d={d} broker={broker} linkMore={linkMore} />
-        </div>
-      )}
-
-      {d && !empty && (
-        <>
-
-          <div className="grid items-start gap-6 lg:grid-cols-5">
-            <Panel
-              className="lg:col-span-3"
-              title="Needs you"
-              description="Lines the AI wasn't sure about, or wants to ask the importer about."
-              actions={
-                <Link href={`/${broker}/classify`} className={linkMore}>
-                  Open inbox <ArrowRight className="size-3.5" />
-                </Link>
-              }
-            >
-              {d.needsYou.length === 0 ? (
-                <p className="px-6 pb-8 pt-2 text-muted-foreground">Nothing waiting. Every line is signed off or confident.</p>
-              ) : (
-                <ul className="divide-y divide-border/70 border-t border-border/70">
-                  {d.needsYou.map((n) => (
-                    <li key={n.lineId}>
-                      <Link href={`/${broker}/classify?batch=${n.batchId}`} className="flex items-start gap-4 px-6 py-4 transition-colors hover:bg-accent/40">
-                        <Flag className="mt-1 size-4 shrink-0 text-warn" aria-label="Needs review" />
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <p className="font-medium">{n.text}</p>
-                          {n.question ? (
-                            <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
-                              <MessageCircleQuestion className="mt-0.5 size-3.5 shrink-0" />
-                              <span className="line-clamp-1">{n.question}</span>
-                            </p>
-                          ) : (
-                            n.client && <p className="text-sm text-muted-foreground">{n.client}</p>
-                          )}
-                        </div>
-                        <div className="shrink-0 space-y-1 text-right">
-                          <Code code={n.code} className="text-sm" />
-                          <p className="text-xs tabular-nums text-muted-foreground">{Math.round(n.confidence * 100)}% sure</p>
-                        </div>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Panel>
-
-            <ConnectedPanel d={d} broker={broker} linkMore={linkMore} />
-          </div>
-
-          <div className="grid items-start gap-6 lg:grid-cols-2">
-            <Panel title="Recent invoices">
-              <ul className="divide-y divide-border/70 border-t border-border/70">
-                {d.invoices.map((inv) => (
-                  <li key={inv.batchId}>
-                    <Link href={`/${broker}/classify?batch=${inv.batchId}`} className="flex items-center gap-4 px-6 py-3.5 transition-colors hover:bg-accent/40">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium">{inv.client ?? "No client"}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {when(inv.createdAt)} · {inv.lines} lines
-                        </p>
-                      </div>
-                      {inv.review > 0 && <Status tone="warn">{inv.review} to review</Status>}
-                      <div className="flex items-center gap-2.5">
-                        <Progress done={inv.signedOff} total={inv.lines} />
-                        <span className="w-12 text-right text-sm tabular-nums text-muted-foreground">
-                          {inv.signedOff}/{inv.lines}
-                        </span>
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </Panel>
-
-            <Panel
-              title="What it learned from your team"
-              actions={
-                <Link href={`/${broker}/precedents`} className={linkMore}>
-                  All precedents <ArrowRight className="size-3.5" />
-                </Link>
-              }
-            >
-              {d.learned.length === 0 ? (
-                <p className="px-6 pb-8 pt-2 text-muted-foreground">No fixes yet. Correct a code in the inbox and it becomes a precedent the AI follows.</p>
-              ) : (
-                <ul className="divide-y divide-border/70 border-t border-border/70">
-                  {d.learned.map((p) => (
-                    <li key={p.id} className="space-y-2 px-6 py-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <p className="font-medium">{p.lineText}</p>
-                        <span className="shrink-0 text-sm text-muted-foreground">followed {p.followed}×</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Code code={p.oldCode} className="line-through opacity-50" />
-                        <ArrowRight className="size-3.5 text-primary" />
-                        <Code code={p.newCode} />
-                      </div>
-                      <p className="line-clamp-2 font-serif text-[17px] italic leading-snug text-foreground/75">“{p.reason}”</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Panel>
-          </div>
-        </>
-      )}
+      {d && hasWork && <Work d={d} broker={broker} />}
+      {d && <Flow d={d} broker={broker} />}
+      {d && <Connections d={d} broker={broker} />}
     </div>
   );
 }

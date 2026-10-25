@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { Wordmark } from "@/components/mark";
-import { DEMO_SAMPLE_ID } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 import { ClickSpark } from "@/components/bits/click-spark";
 
-export const DEMO_HREF = `/harbourline/classify?sample=${DEMO_SAMPLE_ID}&demo=1`;
-export const DESK_HREF = "/harbourline/home";
+export const DEMO_HREF = "/start?next=tour";
+export const DESK_HREF = "/start";
 
 export function SiteNav({ current, overlay }: { current?: "home" | "how"; overlay?: boolean }) {
   return (

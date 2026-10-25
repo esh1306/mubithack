@@ -1,22 +1,9 @@
 import { cn } from "@/lib/utils";
+import { Prue, type PrueState } from "@/components/prue";
 
-/** Geometric stamp-P: stem + open bowl. No mascot, no clip-art. */
-export function Mark({ className, size = 28 }: { className?: string; size?: number }) {
-  return (
-    <svg
-      viewBox="0 0 32 36"
-      width={size}
-      height={size}
-      className={className}
-      fill="currentColor"
-      aria-hidden
-    >
-      <path
-        fillRule="evenodd"
-        d="M2 0h16.4C26.6 0 32 5.3 32 13.1S26.6 26.2 18.4 26.2H10V36H2V0Zm8 7.4v11.4h7.8c4.2 0 6.8-2.2 6.8-5.7 0-3.4-2.6-5.7-6.8-5.7H10Z"
-      />
-    </svg>
-  );
+/** Prue, Precedent's mascot, as the logo: the still, compact crop (no receipt), a little larger than the old P. */
+export function Mark({ className, size = 28, state }: { className?: string; size?: number; state?: PrueState }) {
+  return <Prue mood={state ? undefined : "neutral"} state={state} size={Math.round(size * 1.35)} compact className={cn("shrink-0", className)} label="Precedent" />;
 }
 
 export function Wordmark({

@@ -4,27 +4,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  FileUp,
   Check,
   Loader2,
   MessageCircleQuestion,
   RotateCw,
   PencilLine,
   GraduationCap,
-  Plus,
   Upload,
   ShoppingBag,
-  FileText,
-  ClipboardPaste,
-  Sparkles,
   ChevronDown,
   ChevronRight,
   ReceiptText,
+  AlertTriangle,
+  Plus,
 } from "lucide-react";
 import { ProcessLog } from "@/components/process-log";
 import { parseCalls, type ToolCall } from "@/lib/steps";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Kbd } from "@/components/ui/kbd";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -43,10 +39,10 @@ import {
   type VariantRow,
 } from "@/components/learning-panel";
 import { DemoCoach, type DemoStep } from "@/components/demo-coach";
+import { NewInvoice } from "@/components/new-invoice";
 import {
   DEMO_BAMBOO_CODE,
   DEMO_BAMBOO_REASON,
-  DEMO_SAMPLE_ID,
   demoSessionKey,
   isDemoBambooLine,
   lessonStorageKey,
@@ -193,8 +189,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   const [batches, setBatches] = useState<Batch[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [composing, setComposing] = useState(false);
-  const [paste, setPaste] = useState("");
+  const [composing, setComposing] = useState(() => search.get("new") === "1");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState(0);
@@ -210,7 +205,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
   const [fixing, setFixing] = useState(false);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [clients, setClients] = useState<{ id: number; name: string; eori: string | null }[]>([]);
-  const [clientId, setClientId] = useState<number | null>(null);
+  const [clientId, setClientId] = useState<number | null>(() => Number(search.get("client")) || null);
   const [demo, setDemo] = useState(false);
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [variants, setVariants] = useState<VariantRow[]>([]);
@@ -380,18 +375,6 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
     [broker, loadClients, loadBatch],
   );
 
-  function startDemo() {
-    try {
-      sessionStorage.setItem(demoSessionKey(broker), "1");
-    } catch {}
-    setDemo(true);
-    setReceiptSeen(false);
-    setLesson(null);
-    setVariants([]);
-    setTeach(null);
-    loadSample(DEMO_SAMPLE_ID);
-  }
-
   // ?sample=<id> (from Home or ⌘K): classify that sample once, then drop the parameter.
   useEffect(() => {
     if (!sampleParam || started.current === sampleParam) return;
@@ -422,6 +405,21 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
     const data = await res.json();
     if (!res.ok) return setUploadError(data.error);
     if (data.lines.length === 0) return setUploadError(`No product lines found in ${file.name}.`);
+    classify(data.lines);
+  }
+
+  // A Shopify product export, imported for the chosen client, then classified like any invoice.
+  async function importShopify(file: File) {
+    setUploadError(null);
+    if (!clientId) return setUploadError("Choose a client first.");
+    const res = await fetch(`/api/${broker}/clients/${clientId}/shopify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "import-csv", csv: await file.text() }),
+    });
+    const data = await res.json();
+    if (!res.ok) return setUploadError(data.error);
+    if (!data.lines?.length) return setUploadError(`No products found in ${file.name}.`);
     classify(data.lines);
   }
 
@@ -598,7 +596,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0 space-y-1.5">
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <span>Inbox</span>
+              <span>Invoices</span>
               <ChevronRight className="size-3.5" />
               <Select
                 value={!showCompose && batchId ? batchId : "new"}
@@ -624,7 +622,7 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
               </Select>
             </div>
             <h1 className="flex items-center gap-2 font-serif text-[30px] leading-tight">
-              {showCompose ? "New invoice" : batchClient ?? "Unassigned invoice"} <Info id="classify" className="mt-1" />
+              {showCompose ? "New invoice" : (batchClient ?? batches.find((b) => b.batchId === batchId)?.client ?? "Unassigned invoice")} <Info id="classify" className="mt-1" />
             </h1>
             {!showCompose && batchId && (
               <p className="text-sm text-muted-foreground">
@@ -650,16 +648,39 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
               </Button>
             )}
             <Button size="sm" variant="outline" onClick={openPanel}>
-              <GraduationCap /> Learning
+              <GraduationCap /> What it learned
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setComposing(true)} disabled={busy}>
-              <Plus /> New invoice
-            </Button>
+            {!showCompose && (
+              <Button size="sm" onClick={() => setComposing(true)} disabled={busy}>
+                <Plus /> New invoice
+              </Button>
+            )}
           </div>
         </header>
 
         {!showCompose && rows.length > 0 && (
           <ProcedureBar broker={broker} total={rows.length} back={rows.length - counts.running} waiting={counts.review + counts.ready} done={counts.done} />
+        )}
+
+        {!showCompose && rows.length > 0 && !demo && (
+          <div className="flex flex-wrap items-start gap-x-6 gap-y-2 rounded-lg border border-border bg-card px-5 py-3.5 text-[15px]">
+            <p className="font-medium">What to do here</p>
+            <ol className="flex flex-1 flex-wrap gap-x-6 gap-y-1 text-muted-foreground">
+              <li><span className="font-medium text-foreground">1.</span> Open a line to see how its code was reached.</li>
+              <li><span className="font-medium text-foreground">2.</span> Approve it if it&apos;s right.</li>
+              <li><span className="font-medium text-foreground">3.</span> Correct it if not. It remembers for next time.</li>
+            </ol>
+          </div>
+        )}
+
+        {!showCompose && rows.some((r) => r.suggestion?.model === "hmrc-search" && r.suggestion.status === "pending") && (
+          <div className="flex items-start gap-3 rounded-lg border border-warn/40 bg-[#fdf3e3] px-5 py-3.5 text-[15px]">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" />
+            <p>
+              <span className="font-medium">Unconfirmed lines show HMRC&apos;s top search result only.</span> The AI check didn&apos;t run on
+              them (it&apos;s offline on this server), so the chapter notes weren&apos;t applied. Check each one before you approve it.
+            </p>
+          </div>
         )}
 
         {lesson && !showCompose && (
@@ -674,91 +695,28 @@ export function ClassifyView({ broker, brokers }: { broker: string; brokers: Bro
         )}
 
         {showCompose ? (
-          <div className="w-full max-w-3xl space-y-8">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={startDemo}
-              className="flex w-full items-start gap-3 rounded-xl border border-primary/30 bg-primary/[0.04] px-4 py-4 text-left transition-colors hover:border-primary/50"
-            >
-              <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
-              <span>
-                <span className="block font-medium">Play the 3-minute demo</span>
-                <span className="block text-sm text-muted-foreground">
-                  Ningbo homeware · fix the bamboo dinner set · watch a never-seen line come back right.
-                </span>
-              </span>
-            </button>
-
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-muted-foreground">For client</span>
-              <Select value={clientId ? String(clientId) : "none"} onValueChange={(v) => setClientId(v === "none" ? null : Number(v))}>
-                <SelectTrigger className="h-8 w-64"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No client</SelectItem>
-                  {clients.map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Link href={`/${broker}/clients`} className="text-xs text-muted-foreground hover:text-foreground">Manage clients</Link>
-            </div>
-
-            <label
-              className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-card px-6 py-14 text-center transition-colors hover:border-primary/50"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                const f = e.dataTransfer.files[0];
-                if (f) upload(f);
-              }}
-            >
-              <span className="flex size-12 items-center justify-center rounded-full bg-muted">
-                <FileUp className="size-5" />
-              </span>
-              <span className="font-serif text-2xl">Drop the supplier&apos;s invoice</span>
-              <span className="text-sm text-muted-foreground">Excel or CSV. Description, quantity, value and origin columns are found automatically.</span>
-              {uploadError && <span className="text-xs text-bad">{uploadError}</span>}
-              <input type="file" accept=".xlsx,.csv" hidden onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
-            </label>
-
-            <div className="space-y-2">
-              <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                <ClipboardPaste className="size-3.5" /> Or paste product lines
-              </p>
-              <Textarea rows={3} placeholder={"One product per line, e.g.\nBamboo kids' dinner set, plate bowl cup"} value={paste} onChange={(e) => setPaste(e.target.value)} />
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={busy || !paste.trim()}
-                onClick={() => classify(paste.split("\n").map((l) => l.trim()).filter(Boolean).map((description) => ({ description })))}
-              >
-                Classify lines
-              </Button>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Or try a sample invoice</p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {samples.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => (s.id === DEMO_SAMPLE_ID ? startDemo() : loadSample(s.id))}
-                    className="flex items-start gap-3 rounded-lg border border-border bg-card px-4 py-3.5 text-left transition-colors hover:border-primary/40"
-                  >
-                    <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0">
-                      <span className="block font-medium">{s.name}</span>
-                      <span className="block text-sm text-muted-foreground">{s.about}</span>
-                      {s.id === DEMO_SAMPLE_ID && <span className="mt-1 block text-xs text-primary">3-minute demo</span>}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+          <NewInvoice
+            clients={clients}
+            clientId={clientId}
+            setClientId={setClientId}
+            addClient={async (name, eori) => {
+              const c = await (
+                await fetch(`/api/${broker}/clients`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, eori }) })
+              ).json();
+              await loadClients();
+              setClientId(c.id);
+            }}
+            samples={samples}
+            busy={busy}
+            error={uploadError}
+            onFile={upload}
+            onShopify={importShopify}
+            onPaste={(ls) => classify(ls.map((description) => ({ description })))}
+            onSample={async (id) => {
+              const sample = await (await fetch(`/api/sample?id=${id}`)).json();
+              run({ lines: sample.lines, clientId });
+            }}
+          />
         ) : (
           <div className="overflow-hidden rounded-lg border border-border bg-card">
             <div className="flex items-center justify-between gap-3 border-b border-border/70 px-6">

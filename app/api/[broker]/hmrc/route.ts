@@ -57,7 +57,7 @@ export async function POST(req: Request, { params }: Params) {
   const { broker } = await params;
   const body = await req.json();
   const app = hmrcApp(new URL(req.url).origin);
-  if (!app) return Response.json({ error: "Set HMRC_CLIENT_ID and HMRC_CLIENT_SECRET in .env.local" }, { status: 500 });
+  if (!app) return Response.json({ error: "HMRC sign-in isn't switched on for this demo server." }, { status: 500 });
   const cfg = (await freshConfig(app)) ?? {};
 
   if (body.action === "sign-in") return Response.json({ authorizeUrl: authorizeLink(app, broker) });

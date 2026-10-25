@@ -117,6 +117,9 @@ export function MubitShowcase() {
       );
     }
 
+    // Bring the phrases back so the panel is never left empty between loops.
+    tl.to(chips, { x: 0, y: 0, scale: 1, opacity: 1, duration: 0.5, stagger: 0.03, ease: "power2.out" }, ">+0.8");
+
     const idTimer = window.setInterval(() => setIdTick((n) => n + 1), 700);
 
     return () => {
@@ -130,7 +133,7 @@ export function MubitShowcase() {
 
   return (
     <section ref={root} id="mubit" className="relative mx-auto max-w-[86rem] border-t border-foreground/10 px-5 py-20 sm:px-8 lg:px-10">
-      <h2 className="landing-display landing-section-title overflow-visible">Learns your house rules.</h2>
+      <h2 className="landing-display landing-section-title overflow-visible">Learns how your firm codes.</h2>
       <p className="mt-3 max-w-xl text-[15px] font-medium leading-snug text-foreground/70">
         One correction becomes ~20 paraphrases, sent through this firm&apos;s Mubit task. We count examples toward{" "}
         {TRAIN_AFTER}. We cannot see if an adapter is live.
